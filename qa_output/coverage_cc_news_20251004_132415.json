@@ -1,0 +1,20 @@
+{
+  "coverage_rate": 0.75,
+  "covered_chunks": 3,
+  "total_chunks": 4,
+  "uncovered_chunks": [
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6767999123717869,
+      "gap": 0.023200087628213018,
+      "text_preview": "The team will be responsible for the day-to-day artistic needs of the company including scheduling, casting and conducting rehearsals. While there's no word yet on the length of their tenure, we'll co..."
+    }
+  ],
+  "max_similarities": [
+    0.8056872320819224,
+    0.7540071244271569,
+    0.8016069212449605,
+    0.6767999123717869
+  ],
+  "threshold": 0.7
+}

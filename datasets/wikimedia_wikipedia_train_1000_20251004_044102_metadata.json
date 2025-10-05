@@ -1,0 +1,15 @@
+{
+  "dataset_name": "wikimedia/wikipedia",
+  "dataset_type": "wikipedia_ja",
+  "config": "20231101.ja",
+  "split": "train",
+  "sample_size": 1000,
+  "actual_size": 1000,
+  "downloaded_at": "2025-10-04T04:41:02.388276",
+  "columns": [
+    "id",
+    "url",
+    "title",
+    "text"
+  ]
+}

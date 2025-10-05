@@ -1,0 +1,8 @@
+question,answer,question_type,source_chunk_id,doc_id,dataset_type,chunk_idx
+『ふれあいロード』とは何ですか？,『ふれあいロード』は、雨が心配な午後に走ることができる道の一つです。,fact,chunk_0,japanese_text_0,japanese_text,0
+圏央道は何ですか？,圏央道は、関東地方を環状に結ぶ高速道路です。,fact,chunk_0,japanese_text_1,japanese_text,0
+春が近づいていることを肌で感じるとはどういうことですか？,春が近づいていることを肌で感じるとは、気温の上昇や自然の変化を体感することを指します。,reason,chunk_0,japanese_text_1,japanese_text,0
+なぜ途中でトイレに行きたくなったのですか？,途中でトイレに行きたくなったため、通り道にあったケンタに変更しました。,reason,chunk_0,japanese_text_2,japanese_text,0
+エルモサの右目に見つけた斑は何ですか？,エルモサの右目の黒目の端にある小さな斑です。,fact,chunk_0,japanese_text_3,japanese_text,0
+なぜエルモサの右目の斑は分かりにくいのですか？,その斑は非常に小さく、よく見ないと分からないほどだからです。,reason,chunk_0,japanese_text_3,japanese_text,0
+角膜ジストロフィーとは何ですか？,角膜ジストロフィーは、角膜に異常が生じる遺伝性の疾患です。,fact,chunk_0,japanese_text_4,japanese_text,0

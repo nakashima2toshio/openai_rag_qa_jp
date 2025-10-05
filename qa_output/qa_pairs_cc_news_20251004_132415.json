@@ -1,0 +1,83 @@
+[
+  {
+    "question": "Who is Regina Willoughby's daughter who joined Columbia City Ballet this season?",
+    "answer": "Her daughter is Melina, an 18-year-old who has started her first season with the company as a trainee.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Why is Regina Willoughby's last season with Columbia City Ballet considered surprising?",
+    "answer": "Because it coincides with her daughter Melina's first season, so Regina will retire just as her daughter begins her career and they get to share the stage.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How do Regina and Melina's roles differ in the company's Nutcracker performances?",
+    "answer": "Regina performs the Snow Queen while Melina dances in the snow corps; both also appear together in the Arabian divertissement.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "When and where did the pair post-snow scene occur?",
+    "answer": "The pair post-snow scene occurred in 2017, in the same theater.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Who is leading the interim artistic leadership team at the New York City Ballet?",
+    "answer": "The interim team is led by ballet master and former principal dancer Jonathan Stafford.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Why did Peter Martins request a temporary leave from NYCB and the School of American Ballet?",
+    "answer": "He requested a temporary leave while the company conducts an internal investigation into sexual harassment accusations aimed at him.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What is the difference between the interim team's leadership experience and their familiarity with the company?",
+    "answer": "Although the group members haven't had much leadership experience, they are closely familiar with the company—Rebecca Krohn, for example, left the stage for her new role just two months ago—which should help ease the dancers' transition.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What day-to-day artistic tasks will the team be responsible for?",
+    "answer": "They will handle scheduling, casting, and conducting rehearsals for the company.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Why will readers be kept updated about the team?",
+    "answer": "Because the story surrounding Martins is still unfolding and there is no word yet on the length of the team's tenure.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  }
+]

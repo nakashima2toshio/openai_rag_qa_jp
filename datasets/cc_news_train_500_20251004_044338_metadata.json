@@ -1,0 +1,18 @@
+{
+  "dataset_name": "cc_news",
+  "dataset_type": "cc_news",
+  "config": "",
+  "split": "train",
+  "sample_size": 500,
+  "actual_size": 500,
+  "downloaded_at": "2025-10-04T04:43:39.011643",
+  "columns": [
+    "title",
+    "text",
+    "domain",
+    "date",
+    "description",
+    "url",
+    "image_url"
+  ]
+}

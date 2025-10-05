@@ -1,0 +1,14 @@
+{
+  "dataset_type": "japanese_text",
+  "processed_rows": 961,
+  "processing_timestamp": "20251004_044447",
+  "created_at": "2025-10-04T04:44:47.733698",
+  "files_created": [
+    "csv",
+    "txt"
+  ],
+  "processing_info": {
+    "original_rows": 0,
+    "removed_rows": -961
+  }
+}

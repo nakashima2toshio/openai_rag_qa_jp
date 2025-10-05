@@ -1,0 +1,8 @@
+question,answer,question_type,source_chunk_id,doc_id,dataset_type,chunk_idx
+午後から雨が心配だったのでどこを走って来ましたか？,遠出はせず『ふれあいロード』を走って来ました。,fact,chunk_0,japanese_text_0,japanese_text,0
+途中で通り道のケンタに変更したのはなぜですか？,話者が途中でトイレに行きたくなったため、通り道にあったケンタに寄ることにしました。,reason,chunk_0,japanese_text_1,japanese_text,0
+圏央道を越えた後に見えたものと、途中で立ち寄ったケンタの違いは何ですか？,圏央道を越えるとお世話になっているボウリング場が見えてきたのに対し、ケンタはトイレの都合で立ち寄った飲食店です。,comparison,chunk_0,japanese_text_1,japanese_text,0
+春が近づいている実感や圏央道の整備状況は今後の外出計画にどう活かせますか？,春の訪れを感じたことや圏央道の整備が進んでいることは、天候や道路状況を踏まえて走行時期やルートを計画する際に役立ちます。,application,chunk_0,japanese_text_2,japanese_text,0
+エルモサの右目にはいつどんな異変が見つかりましたか？,約1年前に、右目の黒目の端にごく小さな斑が見つかりました。よく見ないと分からない程度の大きさでした。,fact,chunk_0,japanese_text_3,japanese_text,0
+なぜその斑はすぐには分からなかったのですか？,斑が非常に小さく黒目の端にあったため、注意深く見ないと判別できなかったからです。,reason,chunk_0,japanese_text_3,japanese_text,0
+その斑と「角膜ジストロフィー」はどのような関係ですか？,その斑を見て医師はおそらく角膜ジストロフィーであろうと診断しましたので、斑は所見であり角膜ジストロフィーは医師の推定診断です。,comparison,chunk_0,japanese_text_4,japanese_text,0

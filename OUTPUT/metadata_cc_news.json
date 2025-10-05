@@ -1,0 +1,14 @@
+{
+  "dataset_type": "cc_news",
+  "processed_rows": 497,
+  "processing_timestamp": "20251004_044404",
+  "created_at": "2025-10-04T04:44:04.208760",
+  "files_created": [
+    "csv",
+    "txt"
+  ],
+  "processing_info": {
+    "original_rows": 0,
+    "removed_rows": -497
+  }
+}

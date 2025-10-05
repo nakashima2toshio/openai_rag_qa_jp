@@ -1,0 +1,85 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.10', '3.11', '3.12' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -U ruff
+      - name: Ruff check
+        run: ruff check .
+
+  test:
+    name: Test (pytest + coverage)
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+          - 6334:6334
+    strategy:
+      matrix:
+        python-version: [ '3.10', '3.11', '3.12' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -U pytest pytest-cov
+      - name: Wait for Qdrant service
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:6333/readyz >/dev/null 2>&1; then
+              echo "Qdrant is ready"; break; fi; echo "Waiting for Qdrant ($i)"; sleep 1; done
+          curl -fsS http://localhost:6333/metrics >/dev/null 2>&1 || true
+      - name: Run tests with coverage
+        env:
+          OPENAI_API_KEY: dummy
+          QDRANT_URL: http://localhost:6333
+        run: |
+          pytest -q --cov=rag_qa,helper_api,helper_rag \
+                   --cov-report=term-missing \
+                   --cov-report=xml:coverage.xml \
+                   --cov-fail-under=80
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: |
+            coverage.xml
