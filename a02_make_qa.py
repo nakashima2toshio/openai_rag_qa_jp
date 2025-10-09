@@ -14,8 +14,9 @@ OUTPUTフォルダ内のpreprocessedファイルから自動的にQ/Aペアを�
     python a02_make_qa.py [--dataset DATASET_TYPE] [--model MODEL_NAME] [--output OUTPUT_DIR]
 
 例:
-    python a02_make_qa.py --dataset cc_news --model gpt-4o-mini
-    python a02_make_qa.py --dataset wikipedia_ja --output qa_output
+    python a02_make_qa.py --dataset cc_news --model gpt-5-mini  --analyze-coverage --max-docs 10
+    python a02_make_qa.py --dataset wikipedia_ja --model gpt-5-mini  --analyze-coverage --max-docs 10
+    python a02_make_qa.py --dataset japanese_text --model gpt-5-mini  --analyze-coverage --max-docs 10
 """
 
 import os
@@ -35,7 +36,7 @@ from dotenv import load_dotenv
 import logging
 
 # ローカルモジュール
-from rag_qa import SemanticCoverage
+from a03_rag_qa_coverage import SemanticCoverage
 
 # 環境変数読み込み
 load_dotenv()

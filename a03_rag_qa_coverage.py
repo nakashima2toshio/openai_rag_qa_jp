@@ -5,6 +5,7 @@ from openai import OpenAI
 import tiktoken
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
 import re
+from pydantic import BaseModel
 
 # -----------------------------------
 # セマンティックカバレージクラスの完全実装
@@ -178,7 +179,7 @@ class SemanticCoverage:
         if norm_doc == 0 or norm_qa == 0:
             return 0.0
 
-        return float(dot_product / (norm_doc * norm_qa))
+        return float(dot_product / (float(norm_doc) * float(norm_qa)))
 
 
 # ---------------------
@@ -229,6 +230,18 @@ import json
 from typing import List, Dict
 
 
+class QAPair(BaseModel):
+    """Q/Aペアのデータモデル"""
+    question: str
+    answer: str
+    question_type: str
+    difficulty: str
+    source_span: str
+
+class QAPairsList(BaseModel):
+    """Q/Aペアのリスト"""
+    qa_pairs: List[QAPair]
+
 class LLMBasedQAGenerator:
     """LLMを使用したQ/A生成"""
 
@@ -265,14 +278,14 @@ class LLMBasedQAGenerator:
         }}
         """
 
-        response = self.client.chat.completions.create(
+        response = self.client.responses.parse(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.7
+            input=prompt,
+            text_format=QAPairsList
         )
 
-        return json.loads(response.choices[0].message.content)["qa_pairs"]
+        parsed_data = response.output_parsed
+        return [qa.model_dump() for qa in parsed_data.qa_pairs]
 
     def generate_diverse_qa(self, text: str) -> List[Dict]:
         """多様な種類のQ/A生成"""
@@ -298,13 +311,14 @@ class LLMBasedQAGenerator:
             {{"qa_pairs": [...]}}
             """
 
-            response = self.client.chat.completions.create(
+            response = self.client.responses.parse(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
+                input=prompt,
+                text_format=QAPairsList
             )
 
-            qa_pairs = json.loads(response.choices[0].message.content)["qa_pairs"]
+            parsed_data = response.output_parsed
+            qa_pairs = [qa.model_dump() for qa in parsed_data.qa_pairs]
             for qa in qa_pairs:
                 qa["question_type"] = qa_type
             all_qa_pairs.extend(qa_pairs)

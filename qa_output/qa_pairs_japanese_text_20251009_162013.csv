@@ -1,0 +1,16 @@
+question,answer,question_type,source_chunk_id,doc_id,dataset_type,chunk_idx
+午後から雨が心配だったのでどこを走ってきましたか？,遠出せず、『ふれあいロード』を走ってきました。,fact,chunk_0,japanese_text_0,japanese_text,0
+なぜ通り道にあったケンタに変更したのですか？,途中でトイレに行きたくなったため、通り道にあったケンタに変更しました。,reason,chunk_0,japanese_text_1,japanese_text,0
+遠出をすることと『ふれあいロード』を走ることの違いは何ですか？,遠出は長距離の外出を指すのに対し、『ふれあいロード』を走るのは近場での走行であり、天候を考えて遠出を避ける選択をした点が異なります。,comparison,chunk_0,japanese_text_1,japanese_text,0
+圏央道が着々と整備されていることはどのように活用できますか？,整備が進めば走行が安全で円滑になり、周辺の施設（例：お世話になっているボウリング場）を目印にルート確認や立ち寄りに活用できます。,application,chunk_0,japanese_text_2,japanese_text,0
+エルモサの右目に見つかったものは何ですか？,黒目の端にごく小さな斑が見つかり、医師はおそらく「角膜ジストロフィー」であると診断しました。,fact,chunk_0,japanese_text_3,japanese_text,0
+医師が「角膜ジストロフィー」であろうと判断したのはなぜですか？,黒目の端に斑が認められたという所見に基づき、その特徴からおそらく角膜ジストロフィーと診断されたためです。,reason,chunk_0,japanese_text_3,japanese_text,0
+発見時と1年経過後の斑の状態の違いは何ですか？,発見時はよく見ないと分からないほど小さかったが、1年ほどで徐々に少し大きくなってきました。,comparison,chunk_0,japanese_text_4,japanese_text,0
+この経過情報は今後どのように活用されますか？,斑の大きさや変化を定期的に観察して進行の有無を確認し、拡大が続く場合は適切な診療や対応を検討する基礎資料になります。,application,chunk_0,japanese_text_5,japanese_text,0
+お散歩仲間からこれまで指摘されたことはありますか？,これまでお散歩仲間から指摘されたことはないと述べられています。,fact,chunk_0,japanese_text_6,japanese_text,0
+指摘がないためなぜ「そんなに目立つ程ではない」と言っているのですか？,お散歩仲間から指摘されていないので、こちらから言わなければ目立たないと説明しているためです。,reason,chunk_0,japanese_text_6,japanese_text,0
+昔どのような目薬が処方されていたとありますか？,昔はヒアルロン酸の目薬などが処方されていたと書かれています。,fact,chunk_0,japanese_text_7,japanese_text,0
+ヒアルロン酸の目薬が効かないとされる理由は何ですか？,本文では具体的な理由は示されておらず、ただ効くことはないと記されています。,reason,chunk_0,japanese_text_8,japanese_text,0
+カタクリの花の「５分咲き」という情報は今回どのように活用されましたか？,その開花情報をもとに、今回の散歩コースの一つに取り入れられました。,application,chunk_0,japanese_text_8,japanese_text,0
+話者は以前から何をしてみたいと思っていましたか？,以前から走ってみたいと思っていました。,fact,chunk_0,japanese_text_9,japanese_text,0
+話者が走ることをためらっていた理由は何ですか？,陸上部らしき学生がものすごいスピードで駆け抜けるのを目の当たりにして、少しビビっていたためです。,reason,chunk_0,japanese_text_9,japanese_text,0
