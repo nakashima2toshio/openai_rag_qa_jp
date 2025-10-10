@@ -1,20 +1,19 @@
-# make_qa.py 詳細設計書
+# make_qa.py ドキュメント
 
-## 1. 概要
+## 概要
 
-### 1.1 目的
-`make_qa.py`は、日本語文書から自動的にQ&A（質問・回答）ペアを生成し、文書のセマンティックカバレージを評価・改善するためのツールです。
+`make_qa.py`は、日本語文書に対するセマンティックカバレージ分析とQ/Aペア自動生成を実証するデモンストレーションスクリプトです。文書を意味的にチャンク分割し、Q/Aペアによるカバレージを評価・改善する包括的な機能を提供します。
 
-### 1.2 主要機能
-- 文書の意味的チャンク分割
-- OpenAI GPTモデルを使用した自動Q&Aペア生成
-- セマンティックカバレージ分析
-- カバレージ自動改善
-- 結果の可視化
+## 主要機能
 
-## 2. システムアーキテクチャ
+1. **意味的チャンク分割の実演** - SemanticCoverageクラスを使用した文書の意味的分割
+2. **セマンティックカバレージ分析** - Q/Aペアによる文書カバレージ率の詳細な計算と可視化
+3. **日本語キーワード抽出** - 正規表現ベースの簡易的なキーワード抽出（MeCab対応可）
+4. **Q/Aペア自動生成** - OpenAI GPTモデルを使用した高品質なQ/A生成
+5. **カバレージ自動改善** - 未カバー領域の特定と主要トピックベースのQ/A補完
+6. **結果の可視化** - matplotlibによるカバレージマトリックスのヒートマップ表示
 
-### 2.1 全体アーキテクチャ図
+## システムアーキテクチャ
 
 ```mermaid
 graph TB
@@ -55,522 +54,385 @@ graph TB
     CI --> CONSOLE
 ```
 
-### 2.2 データフロー図
+## 実行フロー
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Main as main()
-    participant SC as SemanticCoverage
-    participant QAGen as Q/A Generator
-    participant OpenAI as OpenAI API
-    participant Analyzer as Coverage Analyzer
+### 1. 初期化フェーズ
+```python
+# 環境変数の読み込み（.envファイルから）
+load_dotenv()
 
-    User->>Main: 文書入力
-    Main->>SC: create_semantic_chunks()
-    SC-->>Main: チャンクリスト
+# OpenAI APIキーの検証
+api_key = os.getenv("OPENAI_API_KEY")
 
-    Main->>QAGen: generate_qa_for_all_chunks()
-    loop 各チャンクに対して
-        QAGen->>OpenAI: GPT-5-mini API呼び出し
-        OpenAI-->>QAGen: Q&Aペア(構造化出力)
-    end
-    QAGen-->>Main: 全Q&Aペア
-
-    Main->>Analyzer: calculate_coverage_matrix()
-    loop 埋め込み生成
-        Analyzer->>OpenAI: text-embedding-3-small
-        OpenAI-->>Analyzer: ベクトル
-    end
-    Analyzer-->>Main: カバレージマトリックス
-
-    Main->>Analyzer: improve_coverage_with_auto_qa()
-    Analyzer->>QAGen: 未カバー領域のQ&A生成
-    QAGen->>OpenAI: GPT-5-mini API
-    OpenAI-->>QAGen: 追加Q&Aペア
-    Analyzer-->>Main: 改善結果
-
-    Main-->>User: 結果出力
+# SemanticCoverageクラスの初期化
+analyzer = SemanticCoverage()
 ```
 
-## 3. モジュール設計
-
-### 3.1 モジュール構成図
-
-```mermaid
-graph LR
-    subgraph "make_qa.py"
-        MAIN[main<br/>メインエントリ]
-
-        subgraph "チャンク処理"
-            CHUNK[demonstrate_semantic_coverage<br/>チャンク化デモ]
-            SEMANTIC[create_semantic_chunks<br/>意味的分割]
-        end
-
-        subgraph "Q&A生成"
-            QAGEN[generate_qa_pairs_from_chunk<br/>チャンク単位生成]
-            QAALL[generate_qa_for_all_chunks<br/>全チャンク生成]
-            TOPIC[generate_topic_based_qa<br/>トピックベース生成]
-        end
-
-        subgraph "カバレージ分析"
-            CALC[calculate_coverage_matrix<br/>マトリックス計算]
-            IDENT[identify_uncovered_chunks<br/>未カバー特定]
-            IMPROVE[improve_coverage_with_auto_qa<br/>自動改善]
-        end
-
-        subgraph "ユーティリティ"
-            KW[extract_keywords<br/>キーワード抽出]
-            PRIO[calculate_priority<br/>優先度計算]
-            PRED[predict_coverage_improvement<br/>改善予測]
-            DET[determine_qa_pairs_count<br/>Q&A数決定]
-        end
-
-        subgraph "表示・可視化"
-            DISP[display_qa_pairs<br/>Q&A表示]
-            VIS[visualize_semantic_coverage<br/>可視化]
-            INTER[interpret_results<br/>結果解釈]
-        end
-    end
-
-    subgraph "外部依存"
-        RAG[rag_qa.SemanticCoverage]
-        OAI[OpenAI Client]
-        PYDANTIC[Pydantic Models]
-    end
-
-    MAIN --> CHUNK
-    MAIN --> QAALL
-    MAIN --> IMPROVE
-    CHUNK --> SEMANTIC
-    QAALL --> QAGEN
-    IMPROVE --> TOPIC
-    IMPROVE --> CALC
-    CALC --> RAG
-    QAGEN --> OAI
-    TOPIC --> OAI
-    QAGEN --> PYDANTIC
+### 2. デモンストレーションフェーズ
+```python
+# 文書のチャンク化実演
+demonstrate_semantic_coverage()
+├── チャンク化処理
+├── 埋め込みベクトル生成
+├── カバレージ計算
+└── カバレージサマリー表示
 ```
 
-## 4. クラス設計
+### 3. メイン処理フェーズ（main関数）
+```python
+main()
+├── 意味的チャンク分割の実行
+├── 統計情報の計算・表示
+├── キーワード抽出
+├── Q/Aペア生成（オプション）
+├── カバレージ分析（オプション）
+└── カバレージ改善（オプション）
+```
 
-### 4.1 Pydanticモデル
+## 主要関数リファレンス
 
+### コア機能
+
+| 関数名 | 説明 | パラメータ | 戻り値 |
+|--------|------|------------|--------|
+| `demonstrate_semantic_coverage()` | セマンティックカバレージの完全な処理を実演 | なし | coverage_matrix: ndarray, max_similarities: ndarray |
+| `main()` | メイン処理：意味的チャンク分割とインタラクティブな分析 | なし | なし |
+| `calculate_coverage_matrix()` | ドキュメントとQ/A間のカバレージマトリックスを計算 | doc_chunks: List[Dict], qa_pairs: List[Dict], analyzer: SemanticCoverage | coverage_matrix: ndarray, max_similarities: ndarray |
+| `identify_uncovered_chunks()` | カバレージ閾値未満のチャンクを特定 | doc_chunks: List[Dict], max_similarities: ndarray, threshold: float=0.7 | uncovered_chunks: List[Dict] |
+| `improve_coverage_with_auto_qa()` | 未カバーチャンクに対してQ/Aを自動生成して改善 | doc_chunks: List[Dict], existing_qa_pairs: List[Dict], analyzer: SemanticCoverage, threshold: float=0.7 | improved_qa_pairs: List[Dict], initial_rate: float, final_rate: float |
+
+### キーワード抽出
+
+| 関数名 | 説明 | パラメータ | 戻り値 |
+|--------|------|------------|--------|
+| `extract_keywords()` | 日本語テキストから重要キーワードを抽出 | text: str, top_n: int=5, use_mecab: bool=False | keywords: List[str] |
+| `calculate_priority()` | 未カバーチャンクの優先度スコアを計算 | uncovered_chunks: List[Dict] | priority_scores: List[Tuple[str, float]] |
+
+### Q/Aペア生成
+
+| 関数名 | 説明 | パラメータ | 戻り値 |
+|--------|------|------------|--------|
+| `determine_qa_pairs_count()` | チャンクサイズに基づく最適なQ/A数を決定 | chunk: Dict | count: int (2-5) |
+| `generate_qa_pairs_from_chunk()` | 単一チャンクからQ/Aペアを生成（GPT API使用） | chunk: Dict, model: str="gpt-5-mini" | qa_pairs: List[Dict] |
+| `generate_topic_based_qa()` | 主要トピックに焦点を当てたQ/A生成 | chunk_text: str, keywords: List[str], existing_qa: List[Dict], model: str="gpt-5-mini", num_pairs: int=3 | qa_pairs: List[Dict] |
+| `generate_qa_for_all_chunks()` | 全チャンクに対するバッチQ/A生成 | chunks: List[Dict], model: str="gpt-5-mini" | all_qa_pairs: List[Dict] |
+
+### 可視化・表示
+
+| 関数名 | 説明 | パラメータ | 戻り値 |
+|--------|------|------------|--------|
+| `visualize_semantic_coverage()` | カバレージマトリックスのヒートマップ生成 | coverage_matrix: ndarray, doc_chunks: List[Dict], qa_pairs: List[Dict] | fig: matplotlib.figure.Figure |
+| `display_qa_pairs()` | Q/Aペアをチャンクごとにグループ化して表示 | qa_pairs: List[Dict] | なし |
+| `interpret_results()` | カバレージ率の評価とアクション提案 | coverage_rate: float, uncovered_chunks: List[str] | なし |
+
+### ユーティリティ
+
+| 関数名 | 説明 | パラメータ | 戻り値 |
+|--------|------|------------|--------|
+| `predict_coverage_improvement()` | 新Q/Aペアによるカバレージ改善を予測 | chunk: Dict, new_qa_pairs: List[Dict], analyzer: SemanticCoverage | predicted_similarity: float |
+
+## データ構造
+
+### Pydanticモデル
 ```python
 class QAPair(BaseModel):
-    question: str        # 質問文
-    answer: str         # 回答文
-    question_type: str  # 質問タイプ (fact/reason/comparison/application)
+    question: str          # 質問文
+    answer: str           # 回答文
+    question_type: str    # 質問タイプ
 
 class QAPairsResponse(BaseModel):
-    qa_pairs: List[QAPair]  # Q&Aペアのリスト
+    qa_pairs: List[QAPair]  # Q/Aペアのリスト
 ```
 
-### 4.2 データ構造
-
-```mermaid
-classDiagram
-    class Chunk {
-        +str id
-        +str text
-        +List~str~ sentences
-        +int start_sentence_idx
-        +int end_sentence_idx
-    }
-
-    class QAPairDict {
-        +str question
-        +str answer
-        +str question_type
-        +str source_chunk_id
-        +bool auto_generated
-    }
-
-    class CoverageResult {
-        +ndarray coverage_matrix
-        +ndarray max_similarities
-        +float coverage_rate
-        +List uncovered_chunks
-    }
-
-    Chunk "1" --> "*" QAPairDict : generates
-    Chunk "*" --> "1" CoverageResult : analyzed by
-```
-
-## 5. 主要アルゴリズム
-
-### 5.1 セマンティックチャンク分割アルゴリズム
-
-```mermaid
-flowchart TD
-    START[開始] --> SPLIT[文書を文単位に分割]
-    SPLIT --> INIT[空のチャンクを初期化]
-    INIT --> LOOP{全文処理済み?}
-    LOOP -->|No| ADD[現在の文をチャンクに追加]
-    ADD --> CHECK{トークン数 > 200?}
-    CHECK -->|Yes| SAVE[チャンクを保存]
-    SAVE --> NEW[新しいチャンクを開始]
-    NEW --> LOOP
-    CHECK -->|No| LOOP
-    LOOP -->|Yes| FINAL[最後のチャンクを保存]
-    FINAL --> END[終了]
-```
-
-### 5.2 Q&Aペア生成アルゴリズム
-
-```mermaid
-flowchart TD
-    START[チャンク入力] --> CALC[最適Q&A数を計算]
-    CALC --> PROMPT[プロンプト生成]
-    PROMPT --> API[GPT-5-mini API呼び出し]
-    API --> PARSE[構造化出力をパース]
-    PARSE --> VALID{検証成功?}
-    VALID -->|Yes| ADD_ID[チャンクIDを付与]
-    ADD_ID --> RETURN[Q&Aペアを返す]
-    VALID -->|No| RETRY{リトライ可能?}
-    RETRY -->|Yes| API
-    RETRY -->|No| ERROR[空リストを返す]
-```
-
-### 5.3 カバレージ改善アルゴリズム
-
-```mermaid
-flowchart TD
-    START[開始] --> ANALYZE[現在のカバレージ分析]
-    ANALYZE --> IDENTIFY[未カバーチャンク特定]
-    IDENTIFY --> CHECK{未カバー存在?}
-    CHECK -->|No| END[終了]
-    CHECK -->|Yes| LOOP[各未カバーチャンクに対して]
-    LOOP --> EXTRACT[キーワード抽出]
-    EXTRACT --> GENERATE[トピックベースQ&A生成]
-    GENERATE --> PREDICT[改善予測]
-    PREDICT --> NEXT{次のチャンク?}
-    NEXT -->|Yes| LOOP
-    NEXT -->|No| MERGE[全Q&Aペア統合]
-    MERGE --> RECALC[新カバレージ計算]
-    RECALC --> REPORT[改善結果レポート]
-    REPORT --> END
-```
-
-## 6. API仕様
-
-### 6.1 主要関数インターフェース
-
-| 関数名 | 入力 | 出力 | 説明 |
-|--------|------|------|------|
-| `create_semantic_chunks(text)` | str | List[Dict] | 文書を意味的チャンクに分割 |
-| `generate_qa_pairs_from_chunk(chunk, model)` | Dict, str | List[Dict] | チャンクからQ&Aペア生成 |
-| `calculate_coverage_matrix(chunks, qa_pairs, analyzer)` | List, List, obj | ndarray, ndarray | カバレージマトリックス計算 |
-| `improve_coverage_with_auto_qa(chunks, qa_pairs, analyzer)` | List, List, obj | List, float, float | カバレージ自動改善 |
-| `extract_keywords(text, top_n, use_mecab)` | str, int, bool | List[str] | キーワード抽出 |
-
-### 6.2 OpenAI API使用仕様
-
-```yaml
-Embedding API:
-  model: text-embedding-3-small
-  endpoint: embeddings
-  用途: テキストのベクトル化
-
-Responses API:
-  model: gpt-5-mini
-  endpoint: responses.parse
-  用途: 構造化Q&Aペア生成
-  出力形式: Pydantic Model (QAPairsResponse)
-```
-
-## 7. 処理フロー
-
-### 7.1 メイン処理フロー
-
-```mermaid
-stateDiagram-v2
-    [*] --> 初期化
-    初期化 --> 環境変数確認
-    環境変数確認 --> API_KEY検証
-
-    API_KEY検証 --> SemanticCoverage初期化: 成功
-    API_KEY検証 --> エラー終了: 失敗
-
-    SemanticCoverage初期化 --> 文書チャンク分割
-    文書チャンク分割 --> 統計情報表示
-    統計情報表示 --> キーワード抽出
-
-    キーワード抽出 --> QA生成選択
-    QA生成選択 --> QAペア生成: Yes
-    QA生成選択 --> カバレージ分析選択: No
-
-    QAペア生成 --> QA表示
-    QA表示 --> 保存選択
-    保存選択 --> JSON保存: Yes
-    保存選択 --> カバレージ分析選択: No
-    JSON保存 --> カバレージ分析選択
-
-    カバレージ分析選択 --> カバレージ計算: Yes
-    カバレージ分析選択 --> 終了: No
-
-    カバレージ計算 --> 可視化選択
-    可視化選択 --> グラフ表示: Yes
-    可視化選択 --> 改善選択: No
-    グラフ表示 --> 改善選択
-
-    改善選択 --> 自動改善実行: Yes
-    改善選択 --> 終了: No
-
-    自動改善実行 --> 改善結果表示
-    改善結果表示 --> 改善QA保存選択
-    改善QA保存選択 --> JSON保存2: Yes
-    改善QA保存選択 --> 終了: No
-    JSON保存2 --> 終了
-
-    エラー終了 --> [*]
-    終了 --> [*]
-```
-
-## 8. エラーハンドリング
-
-### 8.1 エラー処理戦略
-
-```mermaid
-graph TD
-    ERROR[エラー発生] --> TYPE{エラータイプ}
-    TYPE -->|API Key Missing| KEY[環境変数チェック<br/>ユーザーへ警告]
-    TYPE -->|API Error| RETRY[リトライ機構<br/>指数バックオフ]
-    TYPE -->|Parsing Error| FALLBACK[空リスト返却<br/>処理継続]
-    TYPE -->|Network Error| TIMEOUT[タイムアウト処理<br/>エラーログ]
-
-    KEY --> EXIT[プログラム終了]
-    RETRY --> CHECK{成功?}
-    CHECK -->|Yes| CONTINUE[処理継続]
-    CHECK -->|No| LOG[エラーログ出力]
-    FALLBACK --> CONTINUE
-    TIMEOUT --> LOG
-    LOG --> CONTINUE
-```
-
-### 8.2 リトライ機構
-
+### チャンク構造
 ```python
-最大リトライ回数: 3
-バックオフ戦略: 指数バックオフ (2^attempt秒)
-対象エラー:
-  - OpenAI APIタイムアウト
-  - レート制限エラー
-  - 一時的なネットワークエラー
+{
+    'id': 'chunk_0',               # チャンクID
+    'text': '...',                 # テキスト内容
+    'sentences': [...],            # 文のリスト
+    'start_sentence_idx': 0,       # 開始文インデックス
+    'end_sentence_idx': 3          # 終了文インデックス
+}
 ```
 
-## 9. パフォーマンス最適化
-
-### 9.1 最適化戦略
-
-| 最適化項目 | 実装方法 | 効果 |
-|------------|----------|------|
-| バッチ処理 | 複数チャンクの並列処理 | API呼び出し回数削減 |
-| キャッシュ | 埋め込みベクトルのキャッシュ | 再計算回避 |
-| トークン数制限 | チャンクサイズ200トークン | API コスト削減 |
-| 早期終了 | カバレージ閾値達成時の処理終了 | 不要な処理削減 |
-
-### 9.2 スケーラビリティ
-
-```mermaid
-graph LR
-    subgraph "小規模文書"
-        S1[1-10チャンク]
-        S2[10-50 Q&A]
-        S3[処理時間: 1-2分]
-    end
-
-    subgraph "中規模文書"
-        M1[10-50チャンク]
-        M2[50-250 Q&A]
-        M3[処理時間: 5-10分]
-    end
-
-    subgraph "大規模文書"
-        L1[50+ チャンク]
-        L2[250+ Q&A]
-        L3[処理時間: 15+ 分]
-        L4[要: バッチ処理]
-    end
-
-    S1 --> M1
-    M1 --> L1
-```
-
-## 10. 設定パラメータ
-
-### 10.1 設定可能パラメータ
-
-```yaml
-チャンク分割:
-  max_tokens_per_chunk: 200  # チャンクあたり最大トークン数
-  tokenizer: cl100k_base      # 使用するトークナイザー
-
-Q&A生成:
-  model: gpt-5-mini          # 使用するGPTモデル
-  min_qa_pairs: 2            # チャンクあたり最小Q&A数
-  max_qa_pairs: 5            # チャンクあたり最大Q&A数
-  retry_count: 3             # APIリトライ回数
-
-カバレージ分析:
-  similarity_threshold: 0.7   # カバレージ判定閾値
-  embedding_model: text-embedding-3-small  # 埋め込みモデル
-
-可視化:
-  heatmap_colormap: RdYlGn   # ヒートマップの配色
-  figure_size: (12, 10)      # グラフサイズ
-```
-
-## 11. 使用例
-
-### 11.1 基本的な使用方法
-
+### Q/Aペア構造
 ```python
-# 1. 環境設定
-export OPENAI_API_KEY="your-api-key"
+{
+    'question': '質問文',
+    'answer': '回答文',
+    'question_type': 'fact/reason/comparison/application',
+    'source_chunk_id': 'chunk_0',  # ソースチャンクID
+    'auto_generated': True          # 自動生成フラグ（オプション）
+}
+```
 
-# 2. スクリプト実行
+### 未カバーチャンク情報
+```python
+{
+    'chunk': {...},                # チャンクデータ
+    'index': 0,                    # インデックス
+    'similarity': 0.622,           # 現在の最大類似度
+    'gap': 0.078,                  # カバレージギャップ（閾値との差）
+    'text': '...'                  # チャンクのテキスト
+}
+```
+
+## 設定値と定数
+
+### カバレージ判定パラメータ
+- **カバレージ閾値**: 0.7（70%以上の類似度でカバー判定）
+- **最大カバレージ閾値**: 0.8（優秀判定）
+- **良好カバレージ閾値**: 0.6
+- **改善必要閾値**: 0.4
+
+### チャンク分割パラメータ
+- **最大トークン数**: 200トークン/チャンク
+- **最小文数**: 2文/チャンク
+- **トークンエンコーディング**: "cl100k_base"
+
+### Q/Aペア生成パラメータ
+- **最小Q/A数**: 2個/チャンク
+- **最大Q/A数**: 5個/チャンク
+- **判定基準**:
+  - <50トークン: 2個
+  - 50-100トークン: 3個
+  - 100-150トークン: 4個
+  - >150トークン: 5個
+
+### API設定
+- **デフォルトモデル**: "gpt-5-mini"
+- **リトライ回数**: 最大3回
+- **バックオフ戦略**: 指数バックオフ（2^attempt秒）
+
+### 優先度計算の重み
+```python
+# calculate_priority()関数内
+- 文字数スコア: 30%
+- 専門用語密度: 40%
+- 数字・記号: 各15%
+- キーワードマッチ: 30%
+```
+
+## サンプルデータ
+
+### example_document
+```python
+# AIに関する技術文書のサンプル
+- 人工知能、機械学習、深層学習の基盤
+- NLP分野でのトランスフォーマーモデル
+- BERT、GPTなどの大規模言語モデル
+- 画像認識：CNN、Vision Transformer
+- AIの応用：医療診断、自動運転
+- AIの倫理的課題とバイアス問題
+```
+
+### example_qa_pairs
+```python
+[
+    {
+        "question": "トランスフォーマーモデルはどの分野で成果を上げていますか？",
+        "answer": "自然言語処理（NLP）の分野で革命的な成果を上げています。"
+    },
+    {
+        "question": "AIの応用分野にはどのようなものがありますか？",
+        "answer": "医療診断から自動運転まで幅広い分野で応用されています。"
+    }
+]
+```
+
+## 実行例
+
+### コマンドライン実行
+```bash
 python make_qa.py
-
-# 3. 対話的オプション選択
-# - Q&Aペア生成: y/n
-# - カバレージ分析: y/n
-# - 結果可視化: y/n
-# - 自動改善: y/n
-# - 結果保存: y/n
 ```
 
-### 11.2 出力例
-
+### 対話型処理フロー
 ```
-【分割結果】
-総チャンク数: 3
+========================================================
+意味的チャンク分割デモンストレーション
+========================================================
+
+✅ OPENAI_API_KEYが設定されています (長さ: 51文字)
+
+SemanticCoverageクラスを初期化中...
+✅ 初期化成功
+
+【意味的チャンク分割の実行】
+総チャンク数: 2
 ----------------------------------------
+
 ■ チャンク 1 (ID: chunk_0)
-  文の数: 2
-  トークン数: 45
-  内容: 人工知能（AI）は、機械学習と深層学習を基盤として...
+  文の数: 3
+  トークン数: 85
+  内容:
+    人工知能（AI）は、機械学習と深層学習を基盤として...
 
-【生成されたQ/Aペア】
-Q1: トランスフォーマーモデルはどの分野で成果を上げていますか？
-A1: 自然言語処理（NLP）の分野で革命的な成果を上げています。
-タイプ: fact
+各チャンクからQ/Aペアを生成しますか？ (y/n): y
 
-【カバレージ改善結果】
-初期カバレージ率: 66.7%
+【Q/Aペア生成】
+使用モデル: gpt-5-mini
+----------------------------------------
+
+チャンク 1/2 を処理中...
+  ✅ 3個のQ/Aペアを生成
+
+完全なセマンティックカバレージ分析を実行しますか？ (y/n): y
+
+============================================================
+カバレージ改善結果
+============================================================
+初期カバレージ率: 50.0%
 最終カバレージ率: 100.0%
-改善度: +33.3%
+改善度: +50.0%
+新規生成Q/A数: 3
+総Q/A数: 5
 ```
 
-## 12. 依存関係
+## エラー処理
 
-### 12.1 外部ライブラリ
-
-```mermaid
-graph TD
-    MAKEQA[make_qa.py]
-    MAKEQA --> OPENAI[openai>=1.100.2]
-    MAKEQA --> NUMPY[numpy]
-    MAKEQA --> SKLEARN[scikit-learn]
-    MAKEQA --> PYDANTIC[pydantic]
-    MAKEQA --> TIKTOKEN[tiktoken]
-    MAKEQA --> MATPLOTLIB[matplotlib]
-    MAKEQA --> SEABORN[seaborn]
-    MAKEQA --> DOTENV[python-dotenv]
-
-    MAKEQA --> RAGQA[rag_qa.py]
-    RAGQA --> OPENAI
-    RAGQA --> TIKTOKEN
-```
-
-### 12.2 内部モジュール依存
-
-- `rag_qa.py`: SemanticCoverageクラス（チャンク分割、埋め込み生成）
-- `example_mecab.py`: 日本語形態素解析（オプション）
-
-## 13. テスト戦略
-
-### 13.1 テスト項目
-
-| テストレベル | 対象 | 検証内容 |
-|------------|------|---------|
-| 単体テスト | 各関数 | 入出力の正確性 |
-| 統合テスト | API連携 | OpenAI API応答処理 |
-| E2Eテスト | 全体フロー | チャンク分割→Q&A生成→カバレージ分析 |
-| 性能テスト | 大規模文書 | 処理時間、メモリ使用量 |
-
-### 13.2 テストケース例
-
+### OpenAI APIエラー
 ```python
-# チャンク分割テスト
-def test_semantic_chunks():
-    text = "短い文書。これはテストです。"
-    chunks = create_semantic_chunks(text)
-    assert len(chunks) == 1
-    assert chunks[0]['sentences'] == 2
-
-# Q&A生成テスト
-def test_qa_generation():
-    chunk = {"id": "test", "text": "AIは重要です。"}
-    qa_pairs = generate_qa_pairs_from_chunk(chunk)
-    assert len(qa_pairs) >= 2
-    assert all('question' in qa for qa in qa_pairs)
-
-# カバレージ計算テスト
-def test_coverage_calculation():
-    chunks = [...]
-    qa_pairs = [...]
-    matrix, similarities = calculate_coverage_matrix(chunks, qa_pairs, analyzer)
-    assert matrix.shape == (len(chunks), len(qa_pairs))
-    assert 0 <= similarities.all() <= 1
+try:
+    completion = client.responses.parse(...)
+except Exception as e:
+    print(f"⚠️ Q/A生成エラー: {e}")
+    # リトライロジック実行（最大3回）
+    # 指数バックオフで待機
 ```
 
-## 14. 今後の拡張予定
-
-### 14.1 機能拡張ロードマップ
-
-```mermaid
-gantt
-    title 機能拡張ロードマップ
-    dateFormat  YYYY-MM
-    section Phase 1
-    マルチ言語対応        :2024-01, 2M
-    バッチ処理最適化      :2024-03, 1M
-    section Phase 2
-    カスタムプロンプト機能 :2024-04, 2M
-    Webインターフェース   :2024-06, 3M
-    section Phase 3
-    機械学習による品質評価 :2024-09, 3M
-    自動チューニング機能   :2024-12, 2M
+### 環境変数エラー
+```python
+if not api_key or api_key == "your-openai-api-key-here":
+    print("⚠️ OPENAI_API_KEYが正しく設定されていません。")
+    print(".envファイルまたは環境変数を確認してください。")
+    return
 ```
 
-### 14.2 改善項目
+### SemanticCoverage初期化エラー
+```python
+try:
+    analyzer = SemanticCoverage()
+except Exception as e:
+    print(f"❌ 初期化エラー: {e}")
+    traceback.print_exc()
+    return
+```
 
-1. **パフォーマンス改善**
-   - 非同期処理の導入
-   - Redis等によるキャッシュ層追加
-   - GPUを活用した埋め込み計算
+## 出力ファイル
 
-2. **機能拡張**
+### Q/Aペアの保存
+- **形式**: JSON
+- **ファイル名**: `generated_qa_pairs_YYYYMMDD_HHMMSS.json`
+- **内容**: 生成されたQ/Aペアの完全なリスト
+
+### 改善後Q/Aペアの保存
+- **形式**: JSON
+- **ファイル名**: `improved_qa_pairs_YYYYMMDD_HHMMSS.json`
+- **内容**: 既存と新規生成を統合した全Q/Aペア
+
+## パフォーマンス最適化
+
+### メモリ効率
+- numpy配列による効率的なベクトル演算
+- sklearn.metrics.pairwise.cosine_similarityの活用
+- 必要最小限のデータのみメモリに保持
+
+### API呼び出し最適化
+- バッチ処理による呼び出し回数削減
+- エラー時のリトライロジック
+- 指数バックオフによる負荷分散
+
+### 計算効率
+- ベクトル化された類似度計算
+- キャッシュ可能な埋め込みベクトル
+- 事前計算された優先度スコア
+
+## 依存関係
+
+### 必須ライブラリ
+```python
+numpy               # 数値計算
+typing              # 型ヒント
+openai             # GPT API
+pydantic           # データモデル
+tiktoken           # トークン計算
+sklearn            # コサイン類似度
+re                 # 正規表現
+os                 # 環境変数
+json               # データ保存
+time               # タイミング制御
+dotenv             # 環境変数管理
+matplotlib         # 可視化
+seaborn            # ヒートマップ
+collections        # データ構造
+```
+
+### オプショナル（MeCab版）
+```python
+mecab-python3      # 形態素解析
+unidic-lite        # 辞書データ
+```
+
+### 外部依存
+```python
+from rag_qa import SemanticCoverage  # コアクラス
+from example_mecab import extract_keywords_mecab  # MeCab版（オプション）
+```
+
+## トラブルシューティング
+
+### Q: ImportError: SemanticCoverageが見つからない
+A: `rag_qa.py`が同じディレクトリにあることを確認してください
+
+### Q: OpenAI APIエラー: Invalid API key
+A: `.env`ファイルにOPENAI_API_KEYを正しく設定してください
+
+### Q: Q/A生成が失敗する
+A: APIクォータやレート制限を確認し、モデル名が正しいか検証してください
+
+### Q: カバレージが改善されない
+A: 閾値を0.6や0.5に下げるか、生成Q/A数を増やしてください
+
+### Q: メモリ不足エラー
+A: チャンクサイズを100トークンに減らすか、処理を分割してください
+
+### Q: 可視化が表示されない
+A: matplotlibのバックエンドを確認し、必要に応じてGUIサポートを有効化してください
+
+## 今後の拡張可能性
+
+1. **並列処理の実装**
+   - チャンクごとのQ/A生成を並列化
+   - マルチスレッド/非同期処理の導入
+
+2. **キャッシュ機能**
+   - 埋め込みベクトルのディスク永続化
+   - 生成済みQ/Aの再利用
+
+3. **評価メトリクスの拡充**
+   - BLEU、ROUGEスコアの追加
+   - 人間評価との相関分析
+
+4. **インタラクティブUI**
+   - StreamlitやGradioによるWeb UI
+   - リアルタイムフィードバック機能
+
+5. **バッチ処理対応**
    - 複数文書の一括処理
-   - カスタマイズ可能なQ&Aテンプレート
-   - 品質スコアリング機能
+   - CSVエクスポート機能
 
-3. **ユーザビリティ向上**
-   - GUI/Webインターフェース
-   - 進捗バー表示
-   - 詳細なエラーメッセージ
+## ライセンス
 
-## 15. ライセンスとコントリビューション
+[プロジェクトのライセンスに準拠]
 
-### 15.1 ライセンス
-MIT License
+## 更新履歴
 
-### 15.2 コントリビューションガイドライン
-- コードスタイル: PEP 8準拠
-- ドキュメント: 日本語コメント必須
-- テスト: 新機能には単体テスト追加
-- プルリクエスト: feature/ブランチから作成
+- 2025.01 - 初版作成
+- 2025.01 - デモンストレーション機能実装
+- 2025.01 - 主要トピックベースQ/A生成機能追加
+- 2025.01 - カバレージ自動改善機能実装
+- 2025.01 - 可視化機能とインタラクティブモード追加
 
 ---
 
