@@ -9,6 +9,9 @@ import json
 import time
 from dotenv import load_dotenv
 
+# 統合版キーワード抽出システムをインポート
+from regex_mecab import KeywordExtractor, evaluate_coverage_potential
+
 # 環境変数を読み込む
 load_dotenv()
 
@@ -196,50 +199,25 @@ def visualize_semantic_coverage(coverage_matrix, doc_chunks, qa_pairs):
 # ----------------
 # 実行結果の解釈
 # ----------------
-def extract_keywords(text, top_n=5, use_mecab=False):
-    """テキストから重要なキーワードを抽出
+def extract_keywords(text, top_n=5, use_mecab=None):
+    """
+    統合版キーワード抽出システムを使用した高度なキーワード抽出
 
     Args:
         text: 分析対象のテキスト
         top_n: 抽出するキーワード数
-        use_mecab: MeCabを使用するか（True: MeCab, False: 正規表現）
+        use_mecab: MeCab優先度（None: 自動判定、True: MeCab優先、False: 正規表現のみ）
 
     Returns:
         重要キーワードのリスト
     """
-    if use_mecab:
-        try:
-            # MeCab版の関数を呼び出し
-            from example_mecab import extract_keywords_mecab
-            return extract_keywords_mecab(text, top_n, use_compound=True)
-        except ImportError:
-            # MeCabが利用できない場合は正規表現版にフォールバック
-            pass
+    # KeywordExtractorのインスタンス作成
+    # use_mecabがNoneの場合は自動判定（MeCab利用可能なら使用）
+    prefer_mecab = use_mecab if use_mecab is not None else True
+    extractor = KeywordExtractor(prefer_mecab=prefer_mecab)
 
-    # 正規表現版（既存の実装）
-    import collections
-
-    # ストップワード（除外する一般的な語）
-    stopwords = {'こと', 'もの', 'これ', 'それ', 'ため', 'よう', 'さん',
-                 'ます', 'です', 'ある', 'いる', 'する', 'なる', 'できる',
-                 'いう', '的', 'な', 'に', 'を', 'は', 'が', 'で', 'と', 'の', 'から', 'まで'}
-
-    # カタカナ語、漢字複合語、英数字を抽出
-    pattern = r'[ァ-ヴー]+|[一-龥]{2,}|[A-Za-z]+[A-Za-z0-9]*'
-    words = re.findall(pattern, text)
-
-    # 単語頻度をカウント（ストップワードを除外）
-    word_freq = collections.Counter(
-        word for word in words
-        if word not in stopwords and len(word) > 1
-    )
-
-    # 頻出上位のキーワードを返す
-    keywords = [word for word, freq in word_freq.most_common(top_n)]
-
-    # キーワードが少ない場合は元の単語リストから補完
-    if len(keywords) < 3:
-        keywords.extend([w for w in words if w not in keywords][:3-len(keywords)])
+    # スコアリング機能を有効にして抽出
+    keywords = extractor.extract(text, top_n=top_n, use_scoring=True)
 
     return keywords
 
@@ -295,8 +273,8 @@ def calculate_priority(uncovered_chunks):
     return priority_scores
 
 
-def interpret_results(coverage_rate, uncovered_chunks):
-    """結果の解釈とアクション提案"""
+def interpret_results(coverage_rate, uncovered_chunks, analyzer=None):
+    """結果の解釈とアクション提案（統合版キーワード抽出対応）"""
 
     interpretations = {
         "excellent": (0.8, "優秀：主要な内容は網羅されています"),
@@ -310,18 +288,33 @@ def interpret_results(coverage_rate, uncovered_chunks):
             print(f"評価: {message}")
             break
 
-    # 具体的なアクション提案
+    # 具体的なアクション提案（改善版）
     if uncovered_chunks:
+        # KeywordExtractorインスタンスを作成
+        extractor = KeywordExtractor(prefer_mecab=True)
+
         print("\n推奨アクション:")
         print("1. 以下の領域に関するQ/A追加を検討:")
-        for chunk in uncovered_chunks[:3]:  # 上位3つ
-            keywords = extract_keywords(chunk)
-            print(f"   - {', '.join(keywords)}")
+
+        # 各チャンクについて詳細分析
+        for idx, chunk in enumerate(uncovered_chunks[:3], 1):  # 上位3つ
+            # スコアリング付きキーワード抽出
+            keywords = extractor.extract(chunk, top_n=5, use_scoring=True)
+            print(f"\n   チャンク{idx}:")
+            print(f"   主要キーワード: {', '.join(keywords)}")
+
+            # キーワード品質評価
+            if analyzer:
+                metrics = evaluate_coverage_potential(keywords, chunk, analyzer)
+                print(f"   カバレージポテンシャル: {metrics.get('意味的関連度', 0):.2%}")
 
         print("\n2. Q/A生成の優先順位:")
         priority_scores = calculate_priority(uncovered_chunks)
         for i, (chunk, score) in enumerate(priority_scores[:3]):
+            # 各優先チャンクのキーワードも抽出
+            keywords = extractor.extract(chunk, top_n=3, use_scoring=True)
             print(f"   {i + 1}. スコア{score:.2f}: {chunk[:50]}...")
+            print(f"      キーワード: {', '.join(keywords)}")
 
 
 def main():
@@ -365,7 +358,7 @@ def main():
     print("5. 分析結果と改善提案")
     print("=" * 60)
 
-    interpret_results(coverage_rate, uncovered_chunks)
+    interpret_results(coverage_rate, uncovered_chunks, analyzer)
 
     # 4. 可視化（オプション）
     user_input = input("\n結果を可視化しますか？ (y/n): ")
@@ -377,31 +370,61 @@ def main():
         except Exception as e:
             print(f"可視化エラー: {e}")
 
-    # 5. 主要トピックベースの改善提案
+    # 5. 主要トピックベースの改善提案（統合版キーワード抽出）
     if uncovered_chunks:
         print("\n" + "=" * 60)
-        print("6. 主要トピックベースの改善提案")
+        print("6. 主要トピックベースの改善提案（統合版抽出システム）")
         print("=" * 60)
 
-        print("\n未カバーチャンクの主要トピック:")
-        for i, chunk in enumerate(uncovered_chunks, 1):
-            keywords = extract_keywords(chunk, top_n=5, use_mecab=False)
-            print(f"\nチャンク {i}:")
-            print(f"  テキスト: {chunk[:80]}...")
-            print(f"  主要トピック: {', '.join(keywords)}")
-            print(f"  推奨Q/A:")
+        # KeywordExtractorインスタンス作成
+        extractor = KeywordExtractor(prefer_mecab=True)
 
-            # トピックに基づくQ/A提案
+        print("\n未カバーチャンクの主要トピック分析:")
+        for i, chunk in enumerate(uncovered_chunks, 1):
+            print(f"\n【チャンク {i}】")
+            print(f"テキスト: {chunk[:80]}...")
+
+            # 複数手法での比較分析
+            results = extractor.extract_with_details(chunk, top_n=5)
+
+            # 統合版の結果を表示
+            if '統合版' in results:
+                integrated_keywords = [kw for kw, score in results['統合版']]
+                print(f"\n統合版キーワード抽出:")
+                for j, (kw, score) in enumerate(results['統合版'][:5], 1):
+                    print(f"  {j}. {kw:15s} (スコア: {score:.3f})")
+
+            # MeCab利用可能性の表示
+            if 'MeCab複合名詞' in results and not any('エラー' in str(kw) for kw, _ in results['MeCab複合名詞']):
+                mecab_keywords = [kw for kw, score in results['MeCab複合名詞']]
+                print(f"\nMeCab複合名詞抽出: {', '.join(mecab_keywords[:3])}")
+
+            # キーワード品質評価
+            keywords = integrated_keywords if '統合版' in results else extractor.extract(chunk, top_n=5)
+            metrics = evaluate_coverage_potential(keywords, chunk, analyzer)
+
+            print(f"\nキーワード品質指標:")
+            print(f"  - カバレージ率: {metrics['キーワードカバレージ率']:.1%}")
+            print(f"  - 複合語率: {metrics['複合語率']:.1%}")
+            print(f"  - 専門用語率: {metrics['専門用語率']:.1%}")
+            if '意味的関連度' in metrics:
+                print(f"  - 意味的関連度: {metrics['意味的関連度']:.1%}")
+
+            # 推奨Q/A生成
+            print(f"\n推奨Q/A:")
             for keyword in keywords[:3]:
-                if keyword in ['CNN', 'Vision Transformer', '画像認識']:
-                    print(f"    Q: {keyword}はどのような技術ですか？")
-                    print(f"    A: {keyword}は画像認識分野で使用される...")
+                if keyword in ['CNN', 'Vision', 'Transformer', '画像認識']:
+                    print(f"  Q: {keyword}はどのような技術ですか？")
+                    print(f"  A: {keyword}は画像認識分野で使用される...")
                 elif keyword in ['倫理', 'バイアス', '課題', '問題']:
-                    print(f"    Q: AIの{keyword}についてどのような議論がありますか？")
-                    print(f"    A: AIの{keyword}として...")
+                    print(f"  Q: AIの{keyword}についてどのような議論がありますか？")
+                    print(f"  A: AIの{keyword}として...")
+                elif keyword in ['トランスフォーマー', 'BERT', 'GPT', 'NLP']:
+                    print(f"  Q: {keyword}の特徴と応用について教えてください。")
+                    print(f"  A: {keyword}は自然言語処理において...")
                 else:
-                    print(f"    Q: {keyword}について説明してください。")
-                    print(f"    A: {keyword}は...")
+                    print(f"  Q: {keyword}について説明してください。")
+                    print(f"  A: {keyword}は...")
 
     print("\n" + "=" * 60)
     print("分析が完了しました。")

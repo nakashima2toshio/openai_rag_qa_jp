@@ -6,12 +6,10 @@ import re
 def extract_keywords_mecab(text: str, top_n: int = 5, use_compound: bool = True) -> List[str]:
     """
     MeCabを使用してテキストから重要なキーワードを抽出（改良版）
-    
     Args:
         text: 分析対象のテキスト
         top_n: 抽出するキーワード数
         use_compound: 複合名詞を抽出するか（True: 複合名詞、False: 単名詞）
-    
     Returns:
         重要キーワードのリスト
     """
@@ -449,7 +447,6 @@ def debug_compound_noun_extraction(text: str) -> None:
 def compare_extraction_methods(text: str) -> None:
     """
     異なる抽出方法の結果を比較する関数
-
     Args:
         text: 分析対象のテキスト
     """

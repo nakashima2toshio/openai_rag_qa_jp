@@ -1,60 +1,329 @@
+### coverage
 
-#### Query Construction（クエリ構築）
-- 自然言語から構造化クエリへの変換
-RAG では、検索先がリレーショナルデータベースやグラフDBなどの場合、自然言語の質問を直接投げてもデータを取得できません。そのため、質問を SQL や Cypher、メタデータフィルタといった適切なクエリ言語に変換します ￼。
-- Text‑to‑SQL／Text‑to‑Cypher／メタデータフィルタ生成
-LLM を使って「質問の意図 → スキーマ → 適切な WHERE 句やパラメータ」へと翻訳する手法が多数研究されています。たとえば自動生成した SQL をデータベースに直接問い合わせたり、GraphDB では Cypher クエリを生成して関連ノードを取得します ￼。
-- 自己クエリ取得 (self‑querying) の活用
-メタデータ付きのドキュメント検索では、LLM が質問からスキーマやタグを推定し、それに基づいたフィルタ（例：出版日・カテゴリ）を作成する「Self‑Query Retriever」などもあります。
-- 目的
-この段階の狙いは、自然言語の曖昧さを排除し、対象データソースで正確に検索できる形に変換することです。特に複雑な構造化データや多様なメタデータがある場合に必須となります。
+⏺ 統合版の処理フロー詳細解説
 
-#### Query Translation（クエリ変換・翻訳）
-- クエリの書き換え (Rewrite‑Retrieve‑Read)
-ユーザーの質問が必ずしも検索に適しているとは限りません。LLM で質問をより明確・具体的に書き換えてから検索すると、関連文書を多く取得できることが実証されています ￼。
-- Step‑Back Prompting（高レベル質問生成）
-元の質問とは別に「一段階上の問い」を生成し、その回答から文脈を掴んで再検索する手法です。元の質問と step‑back 質問の双方で文書を取得して統合します ￼。
-- Follow‑up question rewriting
-会話型システムでは、フォローアップ質問を 文脈を含んだスタンドアローン質問に書き換えることで誤解を防ぎます ￼。
-- Multi‑Query Retrieval／RAG‑Fusion
-LLM で同じ質問の言い換えやサブ質問を複数生成し、それぞれで検索して結果を統合・再ランクする「Multi‑Query Retrieval」や、検索結果を相互順位付けする「RAG‑Fusion」 ￼。これにより、多角的な観点から関連文書を集められます。
-- Query Expansion（HyDE など）
-質問に対する仮想的な答え（Hypothetical Document Embedding）を生成したり、関連キーワードを付加することで検索範囲を広げる手法もあります ￼。
-- 目的
-クエリ翻訳の本質は、「ユーザーの曖昧な質問」→「検索エンジンが理解しやすい形」へ変換し、抜け漏れなく関連情報を取得することにあります。また、マルチクエリ生成や高レベル質問によって、複数の観点や潜在意図を反映させることができます。
+全体像
 
-#### Routing（ルーティング）
-- 複数データソースへの振り分け
-大規模な RAG システムでは、社内のチャット、基準文書、コードベース、外部ナレッジベースなど、複数のインデックスやデータベースを持つことが一般的です。すべてを一つの巨大インデックスにまとめるとアクセス制御や検索精度に悪影響があるため、クエリを適切なデータソースにルーティングする仕組みが重要になります ￼。
-- フル・マルチプレクシング
-もっとも単純な方法は、すべての関連データソースに同じクエリを送り、結果を結合して再ランクする方式です。この手法では recall を高く保てますが、計算コストが大きくなります ￼。
-- LLMベースのルーティング
-もう一つの方法は、LLM や小さな分類モデルを用いて質問の種類を判定し、関連性の高いインデックスやデータベースにのみクエリを送る方式です ￼。例えば法務ドキュメント用・技術資料用などのカテゴリーに分類します。この際、データ分布やクエリパターンを観察してモデルを調整すること（キャリブレーション）が推奨されています。
-- ベクトル検索とフィルタリングの注意点
-ベクトル検索は近似最近傍法を用いるため、フィルタリングを前後で行うと recall が低下することがあります。事前にフィルタしてから検索する方法と、事後にフィルタする方法の双方にトレードオフがあり ￼、データ構造やクエリ特性に応じて設計を決める必要があります。
-- 目的
-適切なルーティングは、アクセス制御やスケーラビリティを保ちつつ高い検索精度を維持するために不可欠です。
+```mermaid
+graph TD
+  START[ユーザーがextract呼び出し] --> INIT[KeywordExtractorインスタンス化]
+  INIT --> CHECK[_check_mecab_availability]
+  CHECK --> EXTRACT[extract method]
+  EXTRACT --> DECISION{MeCab利用可能?}
+  DECISION -->|Yes| MECAB[_extract_with_mecab]
+  DECISION -->|No| REGEX[_extract_with_regex]
+  MECAB --> SUCCESS{抽出成功?}
+  SUCCESS -->|No| REGEX
+  SUCCESS -->|Yes| SCORE[_score_and_rank]
+  REGEX --> SCORE
+  SCORE --> RETURN[キーワードリスト返却]
+```
 
-#### Retrieval（検索）
-- ベクトル／ハイブリッド検索
-チャンク化した文書を埋め込みベクトルに変換し、ユーザーのクエリを同じベクトル空間で近傍検索するのが基本です。最近ではスパース表現（キーワードベース）と密ベクトルを組み合わせるハイブリッド検索も使われています。
-- Multi‑Vector／Parent Document Retrieval
-大きな文書を小さな「子チャンク」に細分し、それぞれを別個に埋め込む「マルチベクトル」手法があります。検索時は子チャンク同士の類似度で候補を見つけますが、回答に使う際は元の大きな「親文書」を返すため、より広い文脈を確保しつつ細粒度な検索が可能になります ￼。これはトピックの混在した文書で特に有効です。
-- 階層的再検索
-Parent Document Retriever に代表されるように、小さなチャンクで検索して大きなチャンクを返す階層型の検索を導入すると、埋め込みの精度と文脈の両方を改善できます ￼。
-- 再ランクとフィードバック
-ベクトル検索で上位 K 件を取得した後、クロスエンコーダや LLM を用いて関連度を再計算し順位付けする「再ランク」や、先に取得した文脈からクエリを再生成して再検索する「再検索（self‑retrieval）」も効果的です。
-- 目的
-この段階ではクエリに最も関連する文書をできるだけ漏れなく取得することが目標であり、チャンク設計・埋め込み手法・検索アルゴリズムの選定が鍵となります。
+統合版の処理の流れを利用クラス、関数を用いて分かりやすく説明せよ。
 
-⸻
+⏺ 統合版の処理フロー詳細解説（クラス・関数名明記版）
 
-#### その他の手法・改良点（例）
-- Query Decomposition：長い複合質問を複数のサブクエリに分解して個別に検索し、結果を統合する手法。複雑な推論を要する問いに有効。
-- Hypothetical Document Embedding (HyDE)：LLM に質問の仮想回答を生成させ、その回答文を埋め込んで検索することで高関連文書を取得する技術。
-- Hybrid Retrieval：TF‑IDF などのスパース検索と密ベクトル検索を統合する方式。キーワードと意味検索の長所を両取りできる。
-- Recursive Retrieval / Self‑Retrieval：初回検索で得た文脈を使ってクエリを更新し、二段階で検索する手法。
-- データ正規化と評価基盤：チャンクサイズ・オーバーラップ・Top‑K などを変えながら RAG の挙動を測定することも重要。
-- メタデータ利用とフィルタリング：ドメインや権限情報などで検索対象を絞り込む。
-- 長文・多言語対応：長文向けには階層要約とロングコンテキストモデル、多言語対応では多言語埋め込みモデルや機械翻訳との組み合わせが挙げられます。
+全体像
 
+```mermaid
+  graph TD
+      START[ユーザー: KeywordExtractor.extract 呼び出し] --> INIT[KeywordExtractor.__init__]
+      INIT --> CHECK[KeywordExtractor._check_mecab_availability]
+      CHECK --> STORE_FLAG[self.mecab_available に結果を保存]
+      STORE_FLAG --> EXTRACT[KeywordExtractor.extract]
+      EXTRACT --> DECISION{self.mecab_available<br/>かつ<br/>self.prefer_mecab?}
+      DECISION -->|Yes| TRY_MECAB[try: KeywordExtractor._extract_with_mecab]
+      TRY_MECAB --> SUCCESS{抽出成功<br/>かつ<br/>keywords not empty?}
+      SUCCESS -->|No/Exception| FALLBACK[except: フォールバック]
+      FALLBACK --> REGEX[KeywordExtractor._extract_with_regex]
+      SUCCESS -->|Yes| SCORE_MECAB[KeywordExtractor._score_and_rank]
+      DECISION -->|No| REGEX
+      REGEX --> SCORE_REGEX[KeywordExtractor._score_and_rank]
+      SCORE_MECAB --> RETURN[return keywords: List str]
+      SCORE_REGEX --> RETURN
+
+```
+
+---
+
+詳細処理フロー（関数レベル）
+
+Phase 1: 初期化
+
+```mermaid
+  graph TD
+      USER[ユーザーコード:<br/>extractor = KeywordExtractor] --> INIT[KeywordExtractor.__init__<br/>prefer_mecab=True]
+      INIT --> CHECK_CALL[self._check_mecab_availability 呼び出し]
+      CHECK_CALL --> TRY_IMPORT[try: import MeCab]
+      TRY_IMPORT --> CREATE_TAGGER[MeCab.Tagger 生成]
+      CREATE_TAGGER --> TEST_PARSE[tagger.parse テスト]
+      TEST_PARSE --> SUCCESS[return True]
+      TRY_IMPORT -->|ImportError| FAIL[return False]
+      CREATE_TAGGER -->|RuntimeError| FAIL
+      SUCCESS --> STORE[self.mecab_available = True]
+      FAIL --> STORE_FALSE[self.mecab_available = False]
+      STORE --> LOAD_STOP[self.stopwords 初期化]
+      STORE_FALSE --> LOAD_STOP
+      LOAD_STOP --> LOAD_IMP[self.important_keywords 初期化]
+      LOAD_IMP --> READY[初期化完了]
+```
+
+関連するクラス・関数:
+
+- KeywordExtractor.__init__(prefer_mecab: bool)
+- KeywordExtractor._check_mecab_availability() -> bool
+- MeCab.Tagger()
+- MeCab.Tagger.parse(str) -> str
+
+  ---
+
+  Phase 2: キーワード抽出開始
+
+```mermaid
+  graph TD
+      USER_CALL["ユーザーコード:<br/>keywords = extractor.extract(text, top_n=5)"] --> EXTRACT_METHOD["KeywordExtractor.extract<br/>text, top_n, use_scoring=True"]
+      EXTRACT_METHOD --> CHECK_CONDITION{"self.mecab_available<br/>and<br/>self.prefer_mecab"}
+      CHECK_CONDITION -->|True| TRY_BLOCK[try ブロック開始]
+      TRY_BLOCK --> MECAB_CALL["self._extract_with_mecab<br/>text, top_n, use_scoring"]
+      MECAB_CALL --> CHECK_RESULT{"keywords が<br/>空でない?"}
+      CHECK_RESULT -->|True| RETURN_MECAB[return keywords]
+      CHECK_RESULT -->|False| EXCEPT_BLOCK
+      MECAB_CALL -->|Exception| EXCEPT_BLOCK["except Exception as e:<br/>print警告メッセージ"]
+      CHECK_CONDITION -->|False| REGEX_CALL
+      EXCEPT_BLOCK --> REGEX_CALL["return self._extract_with_regex<br/>text, top_n, use_scoring"]
+      REGEX_CALL --> RETURN_REGEX[return keywords]
+```
+
+関連するクラス・関数:
+
+- KeywordExtractor.extract(text:str, top_n: int, use_scoring: bool) -> List[str]
+- KeywordExtractor._extract_with_mecab(text: str, top_n: int, use_scoring: bool) -> List[str]
+- KeywordExtractor._extract_with_regex(text: str, top_n: int, use_scoring: bool) -> List[str]
+
+---
+
+Phase 3-A: MeCab版抽出処理
+
+```mermaid
+graph TD
+  START["KeywordExtractor._extract_with_mecab<br/>text, top_n, use_scoring"] --> IMPORT["import MeCab"]
+  IMPORT --> CREATE["tagger = MeCab.Tagger()"]
+  CREATE --> PARSE["node = tagger.parseToNode(text)"]
+  PARSE --> INIT_BUFFER["compound_buffer = []<br/>compound_nouns = []"]
+  INIT_BUFFER --> LOOP{"while node:"}
+  LOOP -->|node exists| SPLIT["features = node.feature.split(',')"]
+  SPLIT --> GET_POS["pos = features[0]"]
+  GET_POS --> CHECK_POS{"pos == '名詞'?"}
+  CHECK_POS -->|True| APPEND["compound_buffer.append(node.surface)"]
+  APPEND --> NEXT_NODE["node = node.next"]
+  CHECK_POS -->|False| CHECK_BUFFER{"compound_buffer<br/>not empty?"}
+  CHECK_BUFFER -->|True| JOIN["compound_noun = ''.join(compound_buffer)"]
+  JOIN --> ADD_NOUN["compound_nouns.append(compound_noun)"]
+  ADD_NOUN --> CLEAR["compound_buffer = []"]
+  CLEAR --> NEXT_NODE
+  CHECK_BUFFER -->|False| NEXT_NODE
+  NEXT_NODE --> LOOP
+  LOOP -->|node is None| FINAL_CHECK{"compound_buffer<br/>not empty?"}
+  FINAL_CHECK -->|True| FINAL_JOIN["compound_noun = ''.join(compound_buffer)"]
+  FINAL_JOIN --> FINAL_ADD["compound_nouns.append(compound_noun)"]
+  FINAL_ADD --> SCORE_CHECK
+  FINAL_CHECK -->|False| SCORE_CHECK{"use_scoring?"}
+  SCORE_CHECK -->|True| CALL_SCORE["return self._score_and_rank(compound_nouns, top_n)"]
+  SCORE_CHECK -->|False| CALL_FILTER["return self._filter_and_count(compound_nouns, top_n)"]
+```
+
+関連するクラス・関数:
+
+- KeywordExtractor._extract_with_mecab(text: str, top_n: int, use_scoring: bool) -> List[str]
+- MeCab.Tagger()
+- MeCab.Tagger.parseToNode(str) -> Node
+- MeCab.Node.feature: str
+- MeCab.Node.surface: str
+- MeCab.Node.next: Node
+- KeywordExtractor._score_and_rank(words: List[str], top_n: int) -> List[str]
+- KeywordExtractor._filter_and_count(words: List[str], top_n: int) -> List[str]
+
+---
+
+Phase 3-B: 正規表現版抽出処理
+
+```mermaid
+  graph TD
+      START["KeywordExtractor._extract_with_regex<br/>text, top_n, use_scoring"] --> PATTERN["pattern = regex for<br/>Katakana/Kanji/Alphabet"]
+      PATTERN --> FINDALL["words = re.findall<br/>pattern, text"]
+      FINDALL --> SCORE_CHECK{"use_scoring?"}
+      SCORE_CHECK -->|True| CALL_SCORE["return self._score_and_rank<br/>words, top_n"]
+      SCORE_CHECK -->|False| CALL_FILTER["return self._filter_and_count<br/>words, top_n"]
+```
+
+関連するクラス・関数:
+
+- KeywordExtractor._extract_with_regex(text: str, top_n: int, use_scoring: bool) -> List[str]
+- re.findall(pattern: str, string: str) -> List[str]
+- KeywordExtractor._score_and_rank(words: List[str], top_n: int) -> List[str]
+- KeywordExtractor._filter_and_count(words: List[str], top_n: int) -> List[str]
+
+---
+
+Phase 4: スコアリング処理
+
+```mermaid
+  graph TD
+      START["KeywordExtractor._score_and_rank<br/>words, top_n"] --> INIT["word_scores = dict()<br/>word_freq = Counter(words)"]
+      INIT --> LOOP{"for word, freq<br/>in word_freq.items:"}
+      LOOP --> CHECK_STOP{"word in<br/>self.stopwords<br/>or len(word) <= 1?"}
+      CHECK_STOP -->|True| SKIP[continue]
+      SKIP --> LOOP
+      CHECK_STOP -->|False| INIT_SCORE["score = 0.0"]
+      INIT_SCORE --> CALC_FREQ["freq_score = min(freq/3.0, 1.0) * 0.3<br/>score += freq_score"]
+      CALC_FREQ --> CALC_LEN["length_score = min(len(word)/8.0, 1.0) * 0.3<br/>score += length_score"]
+      CALC_LEN --> CHECK_IMP{"word in<br/>self.important_keywords?"}
+      CHECK_IMP -->|True| ADD_IMP["score += 0.5"]
+      CHECK_IMP -->|False| CHECK_KATA
+      ADD_IMP --> CHECK_KATA{"カタカナ3文字以上?"}
+      CHECK_KATA -->|True| ADD_KATA["score += 0.2"]
+      CHECK_KATA -->|False| CHECK_UPPER{"英大文字2文字以上?"}
+      ADD_KATA --> CHECK_UPPER
+      CHECK_UPPER -->|True| ADD_UPPER["score += 0.3"]
+      CHECK_UPPER -->|False| CHECK_KANJI{"漢字4文字以上?"}
+      ADD_UPPER --> STORE
+      CHECK_KANJI -->|True| ADD_KANJI["score += 0.2"]
+      CHECK_KANJI -->|False| STORE["word_scores[word] = score"]
+      ADD_KANJI --> STORE
+      STORE --> LOOP
+      LOOP -->|終了| SORT["ranked = sorted(word_scores.items,<br/>key=lambda x: x[1], reverse=True)"]
+      SORT --> EXTRACT_TOP["return [word for word, score<br/>in ranked[:top_n]]"]
+```
+
+関連するクラス・関数:
+
+- KeywordExtractor._score_and_rank(words: List[str], top_n: int) -> List[str]
+- collections.Counter(words: List[str]) -> Counter
+- Counter.items() -> ItemsView
+- re.match(pattern: str, string: str) -> Optional[Match]
+- sorted(iterable, key, reverse) -> List
+- self.stopwords: Set[str]
+- self.important_keywords: Set[str]
+
+  ---
+
+  Phase 5: 統合版処理（extract_with_details使用時）
+
+```mermaid
+  graph TD
+      START["KeywordExtractor._extract_integrated<br/>text, top_n"] --> INIT["all_keywords = set()"]
+      INIT --> CHECK_MECAB{"self.mecab_available?"}
+      CHECK_MECAB -->|True| TRY_MECAB["try:"]
+      TRY_MECAB --> MECAB_EXTRACT["mecab_kws = self._extract_with_mecab<br/>text, top_n*2, use_scoring=False"]
+      MECAB_EXTRACT --> UPDATE_MECAB["all_keywords.update(mecab_kws)"]
+      UPDATE_MECAB --> REGEX_EXTRACT
+      TRY_MECAB -->|Exception| REGEX_EXTRACT
+      CHECK_MECAB -->|False| REGEX_EXTRACT["regex_kws = self._extract_with_regex<br/>text, top_n*2, use_scoring=False"]
+      REGEX_EXTRACT --> UPDATE_REGEX["all_keywords.update(regex_kws)"]
+      UPDATE_REGEX --> INIT_SCORED["scored = []"]
+      INIT_SCORED --> LOOP{"for kw<br/>in all_keywords:"}
+      LOOP --> CHECK_FILTER{"kw in self.stopwords<br/>or len(kw) <= 1?"}
+      CHECK_FILTER -->|True| CONTINUE[continue]
+      CONTINUE --> LOOP
+      CHECK_FILTER -->|False| CALC_SCORE["score = self._calculate_keyword_score<br/>kw, text"]
+      CALC_SCORE --> APPEND["scored.append((kw, score))"]
+      APPEND --> LOOP
+      LOOP -->|終了| SORT["scored.sort(key=lambda x: x[1],<br/>reverse=True)"]
+      SORT --> RETURN["return scored[:top_n]"]
+```
+
+関連するクラス・関数:
+
+- KeywordExtractor._extract_integrated(text: str, top_n: int) -> List[Tuple[str, float]]
+- KeywordExtractor._extract_with_mecab(text: str, top_n: int, use_scoring: bool) -> List[str]
+- KeywordExtractor._extract_with_regex(text: str, top_n: int, use_scoring: bool) -> List[str]
+- set.update(iterable)
+- KeywordExtractor._calculate_keyword_score(keyword: str, text: str) -> float
+- list.sort(key, reverse)
+- self.stopwords: Set[str]
+
+  ---
+
+  Phase 6: 詳細スコア計算
+
+```mermaid
+  graph TD
+      START["KeywordExtractor._calculate_keyword_score<br/>keyword, text"] --> INIT["score = 0.0"]
+      INIT --> COUNT_FREQ["freq = text.count(keyword)"]
+      COUNT_FREQ --> CALC_FREQ["freq_score = min(freq/3.0, 1.0) * 0.3<br/>score += freq_score"]
+      CALC_FREQ --> CALC_LEN["length_score = min(len(keyword)/8.0, 1.0) * 0.2<br/>score += length_score"]
+      CALC_LEN --> CHECK_IMP{"keyword in<br/>self.important_keywords?"}
+      CHECK_IMP -->|True| ADD_IMP["score += 0.4"]
+      CHECK_IMP -->|False| CHECK_PATTERNS
+      ADD_IMP --> CHECK_PATTERNS[文字種パターン判定]
+      CHECK_PATTERNS --> KATA{"カタカナ3文字以上?"}
+      KATA -->|True| ADD_KATA["score += 0.15"]
+      KATA -->|False| UPPER{"英大文字2文字以上?"}
+      ADD_KATA --> UPPER
+      UPPER -->|True| ADD_UPPER["score += 0.2"]
+      UPPER -->|False| KANJI{"漢字4文字以上?"}
+      ADD_UPPER --> CLAMP
+      KANJI -->|True| ADD_KANJI["score += 0.15"]
+      KANJI -->|False| CLAMP["return min(score, 1.0)"]
+      ADD_KANJI --> CLAMP
+```
+
+関連するクラス・関数:
+
+- KeywordExtractor._calculate_keyword_score(keyword: str, text: str) -> float
+- str.count(sub: str) -> int
+- len(obj) -> int
+- min(a, b) -> number
+- self.important_keywords: Set[str]
+
+  ---
+
+  クラス・関数一覧表
+
+  KeywordExtractorクラスのメソッド
+
+| メソッド名                     | 引数                                       | 戻り値                                |
+
+
+| 説明                             |                                          |                                    |  |
+| -------------------------------- | ---------------------------------------- | ---------------------------------- | - |
+| -------                          |                                          |                                    |  |
+| __init__                         | prefer_mecab: bool                       | なし                               |  |
+| 初期化、MeCab可用性チェック      |                                          |                                    |  |
+| _check_mecab_availability        | なし                                     | bool                               |  |
+| MeCabのインポート・動作確認      |                                          |                                    |  |
+| extract                          | text: str, top_n: int, use_scoring: bool | List[str]                          |  |
+| メイン抽出（自動フォールバック） |                                          |                                    |  |
+| _extract_with_mecab              | text: str, top_n: int, use_scoring: bool | List[str]                          |  |
+| MeCab複合名詞抽出                |                                          |                                    |  |
+| _extract_with_regex              | text: str, top_n: int, use_scoring: bool | List[str]                          |  |
+| 正規表現抽出                     |                                          |                                    |  |
+| _extract_integrated              | text: str, top_n: int                    | List[Tuple[str, float]]            |  |
+| 統合版（両手法マージ）           |                                          |                                    |  |
+| _score_and_rank                  | words: List[str], top_n: int             | List[str]                          |  |
+| スコアリング＋ランキング         |                                          |                                    |  |
+| _filter_and_count                | words: List[str], top_n: int             | List[str]                          |  |
+| 頻度ベースフィルタ               |                                          |                                    |  |
+| _calculate_keyword_score         | keyword: str, text: str                  | float                              |  |
+| 個別キーワードのスコア計算       |                                          |                                    |  |
+| extract_with_details             | text: str, top_n: int                    | Dict[str, List[Tuple[str, float]]] |  |
+| 3手法すべての詳細結果            |                                          |                                    |  |
+
+外部ライブラリの関数・クラス
+
+
+| クラス/関数                    | 説明                     |
+| ------------------------------ | ------------------------ |
+| MeCab.Tagger()                 | MeCab形態素解析器の生成  |
+| MeCab.Tagger.parseToNode(str)  | テキストをノード列に解析 |
+| MeCab.Node.feature             | 品詞情報（CSV形式）      |
+| MeCab.Node.surface             | 表層形（単語そのもの）   |
+| MeCab.Node.next                | 次のノードへのポインタ   |
+| re.findall(pattern, string)    | 正規表現マッチング       |
+| re.match(pattern, string)      | 先頭からのパターンマッチ |
+| collections.Counter(list)      | リストの要素頻度カウント |
+| sorted(iterable, key, reverse) | ソート（降順/昇順）      |
+
+---
+
+この図により、どのクラス・関数が、いつ、どのように呼び出されるかが明確になります。

@@ -131,6 +131,95 @@ main()
 |--------|------|------------|--------|
 | `predict_coverage_improvement()` | 新Q/Aペアによるカバレージ改善を予測 | chunk: Dict, new_qa_pairs: List[Dict], analyzer: SemanticCoverage | predicted_similarity: float |
 
+## SemanticCoverage クラスの詳細
+
+本プロジェクトのカバレッジ分析は、SemanticCoverageが担う「意味的チャンク分割・埋め込み・類似度計算」を中核に成り立ちます。ここでは役割、主要メソッド、実運用上の注意点をまとめます。
+
+### 概要と責務
+- 文書を文境界を尊重してチャンク化（文脈の断絶を避ける）
+- チャンクおよび任意テキストをOpenAI Embeddingsでベクトル化（L2正規化）
+- 正規化ベクトルのコサイン類似度を提供（高速な内積計算に対応）
+
+実装は`a03_rag_qa_coverage.py`にあり、`make_qa.py`からは`SemanticCoverage`インスタンス（`analyzer`）として利用します。
+
+### make_qa.py での利用ポイント
+- デモ実演（`demonstrate_semantic_coverage()`）
+  - チャンク分割 → チャンク埋め込み → Q/A埋め込み → 類似度行列 → 最大類似度とカバー判定（しきい値0.7）
+- メイン処理（`main()`）
+  - 分割結果の詳細（文数・トークン数・開始/終了インデックス）を表示
+  - その後のカバレッジ分析・改善の基盤としてベクトル化/類似度計算を提供
+
+### 主なメソッド
+- `create_semantic_chunks(document: str, verbose: bool=True) -> List[Dict]`
+  - 文末記号（`。．.!?`）で分割し、最大約200トークン/チャンクを目安にまとめる。
+  - 短すぎる末尾チャンクは直前とマージ（合計が約300トークン未満なら結合）し、トピック連続性を担保。
+  - 返却チャンクは`{'id','text','sentences','start_sentence_idx','end_sentence_idx'}`構造。
+
+- `generate_embeddings(doc_chunks: List[Dict]) -> np.ndarray`
+  - 複数チャンクをバッチ（既定20件）でEmbeddings APIに投げ、各ベクトルをL2正規化して返す（後述に詳細）。
+
+- `generate_embedding(text: str) -> np.ndarray`
+  - 単一テキストの埋め込み生成。Q/Aペア側のベクトル化に使用。
+
+- `cosine_similarity(doc_emb: np.ndarray, qa_emb: np.ndarray) -> float`
+  - 正規化済みベクトルなら内積で高速に算出。未正規化時はフルのコサイン計算を実施。
+
+### 設計上のポイント
+- チャンク分割は「意味の塊」を維持することを重視（文単位、サイズ上限、短チャンクの結合）。
+- ベクトルは正規化して保存・使用することで、スケール差の影響を排除し、類似度計算を高速化。
+- カバレッジ判定の標準しきい値は0.7（用途により0.6/0.8等に調整可）。
+
+### カスタマイズ例
+- 埋め込みモデル: `SemanticCoverage(embedding_model="text-embedding-3-small")` → 例えば`...-large`に変更可。
+- チャンクサイズ: 200/300トークン閾値を要件に合わせて調整（トピックの粒度とレイテンシのトレードオフ）。
+
+### 注意点 / 落とし穴
+- モデル次元の不一致: フォールバック（ゼロベクトル）の次元は実装上1536固定。モデル変更時は整合性に注意。
+- API失敗時の扱い: バッチ失敗はそのバッチ全件をゼロベクトルで埋めるため、該当チャンクの類似度が0になりやすい（再試行やログ監視を推奨）。
+
+## generate_embeddings(doc_chunks) の詳細
+
+SemanticCoverageにおける「複数チャンクのベクトル化」中核処理です。入力/出力仕様、アルゴリズム、正規化、エラー処理を以下に整理します。
+
+### 役割とI/O
+- 役割: `doc_chunks`（各要素に`text`を持つ辞書）をEmbeddings APIで一括ベクトル化し、行方向に整列した`numpy.ndarray`で返却。
+- 入力: `List[Dict]`（例: `[{"id":"chunk_0","text":"..."}, ...]`）
+- 出力: `np.ndarray`（形状`(len(doc_chunks), D)`、`text-embedding-3-small`では`D=1536`）
+
+### 処理フロー
+1. バッチ分割
+   - 既定`batch_size = 20`で`doc_chunks`を分割し順次処理。
+   - 各バッチから`texts = [chunk["text"] for chunk in batch]`を抽出。
+2. Embeddings API呼び出し
+   - `self.client.embeddings.create(model=self.embedding_model, input=texts)`
+   - レスポンス`data`配列の各`embedding`を`np.array`化。
+3. L2正規化
+   - 各ベクトルを`embedding / ||embedding||`で正規化。
+   - これにより`cosine_similarity`側で内積のみで高速に類似度計算が可能。
+4. エラーハンドリング
+   - 例外時はバッチ単位で捕捉し、エラーログを出力。
+   - そのバッチ件数分のゼロベクトル`np.zeros(1536)`を詰めて継続（安全重視）。
+5. 結果整形
+   - 収集したリストを`np.array(embeddings)`にして返却。
+
+### 正規化の意義
+- 文長や強度の差に由来するスケール影響を除去し、「方向」のみで比較可能にする。
+- 正規化済み同士は内積=コサイン類似度となるため、類似度行列の計算を高速化できる（行列積での一括計算にも拡張しやすい）。
+
+### パフォーマンスとスケーリング
+- バッチ処理によりAPI呼び出し回数を削減し、スループットを最適化。
+- 返却は`np.ndarray`のため、そのままカバレッジ行列計算に投入可能（`calculate_coverage_matrix()`）。
+- 大量データ時はバッチサイズの調整や、ベクトルキャッシュ（ディスク/メモリ）の併用を検討。
+
+### よくある課題と対策
+- 維持管理: モデル変更時は埋め込み次元の差異に注意（ゼロベクトル次元の固定化を改善する、初回成功レスポンスの次元を記録する等）。
+- フェイルセーフ: API失敗の一時的増加でゼロベクトルが多発しうる。指数バックオフ/リトライをラッパー側で導入すると堅牢性が上がる。
+- 品質: 文脈保持のためチャンクが長すぎる/短すぎる場合は類似度に悪影響。トークン閾値の調整が有効。
+
+### 連携箇所の確認
+- `demonstrate_semantic_coverage()`と`calculate_coverage_matrix()`で、本処理の出力をQ/A側埋め込みと組み合わせて類似度行列を構築。
+- Q/A側は`generate_embedding(text)`で個別ベクトル化（同様に正規化済み）。
+
 ## データ構造
 
 ### Pydanticモデル
