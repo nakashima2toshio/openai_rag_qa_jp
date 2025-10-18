@@ -109,10 +109,8 @@ DATASET_CONFIGS = {
 
 def load_preprocessed_data(dataset_type: str) -> pd.DataFrame:
     """preprocessedデータを読み込み
-
     Args:
         dataset_type: データセットタイプ
-
     Returns:
         読み込んだDataFrame
     """
@@ -195,12 +193,10 @@ def create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Option
 
 def merge_small_chunks(chunks: List[Dict], min_tokens: int = 150, max_tokens: int = 400) -> List[Dict]:
     """小さいチャンクを統合して適切なサイズにする
-
     Args:
         chunks: チャンクのリスト
         min_tokens: このトークン数未満のチャンクは統合対象
         max_tokens: 統合後の最大トークン数
-
     Returns:
         統合されたチャンクのリスト
     """
@@ -260,11 +256,9 @@ def merge_small_chunks(chunks: List[Dict], min_tokens: int = 150, max_tokens: in
 
 def determine_qa_count(chunk: Dict, config: Dict) -> int:
     """チャンクに最適なQ/A数を決定
-
     Args:
         chunk: チャンクデータ
         config: データセット設定
-
     Returns:
         Q/Aペア数
     """
@@ -291,13 +285,11 @@ def generate_qa_pairs_for_batch(
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """複数チャンクから一度にQ/Aペアを生成（3チャンクバッチ処理対応）
-
     Args:
         chunks: チャンクデータのリスト（最大3個）
         config: データセット設定
         model: 使用するモデル
         client: OpenAIクライアント
-
     Returns:
         生成されたQ/Aペアのリスト
     """
@@ -474,7 +466,6 @@ def generate_qa_pairs_for_chunk(
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """単一チャンクからQ/Aペアを生成（後方互換性のため維持）
-
     Args:
         chunk: チャンクデータ
         config: データセット設定
@@ -656,7 +647,6 @@ def generate_qa_for_dataset(
     max_tokens: int = 400
 ) -> List[Dict]:
     """データセット全体のQ/Aペア生成（改善版）
-
     Args:
         chunks: チャンクリスト
         dataset_type: データセットタイプ
@@ -665,7 +655,6 @@ def generate_qa_for_dataset(
         merge_chunks: 小さいチャンクを統合するか
         min_tokens: 統合対象の最小トークン数
         max_tokens: 統合後の最大トークン数
-
     Returns:
         生成されたQ/Aペアのリスト
     """
@@ -771,10 +760,8 @@ OPTIMAL_THRESHOLDS = {
 
 def get_optimal_thresholds(dataset_type: str) -> Dict[str, float]:
     """データセット別の最適閾値を取得
-
     Args:
         dataset_type: データセットタイプ
-
     Returns:
         閾値辞書 {strict, standard, lenient}
     """
@@ -788,13 +775,11 @@ def get_optimal_thresholds(dataset_type: str) -> Dict[str, float]:
 def multi_threshold_coverage(coverage_matrix: np.ndarray, chunks: List[Dict],
                              qa_pairs: List[Dict], thresholds: Dict[str, float]) -> Dict:
     """複数閾値でカバレージを評価
-
     Args:
         coverage_matrix: カバレージ行列
         chunks: チャンクリスト
         qa_pairs: Q/Aペアリスト
         thresholds: 閾値辞書
-
     Returns:
         多段階カバレージ結果
     """
@@ -827,13 +812,11 @@ def multi_threshold_coverage(coverage_matrix: np.ndarray, chunks: List[Dict],
 def analyze_chunk_characteristics_coverage(chunks: List[Dict], coverage_matrix: np.ndarray,
                                           qa_pairs: List[Dict], threshold: float = 0.7) -> Dict:
     """チャンク特性別のカバレージ分析
-
     Args:
         chunks: チャンクリスト
         coverage_matrix: カバレージ行列
         qa_pairs: Q/Aペアリスト
         threshold: 判定閾値
-
     Returns:
         チャンク特性別カバレージ結果
     """
@@ -933,12 +916,10 @@ def analyze_chunk_characteristics_coverage(chunks: List[Dict], coverage_matrix: 
 
 def analyze_coverage(chunks: List[Dict], qa_pairs: List[Dict], dataset_type: str = "wikipedia_ja") -> Dict:
     """生成されたQ/Aペアのカバレージを分析（多段階カバレージ分析対応）
-
     Args:
         chunks: チャンクリスト
         qa_pairs: Q/Aペアリスト
         dataset_type: データセットタイプ（閾値自動設定に使用）
-
     Returns:
         カバレージ分析結果（多段階評価、チャンク特性分析を含む）
     """
@@ -1063,13 +1044,11 @@ def save_results(
     output_dir: str = "qa_output"
 ) -> Dict[str, str]:
     """結果をファイルに保存
-
     Args:
         qa_pairs: Q/Aペアリスト
         coverage_results: カバレージ分析結果
         dataset_type: データセットタイプ
         output_dir: 出力ディレクトリ
-
     Returns:
         保存したファイルパス
     """

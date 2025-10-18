@@ -1,0 +1,37 @@
+{
+  "total_qa_pairs": 4,
+  "generation_methods": {
+    "rule_based": 1,
+    "template_based": 3,
+    "llm_based": 0
+  },
+  "qa_pairs": [
+    {
+      "question": "RAGシステムは何と呼ばれますか？",
+      "answer": "、Retrieval-Augmented Generationの略で、検索拡張生成と呼ばれます。",
+      "type": "terminology",
+      "confidence": 0.85
+    },
+    {
+      "question": "AIとは何ですか？",
+      "answer": "AIに関する情報は文書内で説明されています。",
+      "entity": "AI",
+      "type": "entity_based",
+      "confidence": 0.75
+    },
+    {
+      "question": "機械学習とは何ですか？",
+      "answer": "機械学習に関する情報は文書内で説明されています。",
+      "entity": "機械学習",
+      "type": "entity_based",
+      "confidence": 0.75
+    },
+    {
+      "question": "トランスフォーマーとは何ですか？",
+      "answer": "トランスフォーマーに関する情報は文書内で説明されています。",
+      "entity": "トランスフォーマー",
+      "type": "entity_based",
+      "confidence": 0.75
+    }
+  ]
+}

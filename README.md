@@ -8,8 +8,18 @@
 
 ## インストール
 
+- pip（従来）
 ```bash
 pip install -r requirements.txt
+```
+
+- uv（推奨・高速な環境同期）
+```bash
+# uv のインストール（例: macOS）
+brew install uv   # または公式インストーラ
+
+# 依存の同期（開発ツール含む）
+uv sync --all-groups
 ```
 
 ## セットアップ
@@ -74,7 +84,18 @@ streamlit run a50_rag_search_local_qdrant.py
 
 # サーバーの起動
 python server.py
+
+# uv 経由で実行する場合（依存解決と同時に実行）
+uv run python server.py
+uv run streamlit run old_code/a50_rag_search_local_qdrant.py
+uv run ruff check .
+uv run pytest -q --cov=rag_qa,helper_api,helper_rag --cov-report=term-missing --cov-fail-under=80
 ```
+
+## uv 導入のポイント
+- `pyproject.toml` と `uv.lock` による一貫した依存管理（`uv lock` で生成）
+- 初回セットアップは `uv sync --all-groups`、実行は `uv run ...` を利用
+- pip を継続利用する場合は `requirements.txt` もそのまま使用可能
 
 ## アーキテクチャ
 
@@ -137,5 +158,4 @@ graph TB
 ## ライセンス
 
 [ライセンス情報を追加してください]
-
 

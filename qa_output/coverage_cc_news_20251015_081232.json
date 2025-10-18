@@ -1,0 +1,314 @@
+{
+  "coverage_rate": 0.7941176470588235,
+  "covered_chunks": 27,
+  "total_chunks": 34,
+  "uncovered_chunks": [
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.5464797029596331,
+      "gap": 0.15352029704036685,
+      "text_preview": "Right: The pair post-snow scene in 2017 (in the same theater) Keep reading at dancemagazine. com...."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6773196458399765,
+      "gap": 0.022680354160023453,
+      "text_preview": "The team will be responsible for the day-to-day artistic needs of the company including scheduling, casting and conducting rehearsals. While there's no word yet on the length of their tenure, we'll co..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6225788350311412,
+      "gap": 0.07742116496885876,
+      "text_preview": "dance shoes Looking for your next audition shoe? Shot at and in collaboration with Broadway Dance Center, Só Dança has launched a new collection of shoes working with some pretty famous faces of the m..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6426705647516273,
+      "gap": 0.05732943524837264,
+      "text_preview": "In general I would say the time that I've had onstage with some of my friends and dancing partners has been so special. It's one thing to be a friend with someone and another to also share the stage w..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6648838732437666,
+      "gap": 0.03511612675623332,
+      "text_preview": "Did you always know that you wanted to stay on with the company? It had been in the back of my mind for a number of years, but I didn't really address it formally until a year ago. I spoke to Peter (M..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6917228965543722,
+      "gap": 0.00827710344562771,
+      "text_preview": "Upper levels are split to keep class size small—around eight students per class. Teachers correct individual students—usually only the best ones, positioned front and center—using the terms \"not good\"..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6716582363372701,
+      "gap": 0.02834176366272989,
+      "text_preview": "Isabella Boylston and James Whiteside Get Hilariously Candid Though American Ballet Theatre principals James Whiteside and Isabella Boylston have long displayed their envy-worthy friendship on Instagr..."
+    }
+  ],
+  "max_similarities": [
+    0.8258364458871014,
+    0.5464797029596331,
+    0.8605818256331588,
+    0.6773196458399765,
+    0.8779264551840784,
+    0.6225788350311412,
+    0.7875811873205106,
+    0.7242234865983517,
+    0.6426705647516273,
+    0.6648838732437666,
+    0.7128700919519229,
+    0.7653703038741915,
+    0.8889696649432266,
+    0.8131213842673519,
+    0.867896117319938,
+    0.7825830219283716,
+    0.81603131717066,
+    0.8150685791624466,
+    0.8941221714645744,
+    0.7765807045739674,
+    0.7007183832921662,
+    0.7987001311050972,
+    0.7152027907628773,
+    0.7592603703518153,
+    0.8251649077017829,
+    0.8006258446116487,
+    0.6917228965543722,
+    0.7555351544876836,
+    0.8004953523131417,
+    0.815933426373199,
+    0.7538060307255254,
+    0.764802752996661,
+    0.6716582363372701,
+    0.7580248349767208
+  ],
+  "threshold": 0.7,
+  "multi_threshold": {
+    "strict": {
+      "threshold": 0.8,
+      "covered_chunks": 13,
+      "coverage_rate": 0.38235294117647056,
+      "uncovered_count": 21,
+      "uncovered_chunks": [
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5464797029596331,
+          "gap": 0.25352029704036694
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6773196458399765,
+          "gap": 0.12268035416002354
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6225788350311412,
+          "gap": 0.17742116496885885
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7875811873205106,
+          "gap": 0.01241881267948941
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7242234865983517,
+          "gap": 0.07577651340164837
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6426705647516273,
+          "gap": 0.15732943524837273
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6648838732437666,
+          "gap": 0.1351161267562334
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7128700919519229,
+          "gap": 0.08712990804807719
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7653703038741915,
+          "gap": 0.03462969612580857
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7825830219283716,
+          "gap": 0.017416978071628453
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7765807045739674,
+          "gap": 0.023419295426032605
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7007183832921662,
+          "gap": 0.09928161670783386
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7987001311050972,
+          "gap": 0.0012998688949028558
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.7152027907628773,
+          "gap": 0.08479720923712275
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7592603703518153,
+          "gap": 0.04073962964818478
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6917228965543722,
+          "gap": 0.1082771034456278
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7555351544876836,
+          "gap": 0.04446484551231644
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.7538060307255254,
+          "gap": 0.04619396927447461
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.764802752996661,
+          "gap": 0.03519724700333904
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6716582363372701,
+          "gap": 0.12834176366272998
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7580248349767208,
+          "gap": 0.04197516502327925
+        }
+      ]
+    },
+    "standard": {
+      "threshold": 0.7,
+      "covered_chunks": 27,
+      "coverage_rate": 0.7941176470588235,
+      "uncovered_count": 7,
+      "uncovered_chunks": [
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5464797029596331,
+          "gap": 0.15352029704036685
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6773196458399765,
+          "gap": 0.022680354160023453
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6225788350311412,
+          "gap": 0.07742116496885876
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6426705647516273,
+          "gap": 0.05732943524837264
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6648838732437666,
+          "gap": 0.03511612675623332
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6917228965543722,
+          "gap": 0.00827710344562771
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6716582363372701,
+          "gap": 0.02834176366272989
+        }
+      ]
+    },
+    "lenient": {
+      "threshold": 0.6,
+      "covered_chunks": 33,
+      "coverage_rate": 0.9705882352941176,
+      "uncovered_count": 1,
+      "uncovered_chunks": [
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5464797029596331,
+          "gap": 0.05352029704036687
+        }
+      ]
+    }
+  },
+  "chunk_analysis": {
+    "by_length": {
+      "medium": {
+        "count": 27,
+        "covered": 23,
+        "avg_similarity": 0.7733945444803004,
+        "coverage_rate": 0.8518518518518519
+      },
+      "short": {
+        "count": 5,
+        "covered": 2,
+        "avg_similarity": 0.6848604642189529,
+        "coverage_rate": 0.4
+      },
+      "long": {
+        "count": 2,
+        "covered": 2,
+        "avg_similarity": 0.8341957348165399,
+        "coverage_rate": 1.0
+      }
+    },
+    "by_position": {
+      "beginning": {
+        "count": 12,
+        "covered": 7,
+        "avg_similarity": 0.7256935348562884,
+        "coverage_rate": 0.5833333333333334
+      },
+      "middle": {
+        "count": 11,
+        "covered": 11,
+        "avg_similarity": 0.8062722059991525,
+        "coverage_rate": 1.0
+      },
+      "end": {
+        "count": 11,
+        "covered": 9,
+        "avg_similarity": 0.7633663461299837,
+        "coverage_rate": 0.8181818181818182
+      }
+    },
+    "summary": {
+      "total_chunks": 34,
+      "total_qa_pairs": 96,
+      "threshold_used": 0.7,
+      "insights": [
+        "shortチャンクのカバレージが低い（40.0%）",
+        "文書beginning部分のカバレージが低い（58.3%）"
+      ]
+    }
+  },
+  "dataset_type": "cc_news",
+  "optimal_thresholds": {
+    "strict": 0.8,
+    "standard": 0.7,
+    "lenient": 0.6
+  }
+}

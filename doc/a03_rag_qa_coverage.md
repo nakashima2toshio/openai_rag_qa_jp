@@ -5,393 +5,564 @@
 1. [概要](#1-概要)
    - 1.1 [目的](#11-目的)
    - 1.2 [主要機能](#12-主要機能)
-   - 1.3 [アーキテクチャ概要](#13-アーキテクチャ概要)
-2. [SemanticCoverageクラス](#2-semanticcoverageクラス)
-   - 2.1 [初期化](#21-初期化)
-   - 2.2 [セマンティックチャンク作成](#22-セマンティックチャンク作成)
-   - 2.3 [埋め込み生成](#23-埋め込み生成)
-   - 2.4 [コサイン類似度計算](#24-コサイン類似度計算)
-3. [QAGenerationConsiderationsクラス](#3-qagenerationconsiderationsクラス)
-   - 3.1 [文書特性分析](#31-文書特性分析)
-   - 3.2 [Q/A要件定義](#32-qa要件定義)
-4. [LLMベースQ/A生成](#4-llmベースqa生成)
-   - 4.1 [LLMBasedQAGeneratorクラス](#41-llmbasedqageneratorクラス)
-   - 4.2 [基本Q/A生成](#42-基本qa生成)
-   - 4.3 [多様なQ/A生成](#43-多様なqa生成)
-5. [Chain-of-Thought Q/A生成](#5-chain-of-thought-qa生成)
-   - 5.1 [ChainOfThoughtQAGeneratorクラス](#51-chainofthoughtqageneratorクラス)
-   - 5.2 [推論過程付きQ/A生成](#52-推論過程付きqa生成)
-6. [ルールベースQ/A生成](#6-ルールベースqa生成)
-   - 6.1 [RuleBasedQAGeneratorクラス](#61-rulebasedqageneratorクラス)
-   - 6.2 [定義文抽出](#62-定義文抽出)
-   - 6.3 [事実情報抽出](#63-事実情報抽出)
-   - 6.4 [列挙抽出](#64-列挙抽出)
-7. [テンプレートベースQ/A生成](#7-テンプレートベースqa生成)
-   - 7.1 [TemplateBasedQAGeneratorクラス](#71-templatebasedqageneratorクラス)
-   - 7.2 [テンプレート定義](#72-テンプレート定義)
-   - 7.3 [エンティティベース生成](#73-エンティティベース生成)
-8. [ハイブリッドQ/A生成](#8-ハイブリッドqa生成)
-   - 8.1 [HybridQAGeneratorクラス](#81-hybridqageneratorクラス)
-   - 8.2 [包括的生成パイプライン](#82-包括的生成パイプライン)
-   - 8.3 [品質検証](#83-品質検証)
-9. [高度なQ/A生成技術](#9-高度なqa生成技術)
-   - 9.1 [敵対的Q/A生成](#91-敵対的qa生成)
-   - 9.2 [マルチホップQ/A生成](#92-マルチホップqa生成)
-   - 9.3 [反事実的Q/A生成](#93-反事実的qa生成)
-10. [Q/A生成最適化](#10-qa生成最適化)
-    - 10.1 [QAGenerationOptimizerクラス](#101-qagenerationoptimizerクラス)
-    - 10.2 [カバレッジ最適化戦略](#102-カバレッジ最適化戦略)
-    - 10.3 [適応的生成](#103-適応的生成)
-11. [チェックリストとベストプラクティス](#11-チェックリストとベストプラクティス)
-    - 11.1 [Q/A生成チェックリスト](#111-qa生成チェックリスト)
-    - 11.2 [品質基準](#112-品質基準)
-12. [使用例とワークフロー](#12-使用例とワークフロー)
-    - 12.1 [基本的な使用例](#121-基本的な使用例)
-    - 12.2 [高度な使用例](#122-高度な使用例)
+   - 1.3 [8つの生成手法の概要](#13-8つの生成手法の概要)
+2. [アーキテクチャ](#2-アーキテクチャ)
+   - 2.1 [システム構成図](#21-システム構成図)
+   - 2.2 [主要コンポーネント](#22-主要コンポーネント)
+3. [Q/A生成手法の詳細](#3-qa生成手法の詳細)
+   - 3.1 [SemanticCoverage](#31-semanticcoverage)
+   - 3.2 [RuleBasedQAGenerator](#32-rulebasedqagenerator)
+   - 3.3 [TemplateBasedQAGenerator](#33-templatebasedqagenerator)
+   - 3.4 [LLMBasedQAGenerator](#34-llmbasedqagenerator)
+   - 3.5 [ChainOfThoughtQAGenerator](#35-chainofthoughtqagenerator)
+   - 3.6 [HybridQAGenerator](#36-hybridqagenerator)
+   - 3.7 [AdvancedQAGenerationTechniques](#37-advancedqagenerationtechniques)
+   - 3.8 [QAGenerationOptimizer](#38-qagenerationoptimizer)
+4. [8つの手法比較表](#4-8つの手法比較表)
+   - 4.1 [総合比較表](#41-総合比較表)
+   - 4.2 [OpenAI API利用比較](#42-openai-api利用比較)
+   - 4.3 [生成品質・特性比較](#43-生成品質特性比較)
+5. [処理フロー](#5-処理フロー)
+   - 5.1 [メイン処理フロー](#51-メイン処理フロー)
+   - 5.2 [カバレッジ分析フロー](#52-カバレッジ分析フロー)
+6. [結果保存](#6-結果保存)
+   - 6.1 [出力ファイル](#61-出力ファイル)
+   - 6.2 [統計情報](#62-統計情報)
+7. [実行方法](#7-実行方法)
+   - 7.1 [環境変数設定](#71-環境変数設定)
+   - 7.2 [実行コマンド](#72-実行コマンド)
+8. [依存関係](#8-依存関係)
+   - 8.1 [外部ライブラリ](#81-外部ライブラリ)
+   - 8.2 [内部モジュール](#82-内部モジュール)
+9. [パフォーマンスとコスト](#9-パフォーマンスとコスト)
+   - 9.1 [API呼び出しコスト](#91-api呼び出しコスト)
+   - 9.2 [実行時間](#92-実行時間)
+10. [注意事項・制約](#10-注意事項制約)
+    - 10.1 [制約事項](#101-制約事項)
+    - 10.2 [推奨設定](#102-推奨設定)
+11. [今後の改善案](#11-今後の改善案)
+    - 11.1 [機能拡張](#111-機能拡張)
+    - 11.2 [品質向上](#112-品質向上)
 
 ---
 
 ## 1. 概要
 
 ### 1.1 目的
-RAG（Retrieval-Augmented Generation）システムにおけるセマンティックカバレッジ測定とQ/A自動生成のための包括的なフレームワーク。文書からの意味的チャンク分割、埋め込み生成、コサイン類似度計算、そして複数の手法を組み合わせた高品質Q/A生成を提供。
-- SemanticCoverageは「文書の意味的チャンク分割→埋め込み生成→コサイン類似度算出」により、Q/Aがどこまで文書をカバーできている
-  かを評価する中核クラスです。
+セマンティックカバレッジ分析と8つの異なる手法によるQ/A生成を統合した包括的なQ/Aペア生成システム。各手法の特性を理解し、最適な組み合わせでRAGシステム用の高品質なQ/Aペアを生成する。
+
 ### 1.2 主要機能
+- **セマンティックカバレッジ分析**: 文書を意味的に分割し、Q/Aペアのカバレッジを測定
+- **多様な生成手法**: 8つの異なるアプローチでQ/A生成
+- **ハイブリッド統合**: 複数手法の結果を統合し品質検証
+- **カバレッジ最適化**: 埋め込みベクトルを使用した文書カバレッジ分析
+- **結果のエクスポート**: JSON形式での詳細な結果保存
 
-#### セマンティックカバレッジ測定
-- ✅ 文書の意味的チャンク分割
-- ✅ OpenAI埋め込みAPI連携
-- ✅ コサイン類似度計算
-- ✅ トピック連続性を考慮した最適化
+### 1.3 8つの生成手法の概要
 
-#### Q/A生成手法（5種類）
-- ✅ **LLMベース生成**: GPT-5-miniを使用した高品質Q/A
-- ✅ **Chain-of-Thought生成**: 推論過程付きQ/A
-- ✅ **ルールベース生成**: パターンマッチングによる確実なQ/A
-- ✅ **テンプレートベース生成**: エンティティ抽出とテンプレート適用
-- ✅ **ハイブリッド生成**: 複数手法の組み合わせ
+| No | 手法名 | 主な用途 | API使用 |
+|----|-------|---------|---------|
+| 1 | SemanticCoverage | 文書分析・カバレッジ測定 | ✅ (Embeddings) |
+| 2 | RuleBasedQAGenerator | 基本的な定義・事実のQ/A生成 | ❌ |
+| 3 | TemplateBasedQAGenerator | エンティティベースのQ/A生成 | ❌ |
+| 4 | LLMBasedQAGenerator | 多様で自然なQ/A生成 | ✅ (Chat/Responses) |
+| 5 | ChainOfThoughtQAGenerator | 推論過程付き高品質Q/A | ✅ (Chat) |
+| 6 | HybridQAGenerator | 複数手法の統合・品質検証 | ⚠️ (部分的) |
+| 7 | AdvancedQAGenerationTechniques | 敵対的・高度なQ/A生成 | ❌ (将来実装) |
+| 8 | QAGenerationOptimizer | カバレッジ最適化 | ✅ (Embeddings) |
 
-#### 高度な機能
-- ✅ 敵対的Q/A生成（システムテスト用）
-- ✅ マルチホップ推論Q/A
-- ✅ 反事実的Q/A（What-if シナリオ）
-- ✅ カバレッジ最適化戦略
-- ✅ 適応的生成アルゴリズム
+## 2. アーキテクチャ
 
-### 1.3 アーキテクチャ概要
+### 2.1 システム構成図
 
-```
-[文書入力]
-    ↓
-[SemanticCoverage]
-    ├── チャンク分割
-    ├── 埋め込み生成
-    └── 類似度計算
-    ↓
-[Q/A生成パイプライン]
-    ├── Phase 1: ルールベース生成（高信頼度）
-    ├── Phase 2: テンプレートベース生成（補完）
-    ├── Phase 3: LLM生成（ギャップ埋め）
-    └── Phase 4: 品質検証・改善
-    ↓
-[最適化・検証]
-    ├── カバレッジ分析
-    ├── 重複除去
-    ├── 矛盾検出
-    └── 品質スコアリング
-    ↓
-[Q/Aペア出力]
-```
+**処理フロー:**
 
-## 2. SemanticCoverageクラス
+1. サンプル文書テキスト入力
+2. SemanticCoverage: チャンク分割、埋め込み生成
+3. チェックリスト確認
+4. Q/A生成（複数手法並列実行可能）:
+   - RuleBasedQAGenerator: パターンマッチング
+   - TemplateBasedQAGenerator: テンプレート適用
+   - LLMBasedQAGenerator: OpenAI API使用
+   - ChainOfThoughtQAGenerator: OpenAI API (chat) 使用
+5. HybridQAGenerator: 統合、重複除去、品質検証
+6. AdvancedQAGenerationTechniques: 敵対的Q/A生成
+7. QAGenerationOptimizer: カバレッジ分析、最適化推奨
+8. 結果エクスポート: JSON出力、統計情報
 
-### 2.1 初期化
+### 2.2 主要コンポーネント
 
-```python
-class SemanticCoverage:
-    def __init__(self, embedding_model="text-embedding-3-small"):
-        self.embedding_model = embedding_model
-        self.client = OpenAI()
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
-```
+#### 2.2.1 データモデル（Pydantic）
+- **QAPair**: 個別Q/Aペアのデータモデル
+  - question: str - 質問文
+  - answer: str - 回答文
+  - question_type: str - 質問タイプ
+  - difficulty: str - 難易度
+  - source_span: str - ソーステキスト
 
-**パラメータ**:
-- embedding_model: 埋め込みモデル（デフォルト: "text-embedding-3-small"）
+- **QAPairsList**: Q/Aペアのリスト構造
+  - qa_pairs: List[QAPair] - Q/Aペアのリスト
 
-**属性**:
-- client: OpenAI APIクライアント
-- tokenizer: トークンカウンター（cl100k_base）
+#### 2.2.2 設定管理
+- サンプル文書テキスト（RAGシステムに関する日本語テキスト）
+- 埋め込みモデル: `text-embedding-3-small`
+- LLMモデル: `gpt-4o-mini`（デフォルト）
 
-### 2.2 セマンティックチャンク作成
 
-#### create_semantic_chunks(document: str, verbose: bool = True) -> List[Dict]
+## 3. Q/A生成手法の詳細
 
-**目的**: 文書を意味的に区切られたチャンクに分割
+### 3.1 SemanticCoverage
+### ----------------------
+SemanticCoverage クラスの詳細説明
 
-**処理フロー**:
+概要
 
-```
-1. 文単位分割
-   ↓
-   _split_into_sentences()
-   - 日本語・英語の文末記号で分割
-   - 正規表現: r'(?<=[。．.!?])\s*'
-   ↓
-2. トークンベースグループ化
-   ↓
-   max_tokens = 200
-   for sentence in sentences:
-       if current_tokens + sentence_tokens > max_tokens:
-           チャンク保存
-           新規チャンク開始
-       else:
-           current_chunk.append(sentence)
-   ↓
-3. トピック連続性調整
-   ↓
-   _adjust_chunks_for_topic_continuity()
-   - 短すぎるチャンク（< 2文）は前のチャンクとマージ
-   - マージ後のトークン数 < 300を条件
-   ↓
-4. チャンク返却
-```
+SemanticCoverageクラスは、文書のセマンティック（意味的）カバレッジを測定するためのクラスです。文書を意味的なチャンク（塊
+）に分割し、OpenAIの埋め込みモデルを使って各チャンクのベクトル表現を生成し、Q&Aペアがその文書をどの程度カバーしているか
+をコサイン類似度で評価します。
 
-**返却値構造**:
+主な用途
+
+- RAG（Retrieval-Augmented Generation）システムの評価
+- Q&Aデータセットの品質評価
+- 文書の意味的な分割と分析
+
+---
+処理の流れ
+
+1. 初期化 (__init__)
+ ↓
+2. 文書をセマンティックチャンクに分割 (create_semantic_chunks)
+ ↓
+3. 各チャンクの埋め込みベクトルを生成 (generate_embeddings)
+ ↓
+4. Q&Aペアの埋め込みベクトルを生成 (generate_embedding)
+ ↓
+5. コサイン類似度を計算してカバレッジを測定 (cosine_similarity)
+
+---
+内部関数の処理の流れと概要
+
+1. __init__(self, embedding_model="text-embedding-3-small") (984-994行)
+
+処理の流れ:
+1. 埋め込みモデル名を設定
+2. 環境変数からOpenAI APIキーを取得
+3. APIキーが有効ならOpenAIクライアントを初期化
+4. tiktokenトークナイザーを初期化
+
+概要: クラスの初期化。OpenAI APIクライアントとトークンカウンタを準備します。
+
+---
+2. create_semantic_chunks(self, document: str, verbose: bool = True) (996-1050行)
+
+処理の流れ:
+Step 1: _split_into_sentences() で文単位に分割
+ ↓
+Step 2: 文をトークン数が200以下になるようにグループ化
+ ↓
+Step 3: _adjust_chunks_for_topic_continuity() でチャンクを調整
+ ↓
+返り値: チャンクのリスト（各チャンクはID、テキスト、文リスト、開始/終了インデックスを含む辞書）
+
+概要: 文書を意味的なチャンクに分割します。文の境界を尊重し、最大200トークンのチャンクを作成します。
+
+重要ポイント:
+- 文の途中で分割しない（意味の断絶を防ぐ）
+- トークン制限（200トークン）を守る
+- トピックの連続性を考慮
+
+---
+3. _split_into_sentences(self, text: str) (1052-1058行)
+
+処理の流れ:
+1. 正規表現で日本語と英語の文末記号（。．.!?）で分割
+2. 空文字列を除去
+3. 前後の空白を削除
+
+概要: テキストを文単位に分割する内部関数。日本語・英語両対応。
+
+---
+4. _adjust_chunks_for_topic_continuity(self, chunks: List[Dict]) (1060-1080行)
+
+処理の流れ:
+for each chunk:
+  if chunk が短すぎる（2文未満）:
+      前のチャンクと結合可能かチェック
+      if 結合後も300トークン未満:
+          前のチャンクとマージ
+      else:
+          そのまま追加
+  else:
+      そのまま追加
+
+概要: 短すぎるチャンクを前のチャンクとマージして、トピックの連続性を保ちます。
+
+---
+5. generate_embeddings(self, doc_chunks: List[Dict]) (1082-1124行)
+
+処理の流れ:
+1. APIキーがない場合はゼロベクトルを返す
+2. チャンクを20個ずつバッチ処理
+3. for each batch:
+   - OpenAI APIで埋め込みベクトル生成
+   - L2正規化（コサイン類似度計算の最適化）
+   - エラー時はゼロベクトルを追加
+4. NumPy配列として返す
+
+概要: チャンクのリストから埋め込みベクトルを生成します。バッチ処理で効率化し、エラーハンドリングも実装。
+
+重要ポイント:
+- バッチサイズ20（OpenAI APIの制限考慮）
+- L2正規化でコサイン類似度計算を高速化
+- エラー時のフォールバック（ゼロベクトル）
+
+---
+6. generate_embedding(self, text: str) (1126-1141行)
+
+処理の流れ:
+1. APIキーがない場合はゼロベクトルを返す
+2. OpenAI APIで単一テキストの埋め込み生成
+3. L2正規化
+4. エラー時はゼロベクトルを返す
+
+概要: 単一テキスト（Q&Aペアなど）の埋め込みベクトルを生成します。
+
+---
+7. cosine_similarity(self, doc_emb: np.ndarray, qa_emb: np.ndarray) (1143-1165行)
+
+処理の流れ:
+1. ベクトルが正規化済みかチェック
+2. if 正規化済み:
+   内積で計算（高速）
+ else:
+   完全なコサイン類似度の式で計算
+3. ゼロ除算チェック
+4. 類似度を返す（-1.0 ~ 1.0）
+
+概要: 2つの埋め込みベクトル間のコサイン類似度を計算します。正規化済みなら内積で高速計算。
+
+重要ポイント:
+- 正規化済みベクトルは内積で計算可能
+- 範囲は[-1, 1]、1に近いほど類似
+- ゼロベクトルのエラーハンドリング
+
+---
+IPO（Input-Process-Output）分析
+
+全体の IPO
+
+| 項目      | 内容                                                     |
+|---------|--------------------------------------------------------|
+| Input   | 文書テキスト（str）、OpenAI APIキー（環境変数）                         |
+| Process | 文書のセマンティックチャンク分割 → 埋め込みベクトル生成 → 類似度計算                  |
+| Output  | チャンクリスト（List[Dict]）、埋め込みベクトル（np.ndarray）、類似度スコア（float） |
+
+---
+各関数の IPO
+
+1. __init__(embedding_model)
+
+| IPO | 内容                                           |
+|-----|----------------------------------------------|
+| I   | embedding_model (str), OPENAI_API_KEY (環境変数) |
+| P   | APIキー検証、OpenAIクライアント初期化、トークナイザー初期化           |
+| O   | 初期化済みのインスタンス（self.client, self.tokenizer）    |
+
+2. create_semantic_chunks(document, verbose)
+
+| IPO | 内容                                                                          |
+|-----|-----------------------------------------------------------------------------|
+| I   | document (str), verbose (bool)                                              |
+| P   | 文分割 → トークンカウント → チャンクグループ化 → トピック調整                                         |
+| O   | List[Dict] (各要素: id, text, sentences, start_sentence_idx, end_sentence_idx) |
+
+3. _split_into_sentences(text)
+
+| IPO | 内容                           |
+|-----|------------------------------|
+| I   | text (str)                   |
+| P   | 正規表現で文末記号分割 → 空文字列除去 → トリミング |
+| O   | List[str] (文のリスト)            |
+
+4. _adjust_chunks_for_topic_continuity(chunks)
+
+| IPO | 内容                                   |
+|-----|--------------------------------------|
+| I   | chunks (List[Dict])                  |
+| P   | 短いチャンクを前のチャンクとマージ判定 → 300トークン以下ならマージ |
+| O   | List[Dict] (調整後のチャンクリスト)             |
+
+5. generate_embeddings(doc_chunks)
+
+| IPO | 内容                                                |
+|-----|---------------------------------------------------|
+| I   | doc_chunks (List[Dict])                           |
+| P   | バッチ処理（20個ずつ） → OpenAI API呼び出し → L2正規化 → エラーハンドリング |
+| O   | np.ndarray (shape: [チャンク数, 1536])                 |
+
+6. generate_embedding(text)
+
+| IPO | 内容                                 |
+|-----|------------------------------------|
+| I   | text (str)                         |
+| P   | OpenAI API呼び出し → L2正規化 → エラーハンドリング |
+| O   | np.ndarray (shape: [1536])         |
+
+7. cosine_similarity(doc_emb, qa_emb)
+
+| IPO | 内容                                        |
+|-----|-------------------------------------------|
+| I   | doc_emb (np.ndarray), qa_emb (np.ndarray) |
+| P   | 正規化チェック → 内積 or 完全計算 → ゼロ除算チェック           |
+| O   | float (類似度スコア: -1.0 ~ 1.0)                |
+
+---
+データフロー図
+
+[文書テキスト]
+  ↓
+[create_semantic_chunks]
+  ├→ _split_into_sentences
+  ├→ トークンカウント & グループ化
+  └→ _adjust_chunks_for_topic_continuity
+  ↓
+[チャンクリスト]
+  ↓
+[generate_embeddings]
+  ├→ バッチ処理（20個ずつ）
+  ├→ OpenAI API呼び出し
+  └→ L2正規化
+  ↓
+[埋め込みベクトル配列]
+  ↓
+[cosine_similarity] ← [Q&Aペアの埋め込み]
+  ↓
+[類似度スコア]
+
+---
+使用例
+
+# 初期化
+coverage = SemanticCoverage(embedding_model="text-embedding-3-small")
+
+# 文書をチャンクに分割
+chunks = coverage.create_semantic_chunks(document_text)
+
+# チャンクの埋め込み生成
+doc_embeddings = coverage.generate_embeddings(chunks)
+
+# Q&Aペアの埋め込み生成
+qa_embedding = coverage.generate_embedding("日本の首都は?")
+
+# 類似度計算
+  similarity = coverage.cosine_similarity(doc_embeddings[0], qa_embedding)
+
+
+
+### ----------------------
+#### 概要
+文書を意味的にチャンク分割し、埋め込みベクトルを生成してQ/Aペアのカバレッジを測定する基盤クラス。
+
+#### 処理の流れ
+1. 文書テキスト入力
+2. 日本語・英語の文末記号で文分割
+3. トークン数を計算しながらチャンク構築（200トークン/チャンク）
+4. 短すぎるチャンクは前チャンクとマージ
+5. OpenAI Embeddings APIで埋め込み生成
+6. L2正規化でベクトルを正規化
+
+#### IPO (Input-Process-Output)
+
+**Input:**
+- `text`: str - 分析対象の文書テキスト
+- `embedding_model`: str - 埋め込みモデル名（デフォルト: "text-embedding-3-small"）
+- `verbose`: bool - 詳細ログ出力フラグ
+
+**Process:**
+- `create_semantic_chunks()`: 文書を意味的にチャンク分割
+- `generate_embeddings()`: チャンクのバッチ埋め込み生成
+- `generate_embedding()`: 単一テキストの埋め込み生成
+- `cosine_similarity()`: コサイン類似度計算
+
+**Output:**
 ```python
 [
     {
         "id": "chunk_0",
-        "text": "チャンクのテキスト",
-        "sentences": ["文1", "文2", ...],
+        "text": "RAGシステムは...",
+        "sentences": ["文1", "文2"],
         "start_sentence_idx": 0,
-        "end_sentence_idx": 3
+        "end_sentence_idx": 2
     },
     ...
 ]
 ```
 
-**重要ポイント**:
-1. **文の境界で分割**: 意味の断絶を防ぐ
-2. **トピックの変化を検出**: 連続性を考慮
-3. **適切なサイズを維持**: 埋め込みモデルの制限内（200トークン）
+#### 効果
+- ✅ **意味的一貫性**: 文を単位としてチャンク化するため、意味が途中で切れない
+- ✅ **カバレッジ測定**: Q/Aペアが文書をどれだけカバーしているか定量化
+- ✅ **埋め込み品質**: OpenAI Embeddings APIによる高品質なベクトル表現
 
-#### _split_into_sentences(text: str) -> List[str]
-**目的**: 文単位で分割（日本語対応）
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐⭐⭐ | 高速（API呼び出しは必要） |
+| 精度 | ⭐⭐⭐⭐⭐ | OpenAI Embeddings使用で高精度 |
+| コスト効率 | ⭐⭐⭐ | Embeddings API呼び出しコストあり |
+| 拡張性 | ⭐⭐⭐⭐⭐ | 他の手法の基盤として機能 |
 
-**正規表現パターン**:
+---
+
+### 3.2 RuleBasedQAGenerator
+
+#### 概要
+正規表現パターンマッチングにより、定義文・事実情報から確実にQ/Aペアを抽出する。
+
+#### 処理の流れ
+1. テキスト入力
+2. 定義文パターンマッチング（`〜とは〜である`）
+3. 呼称パターンマッチング（`〜は〜と呼ばれる`）
+4. 列挙パターンマッチング（`〜には、A、B、Cがある`）
+5. Q/Aペア生成（信頼度スコア付き）
+
+#### IPO (Input-Process-Output)
+
+**Input:**
+- `text`: str - 抽出対象のテキスト
+- `language`: str - 言語コード（"ja" or "en"）
+
+**Process:**
 ```python
-r'(?<=[。．.!?])\s*'
-```
-- 日本語: 。．!?
-- 英語: .!?
-- 後続の空白も削除
+# パターン1: 定義文
+pattern = r'([^。]+)とは([^。]+)(?:である|です)'
+matches = re.findall(pattern, text)
 
-**例**:
-```python
-text = "これは文1です。これは文2です。"
-sentences = ["これは文1です。", "これは文2です。"]
-```
-
-#### _adjust_chunks_for_topic_continuity(chunks: List[Dict]) -> List[Dict]
-**目的**: トピックの連続性を考慮してチャンクを調整
-
-**アルゴリズム**:
-```python
-for i, chunk in enumerate(chunks):
-    if i > 0 and len(chunk["sentences"]) < 2:
-        # 短すぎるチャンク
-        prev_chunk = adjusted_chunks[-1]
-        combined_text = prev_chunk["text"] + " " + chunk["text"]
-
-        if len(tokenizer.encode(combined_text)) < 300:
-            # マージ実行
-            prev_chunk["text"] = combined_text
-            prev_chunk["sentences"].extend(chunk["sentences"])
-            prev_chunk["end_sentence_idx"] = chunk["end_sentence_idx"]
-            continue
-
-    adjusted_chunks.append(chunk)
-```
-
-**条件**:
-- チャンク長 < 2文
-- マージ後トークン数 < 300
-
-### 2.3 埋め込み生成
-
-#### generate_embeddings(doc_chunks: List[Dict]) -> np.ndarray
-**目的**: チャンクのリストから埋め込みベクトルを生成
-
-**処理フロー**:
-```python
-embeddings = []
-batch_size = 20  # OpenAI API制限
-
-for i in range(0, len(doc_chunks), batch_size):
-    batch = doc_chunks[i:i + batch_size]
-    texts = [chunk["text"] for chunk in batch]
-
-    try:
-        response = self.client.embeddings.create(
-            model=self.embedding_model,
-            input=texts
-        )
-
-        for embedding_data in response.data:
-            embedding = np.array(embedding_data.embedding)
-            # L2正規化
-            embedding = embedding / np.linalg.norm(embedding)
-            embeddings.append(embedding)
-
-    except Exception as e:
-        # エラー時はゼロベクトル
-        for _ in batch:
-            embeddings.append(np.zeros(1536))
-
-return np.array(embeddings)
+for term, definition in matches:
+    qa_pairs.append({
+        "question": f"{term}とは何ですか？",
+        "answer": f"{term}とは{definition}です。",
+        "type": "definition",
+        "confidence": 0.9
+    })
 ```
 
-**重要ポイント**:
-1. **バッチ処理**: 20件ずつ処理（API効率化）
-2. **L2正規化**: コサイン類似度計算の高速化
-3. **エラーハンドリング**: ゼロベクトルで代替
-
-**埋め込み次元**: 1536（text-embedding-3-small）
-
-#### generate_embedding(text: str) -> np.ndarray
-**目的**: 単一テキストの埋め込み生成
-
-**処理**:
+**Output:**
 ```python
-try:
-    response = self.client.embeddings.create(
-        model=self.embedding_model,
-        input=text
-    )
-    embedding = np.array(response.data[0].embedding)
-    return embedding / np.linalg.norm(embedding)
-except Exception as e:
-    return np.zeros(1536)
-```
-
-### 2.4 コサイン類似度計算
-
-#### cosine_similarity(doc_emb: np.ndarray, qa_emb: np.ndarray) -> float
-**目的**: 2つのベクトル間のコサイン類似度を計算
-
-**最適化アルゴリズム**:
-```python
-# 正規化済みの場合は内積で計算
-if np.allclose(np.linalg.norm(doc_emb), 1.0) and \
-   np.allclose(np.linalg.norm(qa_emb), 1.0):
-    return float(np.dot(doc_emb, qa_emb))
-
-# 正規化されていない場合は完全な計算
-dot_product = np.dot(doc_emb, qa_emb)
-norm_doc = np.linalg.norm(doc_emb)
-norm_qa = np.linalg.norm(qa_emb)
-
-if norm_doc == 0 or norm_qa == 0:
-    return 0.0
-
-return float(dot_product / (norm_doc * norm_qa))
-```
-
-**計算式**:
-- 正規化済み: `similarity = dot(doc_emb, qa_emb)`
-- 未正規化: `similarity = dot(doc_emb, qa_emb) / (||doc_emb|| × ||qa_emb||)`
-
-**範囲**: [-1, 1]（1に近いほど類似）
-
-## 3. QAGenerationConsiderationsクラス
-
-### 3.1 文書特性分析
-
-#### analyze_document_characteristics(document) -> Dict
-**目的**: 文書の特性を多角的に分析
-
-**分析項目**:
-```python
-{
-    "document_type": self.detect_document_type(document),
-    # 技術文書、物語、レポート等
-
-    "complexity_level": self.assess_complexity(document),
-    # 専門性のレベル
-
-    "factual_density": self.measure_factual_content(document),
-    # 事実情報の密度
-
-    "structure": self.analyze_structure(document),
-    # 構造化の度合い
-
-    "language": self.detect_language(document),
-    # 言語と文体
-
-    "domain": self.identify_domain(document),
-    # ドメイン特定
-
-    "length": len(document.split()),
-    # 文書長
-
-    "ambiguity_level": self.assess_ambiguity(document)
-    # 曖昧さの度合い
-}
-```
-
-**用途**:
-- Q/A生成戦略の決定
-- 質問タイプの選択
-- 難易度レベルの設定
-
-### 3.2 Q/A要件定義
-
-#### define_qa_requirements() -> Dict
-**目的**: Q/A生成の要件を定義
-
-**返却値**:
-```python
-{
-    "purpose": ["評価", "学習", "検索テスト", "ユーザー支援"],
-
-    "question_types": [
-        "事実確認型",  # What/Who/When/Where
-        "理解確認型",  # Why/How
-        "推論型",     # What if/影響は
-        "要約型",     # 要点は何か
-        "比較型"      # 違いは何か
-    ],
-
-    "difficulty_levels": ["基礎", "中級", "上級", "専門家"],
-
-    "answer_formats": ["短答", "説明", "リスト", "段落"],
-
-    "coverage_targets": {
-        "minimum": 0.3,       # 最低限のカバレッジ
-        "optimal": 0.6,       # 最適なカバレッジ
-        "comprehensive": 0.8  # 包括的なカバレッジ
+[
+    {
+        "question": "RAGシステムとは何ですか？",
+        "answer": "RAGシステムとはRetrieval-Augmented Generationの略で、検索拡張生成と呼ばれます。",
+        "type": "definition",
+        "confidence": 0.9
     }
-}
+]
 ```
 
-## 4. LLMベースQ/A生成
+#### 効果
+- ✅ **確実性**: パターンマッチングによる100%再現性
+- ✅ **コスト**: API呼び出し不要
+- ✅ **高速**: 正規表現による高速処理
+- ⚠️ **カバレッジ**: パターンに一致する箇所のみ
 
-### 4.1 LLMBasedQAGeneratorクラス
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐⭐⭐⭐ | 非常に高速（API不要） |
+| 精度 | ⭐⭐⭐⭐ | パターン一致時は高精度 |
+| 多様性 | ⭐⭐ | パターン依存で限定的 |
+| コスト効率 | ⭐⭐⭐⭐⭐ | APIコストなし |
+| 依存性 | ⚠️ | spaCy日本語モデル必要 |
 
+---
+
+### 3.3 TemplateBasedQAGenerator
+
+#### 概要
+事前定義されたテンプレートとエンティティを組み合わせて構造化されたQ/Aペアを生成。
+
+#### 処理の流れ
+1. エンティティ抽出（手動指定または自動抽出）
+2. エンティティタイプ判定
+3. 対応するテンプレート選択
+4. テンプレートに変数を埋め込み
+5. Q/Aペア生成
+
+#### IPO (Input-Process-Output)
+
+**Input:**
+- `text`: str - 対象テキスト
+- `entities`: List[str] - エンティティリスト（例: ['AI', '機械学習', 'RAG']）
+
+**Process:**
 ```python
-class LLMBasedQAGenerator:
-    def __init__(self, model="gpt-4o"):
-        self.client = OpenAI()
-        self.model = model
+templates = {
+    "comparison": [
+        "{A}と{B}の違いは何ですか？",
+        "{A}と{B}の共通点は何ですか？"
+    ],
+    "characteristics": [
+        "{entity}の特徴は何ですか？",
+        "{entity}はどのように使用されますか？"
+    ]
+}
+
+for entity in entities:
+    template = select_template(entity_type)
+    qa = apply_template(template, entity, text)
+    qa_pairs.append(qa)
 ```
 
-### 4.2 基本Q/A生成
+**Output:**
+```python
+[
+    {
+        "question": "AIとは何ですか？",
+        "answer": "AIに関する情報は文書内で説明されています。",
+        "entity": "AI",
+        "type": "entity_based",
+        "confidence": 0.75
+    }
+]
+```
 
-#### generate_basic_qa(text: str, num_pairs: int = 5) -> List[Dict]
-**目的**: 基本的なQ/A生成
+#### 効果
+- ✅ **構造化**: 一貫した質問形式
+- ✅ **網羅性**: エンティティごとに生成
+- ✅ **カスタマイズ性**: テンプレート編集で柔軟に対応
+- ⚠️ **汎用性**: テンプレート設計次第
 
-**プロンプト構造**:
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐⭐⭐⭐ | 非常に高速 |
+| 精度 | ⭐⭐⭐ | テンプレート品質依存 |
+| 多様性 | ⭐⭐⭐ | テンプレート数に依存 |
+| コスト効率 | ⭐⭐⭐⭐⭐ | APIコストなし |
+| 保守性 | ⭐⭐⭐⭐ | テンプレート管理が必要 |
+
+---
+
+### 3.4 LLMBasedQAGenerator
+
+#### 概要
+OpenAI APIを使用して、多様で自然なQ/Aペアを生成する。
+
+#### 処理の流れ
+1. テキスト入力とQ/A数決定
+2. 言語別プロンプト構築
+3. OpenAI API呼び出し（responses.parse）
+4. JSON形式でQ/Aペア受信
+5. メタデータ付与
+
+#### IPO (Input-Process-Output)
+
+**Input:**
+- `text`: str - 対象テキスト
+- `num_pairs`: int - 生成するQ/A数
+- `model`: str - 使用モデル（デフォルト: "gpt-4o-mini"）
+
+**Process:**
 ```python
 prompt = f"""
 以下のテキストから{num_pairs}個の質問と回答のペアを生成してください。
@@ -402,102 +573,76 @@ prompt = f"""
 3. 質問の種類を多様にする（What/Why/How/When/Where）
 4. 回答は簡潔かつ正確にする
 
-テキスト：
-{text[:3000]}  # トークン制限のため切り詰め
+テキスト：{text[:3000]}
 
 出力形式（JSON）：
 {{
     "qa_pairs": [
         {{
-            "question": "質問文",
-            "answer": "回答文",
-            "question_type": "種類（factual/reasoning/summary等）",
-            "difficulty": "難易度（easy/medium/hard）",
-            "source_span": "回答の根拠となる元テキストの一部"
+            "question": "質問",
+            "answer": "回答",
+            "question_type": "factual/causal/comparative",
+            "difficulty": "basic/intermediate/advanced"
         }}
     ]
 }}
 """
-```
 
-**API呼び出し**:
-```python
-response = self.client.chat.completions.create(
-    model=self.model,
-    messages=[{"role": "user", "content": prompt}],
-    response_format={"type": "json_object"},
-    temperature=0.7
+response = client.responses.parse(
+    input=prompt,
+    model=model,
+    text_format=QAPairsResponse
 )
-
-return json.loads(response.choices[0].message.content)["qa_pairs"]
 ```
 
-**パラメータ**:
-- temperature: 0.7（多様性のバランス）
-- response_format: json_object（構造化出力）
-
-### 4.3 多様なQ/A生成
-
-#### generate_diverse_qa(text: str) -> List[Dict]
-**目的**: 多様な種類のQ/A生成
-
-**質問タイプ定義**:
+**Output:**
 ```python
-qa_types = {
-    "factual": "事実確認の質問（Who/What/When/Where）",
-    "causal": "因果関係の質問（Why/How）",
-    "comparative": "比較の質問（違い、類似点）",
-    "inferential": "推論が必要な質問",
-    "summary": "要約を求める質問",
-    "application": "応用・活用に関する質問"
-}
+[
+    {
+        "question": "RAGシステムの主な利点は何ですか？",
+        "answer": "外部知識ベースから関連情報を取得し、より正確な回答を生成できることです。",
+        "question_type": "factual",
+        "difficulty": "basic"
+    }
+]
 ```
 
-**処理フロー**:
-```python
-all_qa_pairs = []
+#### 効果
+- ✅ **多様性**: 様々な視点からの質問生成
+- ✅ **自然さ**: 人間らしい表現
+- ✅ **柔軟性**: プロンプト調整で出力制御
+- ⚠️ **コスト**: API呼び出しコストあり
 
-for qa_type, description in qa_types.items():
-    prompt = f"""
-    以下のテキストから「{description}」を2個生成してください。
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐⭐ | API応答時間に依存 |
+| 精度 | ⭐⭐⭐⭐ | モデル性能依存 |
+| 多様性 | ⭐⭐⭐⭐⭐ | 非常に多様な質問生成 |
+| コスト効率 | ⭐⭐ | API呼び出しコスト高 |
+| 再現性 | ⭐⭐⭐ | temperature設定で制御 |
 
-    テキスト：{text[:2000]}
+---
 
-    JSON形式で出力：
-    {{"qa_pairs": [...]}}
-    """
+### 3.5 ChainOfThoughtQAGenerator
 
-    response = self.client.chat.completions.create(
-        model=self.model,
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"}
-    )
+#### 概要
+LLMに推論過程を段階的に説明させながら、高品質なQ/Aペアを生成する。
 
-    qa_pairs = json.loads(response.choices[0].message.content)["qa_pairs"]
-    for qa in qa_pairs:
-        qa["question_type"] = qa_type
-    all_qa_pairs.extend(qa_pairs)
+#### 処理の流れ
+1. テキスト入力
+2. Chain-of-Thoughtプロンプト構築（5ステップ）
+3. OpenAI API呼び出し（chat + JSON mode）
+4. 分析結果とQ/Aペア受信
+5. 推論過程と信頼度スコア付与
 
-return all_qa_pairs
-```
+#### IPO (Input-Process-Output)
 
-**結果**: 各タイプ2個 × 6タイプ = 12個のQ/Aペア
+**Input:**
+- `text`: str - 対象テキスト
+- `model`: str - 使用モデル（デフォルト: "gpt-4o-mini"）
 
-## 5. Chain-of-Thought Q/A生成
-
-### 5.1 ChainOfThoughtQAGeneratorクラス
-
-```python
-class ChainOfThoughtQAGenerator:
-    """思考の連鎖を使った高品質Q/A生成"""
-```
-
-### 5.2 推論過程付きQ/A生成
-
-#### generate_with_reasoning(text: str) -> List[Dict]
-**目的**: 推論過程を含む高品質Q/A生成
-
-**プロンプト戦略**:
+**Process:**
 ```python
 prompt = f"""
 以下のテキストから質の高いQ/Aペアを生成します。
@@ -509,713 +654,283 @@ prompt = f"""
 ステップ4: テキストから正確な回答を抽出
 ステップ5: 質問と回答の妥当性を検証
 
-テキスト：
-{text}
+テキスト：{text}
 
-出力形式：
+必ずJSON形式で出力してください：
 {{
     "analysis": {{
         "main_topics": ["トピック1", "トピック2"],
         "key_concepts": ["概念1", "概念2"],
         "information_density": "high/medium/low"
     }},
-    "qa_pairs": [
-        {{
-            "question": "質問",
-            "answer": "回答",
-            "reasoning": "なぜこの質問が重要か",
-            "confidence": 0.95
-        }}
-    ]
+    "qa_pairs": [{{
+        "question": "質問",
+        "answer": "回答",
+        "reasoning": "なぜこの質問が重要か",
+        "confidence": 0.95
+    }}]
 }}
 """
 ```
 
-**API設定**:
-```python
-response = self.client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": prompt}],
-    response_format={"type": "json_object"},
-    temperature=0.3  # より確定的な出力のため低温
-)
-
-return json.loads(response.choices[0].message.content)
-```
-
-**特徴**:
-- 段階的思考プロセス
-- 分析結果を含む
-- 信頼度スコア付き
-- 推論の根拠を明示
-
-## 6. ルールベースQ/A生成
-
-### 6.1 RuleBasedQAGeneratorクラス
-
-```python
-class RuleBasedQAGenerator:
-    def __init__(self):
-        self.nlp = spacy.load("ja_core_news_lg")
-```
-
-**依存**: spaCy日本語モデル（ja_core_news_lg）
-
-### 6.2 定義文抽出
-
-#### extract_definition_qa(text: str) -> List[Dict]
-**目的**: 定義文からQ/A生成
-
-**パターン1**: 「〜とは〜である」
-```python
-pattern1 = r'([^。]+)とは([^。]+)(?:である|です)'
-matches = re.findall(pattern1, text)
-
-for term, definition in matches:
-    qa_pairs.append({
-        "question": f"{term.strip()}とは何ですか？",
-        "answer": f"{term.strip()}とは{definition.strip()}です。",
-        "type": "definition",
-        "confidence": 0.9
-    })
-```
-
-**パターン2**: 「〜は〜と呼ばれる」
-```python
-pattern2 = r'([^。]+)は([^。]+)と呼ばれ'
-matches = re.findall(pattern2, text)
-
-for subject, name in matches:
-    qa_pairs.append({
-        "question": f"{subject.strip()}は何と呼ばれますか？",
-        "answer": f"{name.strip()}と呼ばれます。",
-        "type": "terminology",
-        "confidence": 0.85
-    })
-```
-
-**例**:
-```
-入力: "機械学習とは、データから学習するアルゴリズムです。"
-出力:
-  question: "機械学習とは何ですか？"
-  answer: "機械学習とは、データから学習するアルゴリズムです。"
-```
-
-### 6.3 事実情報抽出
-
-#### extract_fact_qa(text: str) -> List[Dict]
-**目的**: 事実情報からQ/A生成
-
-**spaCy解析**:
-```python
-doc = self.nlp(text)
-
-for sent in doc.sents:
-    # 主語と動詞を含む文を対象
-    subjects = [token for token in sent if token.dep_ == "nsubj"]
-    verbs = [token for token in sent if token.pos_ == "VERB"]
-
-    if subjects and verbs:
-        # 日付を含む文
-        dates = [ent for ent in sent.ents if ent.label_ == "DATE"]
-        if dates:
-            qa_pairs.append({
-                "question": f"{subjects[0].text}はいつ{verbs[0].text}ましたか？",
-                "answer": f"{dates[0].text}です。",
-                "type": "temporal",
-                "confidence": 0.7
-            })
-
-        # 場所を含む文
-        locations = [ent for ent in sent.ents if ent.label_ in ["GPE", "LOC"]]
-        if locations:
-            qa_pairs.append({
-                "question": f"{subjects[0].text}はどこで{verbs[0].text}ますか？",
-                "answer": f"{locations[0].text}です。",
-                "type": "location",
-                "confidence": 0.7
-            })
-```
-
-**抽出対象エンティティ**:
-- DATE: 日付・時刻
-- GPE: 地政学的エンティティ（国・都市）
-- LOC: 場所
-
-### 6.4 列挙抽出
-
-#### extract_list_qa(text: str) -> List[Dict]
-**目的**: 列挙からQ/A生成
-
-**パターン**: 「〜には、A、B、Cがある」
-```python
-pattern = r'([^。]+)(?:には|に|では)、([^。]+(?:、[^。]+)+)が(?:ある|あります|含まれ|存在)'
-matches = re.findall(pattern, text)
-
-for topic, items in matches:
-    item_list = [item.strip() for item in items.split('、')]
-    qa_pairs.append({
-        "question": f"{topic.strip()}には何がありますか？",
-        "answer": f"{topic.strip()}には、{'、'.join(item_list)}があります。",
-        "type": "enumeration",
-        "items": item_list,
-        "confidence": 0.8
-    })
-```
-
-**例**:
-```
-入力: "機械学習には、教師あり学習、教師なし学習、強化学習があります。"
-出力:
-  question: "機械学習には何がありますか？"
-  answer: "機械学習には、教師あり学習、教師なし学習、強化学習があります。"
-  items: ["教師あり学習", "教師なし学習", "強化学習"]
-```
-
-## 7. テンプレートベースQ/A生成
-
-### 7.1 TemplateBasedQAGeneratorクラス
-
-```python
-class TemplateBasedQAGenerator:
-    def __init__(self):
-        self.templates = self._load_templates()
-```
-
-### 7.2 テンプレート定義
-
-#### _load_templates() -> Dict
-**目的**: 質問テンプレートの定義
-
-**テンプレート種類**:
+**Output:**
 ```python
 {
-    "comparison": [
-        "{A}と{B}の違いは何ですか？",
-        "{A}と{B}のどちらが{property}ですか？",
-        "{A}と{B}の共通点は何ですか？"
-    ],
-
-    "process": [
-        "{process}のプロセスを説明してください。",
-        "{process}にはどのようなステップがありますか？",
-        "{process}の最初のステップは何ですか？"
-    ],
-
-    "cause_effect": [
-        "{event}の原因は何ですか？",
-        "{cause}の結果として何が起こりますか？",
-        "なぜ{phenomenon}が発生するのですか？"
-    ],
-
-    "characteristics": [
-        "{entity}の特徴は何ですか？",
-        "{entity}の主な機能は何ですか？",
-        "{entity}はどのように使用されますか？"
-    ]
+    "analysis": {
+        "main_topics": ["RAG", "Qdrant", "OpenAI"],
+        "key_concepts": ["検索拡張生成", "ベクトルDB"],
+        "information_density": "high"
+    },
+    "qa_pairs": [{
+        "question": "RAGシステムの主な利点は何ですか？",
+        "answer": "外部知識ベースから関連情報を取得し、より正確な回答を生成できること",
+        "reasoning": "テキスト中で明示的に述べられている主要な利点",
+        "confidence": 0.92
+    }]
 }
 ```
 
-### 7.3 エンティティベース生成
+#### 効果
+- ✅ **品質**: 段階的思考による高品質Q/A
+- ✅ **説明可能性**: 推論過程が明示的
+- ✅ **信頼度**: スコアによる品質評価
+- ⚠️ **コスト**: 高い（プロンプトが長い）
 
-#### generate_from_entities(text: str, entities: List[Dict]) -> List[Dict]
-**目的**: 抽出されたエンティティからQ/A生成
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐ | 低速（複雑なプロンプト） |
+| 精度 | ⭐⭐⭐⭐⭐ | 非常に高精度 |
+| 多様性 | ⭐⭐⭐⭐ | 高い |
+| コスト効率 | ⭐ | 非常に高コスト |
+| 説明可能性 | ⭐⭐⭐⭐⭐ | reasoning付きで透明 |
 
-**エンティティタイプ別テンプレート**:
+---
+
+### 3.6 HybridQAGenerator
+
+#### 概要
+複数の生成手法（ルールベース、テンプレートベース、LLMベース）を統合し、品質検証を実施。
+
+#### 処理の流れ
+1. Phase 1: ルールベースQ/A生成（信頼度 >= 0.7 のみ採用）
+2. Phase 2: テンプレートベースQ/A生成（重複除去）
+3. Phase 3: LLM補完（カバーされていない領域を特定）
+4. Phase 4: 品質検証（妥当性・明確性・矛盾チェック）
+5. Phase 5: 統合・ソート（品質スコア順）
+
+#### IPO (Input-Process-Output)
+
+**Input:**
+- `text`: str - 対象テキスト
+- `target_count`: int - 目標Q/A数
+
+**Process:**
 ```python
-for entity in entities:
-    entity_type = entity['type']
-    entity_text = entity['text']
+# Phase 1: ルールベース
+rule_qas = rule_generator.extract_definition_qa(text)
+rule_qas += rule_generator.extract_fact_qa(text)
 
-    if entity_type == "PERSON":
-        questions = [
-            f"{entity_text}は誰ですか？",
-            f"{entity_text}は何をしましたか？",
-            f"{entity_text}の役割は何ですか？"
-        ]
+# Phase 2: テンプレートベース
+entities = extract_entities(text)
+template_qas = template_generator.generate_from_entities(entities, text)
 
-    elif entity_type == "ORG":
-        questions = [
-            f"{entity_text}はどのような組織ですか？",
-            f"{entity_text}の目的は何ですか？",
-            f"{entity_text}はいつ設立されましたか？"
-        ]
+# Phase 3: LLM補完
+covered_topics = analyze_coverage(rule_qas + template_qas)
+uncovered_count = target_count - len(rule_qas + template_qas)
+llm_qas = llm_generator.generate_diverse_qa(text, uncovered_count)
 
-    elif entity_type == "PRODUCT":
-        questions = [
-            f"{entity_text}とは何ですか？",
-            f"{entity_text}の用途は何ですか？",
-            f"{entity_text}の特徴は何ですか？"
-        ]
+# Phase 4: 品質検証
+all_qas = rule_qas + template_qas + llm_qas
+validated_qas = [qa for qa in all_qas if validate_qa(qa, text)]
 
-    # テキストから回答を探索
-    for question in questions:
-        answer = self.find_answer_in_text(text, entity_text, question)
-        if answer:
-            qa_pairs.append({
-                "question": question,
-                "answer": answer,
-                "entity": entity_text,
-                "type": "entity_based",
-                "confidence": 0.75
-            })
+# Phase 5: 統合・ソート
+final_qas = remove_duplicates(validated_qas)
+final_qas.sort(key=lambda x: x['quality_score'], reverse=True)
 ```
 
-## 8. ハイブリッドQ/A生成
-
-### 8.1 HybridQAGeneratorクラス
-
+**Output:**
 ```python
-class HybridQAGenerator:
-    def __init__(self):
-        self.llm_generator = LLMBasedQAGenerator()
-        self.rule_generator = RuleBasedQAGenerator()
-        self.template_generator = TemplateBasedQAGenerator()
-```
-
-### 8.2 包括的生成パイプライン
-
-#### generate_comprehensive_qa(text, target_count=20, quality_threshold=0.7) -> List[Dict]
-**目的**: 包括的なQ/A生成パイプライン
-
-**4フェーズ戦略**:
-
-```python
-# Phase 1: ルールベースで確実なQ/Aを生成
-print("Phase 1: ルールベース生成...")
-rule_based_qa = []
-rule_based_qa.extend(self.rule_generator.extract_definition_qa(text))
-rule_based_qa.extend(self.rule_generator.extract_fact_qa(text))
-rule_based_qa.extend(self.rule_generator.extract_list_qa(text))
-
-# 高信頼度のものだけを選択
-rule_based_qa = [qa for qa in rule_based_qa
-                 if qa.get('confidence', 0) >= quality_threshold]
-all_qa_pairs.extend(rule_based_qa)
-
-# Phase 2: テンプレートベースで補完
-print("Phase 2: テンプレートベース生成...")
-entities = self.extract_entities(text)
-template_qa = self.template_generator.generate_from_entities(text, entities)
-
-# 重複を除去
-template_qa = self.remove_duplicates(template_qa, all_qa_pairs)
-all_qa_pairs.extend(template_qa)
-
-# Phase 3: LLMで不足分を補完
-remaining_count = target_count - len(all_qa_pairs)
-if remaining_count > 0:
-    print(f"Phase 3: LLM生成（残り{remaining_count}個）...")
-
-    # カバーされていない領域を特定
-    uncovered_text = self.identify_uncovered_sections(text, all_qa_pairs)
-
-    llm_qa = self.llm_generator.generate_diverse_qa(uncovered_text)
-    llm_qa = llm_qa[:remaining_count]
-
-    all_qa_pairs.extend(llm_qa)
-
-# Phase 4: 品質検証と改善
-print("Phase 4: 品質検証...")
-validated_qa = self.validate_and_improve_qa(all_qa_pairs, text)
-
-return validated_qa
-```
-
-**フェーズ別特徴**:
-| フェーズ | 手法 | コスト | 信頼度 | 生成数目安 |
-|---------|------|--------|--------|----------|
-| Phase 1 | ルールベース | 無料 | 高 | 10件 |
-| Phase 2 | テンプレート | 無料 | 中 | 15件 |
-| Phase 3 | LLM | 有料 | 中〜高 | 20件 |
-| Phase 4 | 検証 | 無料 | - | フィルタ |
-
-### 8.3 品質検証
-
-#### validate_and_improve_qa(qa_pairs, source_text) -> List[Dict]
-**目的**: Q/Aペアの品質検証と改善
-
-**検証項目**:
-```python
-for qa in qa_pairs:
-    validations = {
-        "answer_found": self.verify_answer_in_text(
-            qa['answer'], source_text
-        ),
-        "question_clear": self.check_question_clarity(
-            qa['question']
-        ),
-        "no_contradiction": self.check_no_contradiction(
-            qa, validated_qa
-        ),
-        "appropriate_length": self.check_length_appropriateness(qa)
+[
+    {
+        "question": "質問",
+        "answer": "回答",
+        "source": "rule_based/template/llm",
+        "quality_score": 0.95,
+        "validation": {
+            "answer_found": True,
+            "question_clear": True,
+            "no_contradiction": True
+        }
     }
-
-    # すべての検証をパスしたものだけを採用
-    if all(validations.values()):
-        qa['validations'] = validations
-        qa['quality_score'] = self.calculate_quality_score(qa)
-        validated_qa.append(qa)
-
-# 品質スコアでソート
-validated_qa.sort(key=lambda x: x['quality_score'], reverse=True)
+]
 ```
 
-**検証基準**:
-1. **answer_found**: 回答がソーステキストに存在
-2. **question_clear**: 質問が明確で曖昧でない
-3. **no_contradiction**: 他のQ/Aと矛盾しない
-4. **appropriate_length**: 適切な長さ
+#### 効果
+- ✅ **総合品質**: 複数手法の長所を統合
+- ✅ **カバレッジ**: 高い文書カバレッジ
+- ✅ **信頼性**: 品質検証による保証
+- ⚠️ **複雑性**: 実装が複雑
 
-## 9. 高度なQ/A生成技術
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐⭐ | 中速（複数手法実行） |
+| 精度 | ⭐⭐⭐⭐⭐ | 非常に高精度 |
+| 多様性 | ⭐⭐⭐⭐⭐ | 非常に多様 |
+| コスト効率 | ⭐⭐⭐ | 中程度（LLM部分のみコスト） |
+| 総合品質 | ⭐⭐⭐⭐⭐ | 最高品質 |
 
-### 9.1 敵対的Q/A生成
+---
 
-#### generate_adversarial_qa(text, existing_qa) -> List[Dict]
-**目的**: システムを混乱させる質問の生成（テスト用）
+### 3.7 AdvancedQAGenerationTechniques
 
-**戦略**:
+#### 概要
+システムの堅牢性を評価するための高度なQ/A生成（敵対的、マルチホップ、反事実的）。
 
-1. **否定質問**:
+#### 処理の流れ
+1. 既存Q/Aペアの分析
+2. 敵対的Q/A生成（否定質問、文脈外質問）
+3. マルチホップ推論Q/A生成（複数情報の組み合わせ）
+4. 反事実的Q/A生成（"もし〜だったら"形式）
+
+#### IPO (Input-Process-Output)
+
+**Input:**
+- `text`: str - 対象テキスト
+- `existing_qa`: List[Dict] - 既存のQ/Aペア
+
+**Process:**
 ```python
+adversarial_qa = []
+
+# 1. 否定質問
 for qa in existing_qa[:5]:
     adversarial_qa.append({
         "question": qa['question'].replace("何ですか", "何ではありませんか"),
         "answer": f"{qa['answer']}ではないものを指します。",
         "type": "adversarial_negation"
     })
-```
 
-2. **文脈外質問**:
-```python
+# 2. 文脈外質問
 adversarial_qa.append({
     "question": "この文書に書かれていない情報は何ですか？",
     "answer": "文書には含まれていない情報です。",
     "type": "out_of_context"
 })
-```
 
-3. **曖昧な参照**:
-```python
+# 3. マルチホップ推論
+# 複数の事実を組み合わせた質問生成
+
+# 4. 反事実的質問
 adversarial_qa.append({
-    "question": "それは何を指していますか？",
-    "answer": "文脈により異なります。",
-    "type": "ambiguous_reference"
+    "question": "もし{concept}が存在しなかったら、どうなりますか？",
+    "answer": "代替手段として{alternative}が使われるでしょう。",
+    "type": "counterfactual"
 })
 ```
 
-### 9.2 マルチホップQ/A生成
-
-#### generate_multi_hop_qa(text: str) -> List[Dict]
-**目的**: マルチホップ推論が必要なQ/A生成
-
-**プロンプト例**:
+**Output:**
 ```python
-prompt = f"""
-以下のテキストから、複数の情報を組み合わせて答える必要がある質問を生成してください。
-
-例：
-- AがBである、BがCである → AとCの関係は？
-- XはYより大きい、YはZより大きい → X、Y、Zの順序は？
-
-テキスト：{text}
-
-JSON形式で3つ生成してください。
-"""
-```
-
-**特徴**:
-- 複数ステップの推論が必要
-- 情報の結合・統合が求められる
-- システムの高度な理解力をテスト
-
-### 9.3 反事実的Q/A生成
-
-#### generate_counterfactual_qa(text: str) -> List[Dict]
-**目的**: 反事実的Q/A（もし〜だったら）の生成
-
-**テンプレート**:
-```python
-counterfactual_templates = [
-    "もし{condition}でなかったら、{outcome}はどうなっていましたか？",
-    "{event}が起こらなかった場合、何が変わっていましたか？",
-    "{factor}が異なっていたら、結果はどう変わりますか？"
+[
+    {
+        "question": "RAGシステムは何ではありませんか？",
+        "answer": "単純な検索システムではありません。",
+        "type": "adversarial_negation",
+        "difficulty": "advanced"
+    },
+    {
+        "question": "もしベクトルデータベースがなかったら、RAGシステムはどう実装されますか？",
+        "answer": "従来のキーワード検索や全文検索に依存することになります。",
+        "type": "counterfactual",
+        "difficulty": "advanced"
+    }
 ]
 ```
 
-**用途**:
-- 因果関係の理解テスト
-- 推論能力の評価
-- What-ifシナリオ分析
+#### 効果
+- ✅ **堅牢性テスト**: システムの限界を評価
+- ✅ **推論能力評価**: 複雑な推論が必要
+- ✅ **エッジケース**: 通常の質問では見つからない問題発見
+- ⚠️ **実用性**: 特定の評価目的向け
 
-## 10. Q/A生成最適化
-
-### 10.1 QAGenerationOptimizerクラス
-
-```python
-class QAGenerationOptimizer:
-    """Q/A生成の最適化"""
-```
-
-### 10.2 カバレッジ最適化戦略
-
-#### optimize_for_coverage(text, budget) -> Dict
-**目的**: カバレッジを最大化する生成戦略
-
-**5フェーズ戦略**:
-```python
-strategy = {
-    "phase1": {
-        "method": "rule_based",
-        "target": "high_confidence_facts",
-        "cost": 0,
-        "expected_qa": 10
-    },
-    "phase2": {
-        "method": "template_based",
-        "target": "entities_and_concepts",
-        "cost": 0,
-        "expected_qa": 15
-    },
-    "phase3": {
-        "method": "llm_cheap",
-        "model": "gpt-3.5-turbo",
-        "target": "gap_filling",
-        "cost": budget * 0.3,
-        "expected_qa": 20
-    },
-    "phase4": {
-        "method": "llm_quality",
-        "model": "gpt-4o",
-        "target": "complex_reasoning",
-        "cost": budget * 0.5,
-        "expected_qa": 10
-    },
-    "phase5": {
-        "method": "human_validation",
-        "target": "quality_assurance",
-        "cost": budget * 0.2,
-        "expected_qa": "validation_only"
-    }
-}
-```
-
-**予算配分**:
-- Phase 3 (安価LLM): 30%
-- Phase 4 (高品質LLM): 50%
-- Phase 5 (人間検証): 20%
-
-### 10.3 適応的生成
-
-#### adaptive_generation(text, initial_qa) -> List[Dict]
-**目的**: 既存Q/Aを分析して適応的に生成
-
-**アルゴリズム**:
-```python
-# カバレッジ分析
-coverage_analysis = self.analyze_coverage(text, initial_qa)
-
-# 不足している質問タイプを特定
-missing_types = self.identify_missing_question_types(initial_qa)
-
-# ギャップを埋める新しいQ/A生成
-new_qa = []
-for missing_type in missing_types:
-    new_qa.extend(
-        self.generate_specific_type(text, missing_type, count=3)
-    )
-
-return new_qa
-```
-
-**適応ポイント**:
-1. カバレッジの低い領域を特定
-2. 不足する質問タイプを補完
-3. 難易度のバランスを調整
-
-## 11. チェックリストとベストプラクティス
-
-### 11.1 Q/A生成チェックリスト
-
-#### qa_generation_checklist() -> Dict
-
-```python
-{
-    "事前準備": [
-        "□ 文書の種類と特性を分析",
-        "□ 目的（評価/学習/テスト）を明確化",
-        "□ 必要なカバレッジレベルを設定",
-        "□ 予算とリソースを確認"
-    ],
-
-    "品質基準": [
-        "□ 回答がテキスト内に存在することを確認",
-        "□ 質問の明確性と曖昧さの排除",
-        "□ 質問タイプの多様性を確保",
-        "□ 難易度のバランスを調整"
-    ],
-
-    "技術選択": [
-        "□ ルールベースで基本的なQ/Aを生成",
-        "□ LLMで複雑な推論Q/Aを補完",
-        "□ ハイブリッドアプローチで最適化",
-        "□ 人間のレビューで品質保証"
-    ],
-
-    "評価と改善": [
-        "□ カバレッジ測定の実施",
-        "□ 重複と矛盾の検出",
-        "□ ユーザーフィードバックの収集",
-        "□ 継続的な改善サイクル"
-    ]
-}
-```
-
-### 11.2 品質基準
-
-| 基準 | 説明 | 閾値 |
-|-----|------|------|
-| 回答存在性 | 回答がソーステキストに存在 | 必須 |
-| 質問明確性 | 質問が明確で曖昧でない | 0.8以上 |
-| タイプ多様性 | 質問タイプの分散 | 各タイプ15%以上 |
-| 難易度バランス | 難易度レベルの分布 | 基礎:中級:上級 = 3:5:2 |
-| 信頼度 | 生成Q/Aの信頼度スコア | 0.7以上 |
-| カバレッジ | 文書のカバレッジ率 | 0.6以上（最適） |
-
-## 12. 使用例とワークフロー
-
-### 12.1 基本的な使用例
-
-#### セマンティックチャンク作成
-```python
-# 初期化
-coverage = SemanticCoverage(embedding_model="text-embedding-3-small")
-
-# 文書をチャンクに分割
-document = "長い文書テキスト..."
-chunks = coverage.create_semantic_chunks(document, verbose=True)
-
-# 埋め込み生成
-doc_embeddings = coverage.generate_embeddings(chunks)
-
-# Q/Aペアの埋め込み
-qa_text = "質問と回答のテキスト"
-qa_embedding = coverage.generate_embedding(qa_text)
-
-# 類似度計算
-similarity = coverage.cosine_similarity(doc_embeddings[0], qa_embedding)
-print(f"類似度: {similarity:.3f}")
-```
-
-#### LLMベースQ/A生成
-```python
-# 初期化
-generator = LLMBasedQAGenerator(model="gpt-4o")
-
-# 基本Q/A生成
-qa_pairs = generator.generate_basic_qa(text, num_pairs=5)
-
-# 多様なQ/A生成
-diverse_qa = generator.generate_diverse_qa(text)
-
-# 結果表示
-for qa in qa_pairs:
-    print(f"Q: {qa['question']}")
-    print(f"A: {qa['answer']}")
-    print(f"Type: {qa['question_type']}")
-    print("---")
-```
-
-### 12.2 高度な使用例
-
-#### ハイブリッド生成パイプライン
-```python
-# 初期化
-hybrid_gen = HybridQAGenerator()
-
-# 包括的Q/A生成
-qa_pairs = hybrid_gen.generate_comprehensive_qa(
-    text=document,
-    target_count=20,
-    quality_threshold=0.7
-)
-
-# 結果分析
-print(f"生成されたQ/A数: {len(qa_pairs)}")
-
-# 質問タイプ別集計
-type_counts = {}
-for qa in qa_pairs:
-    qa_type = qa.get('type', 'unknown')
-    type_counts[qa_type] = type_counts.get(qa_type, 0) + 1
-
-print("質問タイプ別集計:")
-for qa_type, count in type_counts.items():
-    print(f"  {qa_type}: {count}件")
-```
-
-#### カバレッジ最適化
-```python
-# 最適化戦略の取得
-optimizer = QAGenerationOptimizer()
-strategy = optimizer.optimize_for_coverage(text, budget=100)
-
-print("最適化戦略:")
-for phase, config in strategy.items():
-    print(f"{phase}:")
-    print(f"  手法: {config['method']}")
-    print(f"  コスト: {config['cost']}")
-    print(f"  期待Q/A数: {config['expected_qa']}")
-
-# 適応的生成
-initial_qa = generator.generate_basic_qa(text, num_pairs=10)
-additional_qa = optimizer.adaptive_generation(text, initial_qa)
-
-print(f"初期Q/A数: {len(initial_qa)}")
-print(f"追加Q/A数: {len(additional_qa)}")
-```
-
-#### Chain-of-Thought生成
-```python
-# CoT生成
-cot_gen = ChainOfThoughtQAGenerator()
-result = cot_gen.generate_with_reasoning(text)
-
-# 分析結果
-print("文書分析:")
-print(f"  主要トピック: {result['analysis']['main_topics']}")
-print(f"  重要概念: {result['analysis']['key_concepts']}")
-print(f"  情報密度: {result['analysis']['information_density']}")
-
-# Q/Aペア
-print("\nQ/Aペア:")
-for qa in result['qa_pairs']:
-    print(f"Q: {qa['question']}")
-    print(f"A: {qa['answer']}")
-    print(f"理由: {qa['reasoning']}")
-    print(f"信頼度: {qa['confidence']}")
-    print("---")
-```
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐⭐⭐ | 高速（現状ルールベース） |
+| 精度 | ⭐⭐⭐ | 評価用途では有効 |
+| 多様性 | ⭐⭐⭐⭐ | 高度な質問タイプ |
+| コスト効率 | ⭐⭐⭐⭐⭐ | APIコストなし（現状） |
+| 実装状態 | ⚠️ | 一部シミュレーション |
 
 ---
 
-## まとめ
+### 3.8 QAGenerationOptimizer
 
-本設計書では、RAGシステムにおけるセマンティックカバレッジ測定とQ/A自動生成の包括的なフレームワークを詳述しました。
+#### 概要
+生成されたQ/Aペアのカバレッジを分析し、最適化推奨を提供する。
 
-**主要コンポーネント**:
-1. **SemanticCoverage**: チャンク分割、埋め込み生成、類似度計算
-2. **LLMベース生成**: GPT-4oを活用した高品質Q/A
-3. **ルールベース生成**: パターンマッチングによる確実なQ/A
-4. **テンプレートベース生成**: エンティティ抽出とテンプレート適用
-5. **ハイブリッド生成**: 複数手法の最適な組み合わせ
+#### 処理の流れ
+1. 文書チャンクの埋め込み生成
+2. Q/Aペアの埋め込み生成（質問+回答を結合）
+3. カバレッジ計算（コサイン類似度 >= 0.7）
+4. カバーされていないチャンクの特定
+5. 追加Q/A生成の推奨
 
-**推奨ワークフロー**:
-1. 文書特性分析 → 適切な手法選択
-2. Phase 1: ルールベース（無料、高信頼度）
-3. Phase 2: テンプレート（無料、補完）
-4. Phase 3: LLM（有料、ギャップ埋め）
-5. Phase 4: 品質検証・改善
+#### IPO (Input-Process-Output)
 
-このフレームワークにより、コスト効率と品質のバランスを取りながら、高カバレッジのQ/Aデータセットを構築できます。
+**Input:**
+- `analyzer`: SemanticCoverage - 分析器インスタンス
+- `chunks`: List[Dict] - 文書チャンク
+- `all_qas`: List[Dict] - 既存Q/Aペア
+
+**Process:**
+```python
+# 1. 文書チャンクの埋め込み生成
+doc_embeddings = analyzer.generate_embeddings(chunks)
+
+# 2. Q/Aペアの埋め込み生成
+qa_texts = [qa['question'] + ' ' + qa['answer'] for qa in all_qas]
+qa_embeddings = [analyzer.generate_embedding(text) for text in qa_texts]
+
+# 3. カバレッジ計算（閾値0.7）
+threshold = 0.7
+covered_chunks = set()
+
+for qa_emb in qa_embeddings:
+    for i, doc_emb in enumerate(doc_embeddings):
+        similarity = analyzer.cosine_similarity(doc_emb, qa_emb)
+        if similarity >= threshold:
+            covered_chunks.add(i)
+
+# 4. カバレッジ率計算
+coverage_rate = len(covered_chunks) / len(chunks)
+```
+
+**Output:**
+```
+✅ カバレッジ分析完了
+  総チャンク数: 5
+  カバーされたチャンク: 4
+  カバレッジ率: 80.0%
+  総Q/A数: 12
+
+💡 推奨: カバーされていないチャンクが1個あります
+   追加で2個程度のQ/Aペア生成を推奨します
+```
+
+#### 効果
+- ✅ **定量的分析**: 数値によるカバレッジ測定
+- ✅ **最適化推奨**: 具体的な改善提案
+- ✅ **ギャップ特定**: カバーされていない領域を明示
+- ⚠️ **コスト**: 埋め込み生成コストあり
+
+#### 評価
+| 項目 | 評価 | 備考 |
+|------|------|------|
+| 処理速度 | ⭐⭐⭐ | 中速（埋め込み生成） |
+| 精度 | ⭐⭐⭐⭐⭐ | 埋め込みベースで高精度 |
+| 有用性 | ⭐⭐⭐⭐⭐ | 具体的な改善指標 |
+| コスト効率 | ⭐⭐ | Embeddings APIコスト |
+| 実用性 | ⭐⭐⭐⭐⭐ | 継続的改善に有効 |
+

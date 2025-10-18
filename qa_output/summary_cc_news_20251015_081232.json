@@ -1,0 +1,14 @@
+{
+  "dataset_type": "cc_news",
+  "dataset_name": "CC-News英語ニュース",
+  "generated_at": "20251015_081232",
+  "total_qa_pairs": 96,
+  "coverage_rate": 0.7941176470588235,
+  "covered_chunks": 27,
+  "total_chunks": 34,
+  "files": {
+    "qa_json": "qa_output/qa_pairs_cc_news_20251015_081232.json",
+    "qa_csv": "qa_output/qa_pairs_cc_news_20251015_081232.csv",
+    "coverage": "qa_output/coverage_cc_news_20251015_081232.json"
+  }
+}

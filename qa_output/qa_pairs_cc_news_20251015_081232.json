@@ -1,0 +1,866 @@
+[
+  {
+    "question": "What is the surprising twist about Regina Willoughby's last season with Columbia City Ballet?",
+    "answer": "Her final season coincides with her 18-year-old daughter Melina's first season with the company, and they are performing together onstage.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Which roles do Regina and Melina perform in The Nutcracker this season?",
+    "answer": "Regina performs the Snow Queen, Melina is in the snow corps, and both appear in the Arabian divertissement.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How old is Regina and when will she retire from the stage?",
+    "answer": "Regina is 40 years old and will retire from the stage in March.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What do the two photographed captions (left and right) indicate about Regina and Melina's performances?",
+    "answer": "The left caption shows Regina and Melina post-snow scene in 2003, while the right caption shows the pair post-snow scene in the same theater in 2017.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_0_Daughter Duo is Dancing in The",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Why was an interim artistic leadership team appointed at New York City Ballet?",
+    "answer": "Peter Martins requested a temporary leave while the company conducts an internal investigation into sexual harassment accusations against him, prompting the appointment.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Who leads the interim artistic team at New York City Ballet and who are the other members?",
+    "answer": "The team is led by ballet master Jonathan Stafford and includes resident choreographer Justin Peck and ballet masters Craig Hall and Rebecca Krohn.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How is the interim team's close familiarity with the company expected to help the dancers?",
+    "answer": "Their familiarity is expected to ease the dancers' transition despite the group's limited leadership experience.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What day-to-day artistic responsibilities will the team be responsible for?",
+    "answer": "The team will handle scheduling, casting and conducting rehearsals for the company.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Is the length of the team's tenure known?",
+    "answer": "No — there is no word yet on how long their tenure will last.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_1_New York City Ballet Announces",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Why did Pennsylvania Ballet and Boston Ballet perform Super Bowl-themed choreography?",
+    "answer": "They performed to celebrate game day and to cheer on their region's respective NFL teams.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_2_Watch Pennsylvania Ballet & Bo",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What specific moves did the Pennsylvania Ballet dancers include in their Super Bowl routine?",
+    "answer": "The PAB dancers performed fouetté turns, sky-high jumps and swan arms.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_2_Watch Pennsylvania Ballet & Bo",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Which Boston Ballet artists starred in their Super Bowl video and what stylistic element did they add?",
+    "answer": "The video stars principal Paul Craig and soloist Derek Dunn, and Boston Ballet added some Balanchine tricks using props from Prodigal Son.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_2_Watch Pennsylvania Ballet & Bo",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How did Pennsylvania Ballet's presentation differ from Boston Ballet's in their Super Bowl clips?",
+    "answer": "Pennsylvania Ballet dressed in Eagles green for a fast-paced, technique-driven routine with bird-themed swan arms, while Boston Ballet featured principal dancers, used Prodigal Son props and incorporated Balanchine-style tricks.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_3_dance shoes",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How is the centered heel on the Só Dança audition shoes beneficial to dancers?",
+    "answer": "With the heel centered under the body the shoes provide increased confidence and stability for the dancer.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_3_dance shoes",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "When did Rebecca Krohn join New York City Ballet as an apprentice?",
+    "answer": "She joined NYCB as an apprentice in the fall of 1998.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "In what year did Krohn become a principal dancer with NYCB?",
+    "answer": "She became a principal dancer in 2012.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "For what style of ballets is Rebecca Krohn best known?",
+    "answer": "She is best known for her flawless execution of classic Balanchine leotard ballets.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What will Krohn do after her final performance with NYCB?",
+    "answer": "After her final performance she will return to the NYCB studios on Monday in a new role as a ballet master.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "At what age did Krohn move to New York and where did she train?",
+    "answer": "She moved to New York at 14 to train at the School of American Ballet.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Which ballets did Krohn name among her favorites to dance?",
+    "answer": "She named Balanchine's Stravinsky Violin Concerto, Movements for Piano and Orchestra, Agon, Robbins' Dances at a Gathering, and the Balanchine black-and-white ballets as favorites.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "How does Krohn describe the difference between being friends with someone and sharing the stage with them?",
+    "answer": "She says sharing the stage adds an amazing sense of trust and spontaneity that creates a deeper connection beyond ordinary friendship.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "Why did Krohn's relationship with the corps de ballet change as she advanced in rank?",
+    "answer": "As she became a soloist and then a principal, she wanted to be someone young dancers could look up to and to reach out to them with support and advice.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "How might Krohn's onstage experience and desire to support younger dancers apply to her role as a ballet master?",
+    "answer": "Her experience of strong onstage trust and her intent to mentor younger dancers suggest she will bring connection, guidance, and direct support to her work as a ballet master.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "When did she formally address the idea of staying with the company?",
+    "answer": "She formally addressed it about a year ago.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "Who did she speak to about her plans to stay and how did he react?",
+    "answer": "She spoke to Peter Martins, and he thought it was a great idea.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "What is she most looking forward to in her new role?",
+    "answer": "She looks forward to nurturing the dancers and their talents and carrying on the company's repertoire with new dancers for the future.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "Which ballet masters does she feel connected to and find inspiring?",
+    "answer": "She is very close to Karin von Aroldingen, whose undying passion inspires her, and she is also inspired by Susan Hendl.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "What qualities of Susan Hendl's teaching does she admire?",
+    "answer": "She admires Susan Hendl's talent for drawing out each dancer's unique qualities and femininity.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "What parts of her life outside ballet does she plan to cultivate now that she'll have more time?",
+    "answer": "She plans to visit museums more often, spend leisurely days off roaming the city for inspiration, cook more, and host more dinner parties.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "Why does she consider the discipline learned in ballet class important for young dancers?",
+    "answer": "She believes ballet's discipline is invaluable because it instills qualities that benefit a person whether they continue dancing or pursue other paths.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "How does she recommend young dancers approach each day?",
+    "answer": "She advises treating each day as a new start: begin fresh, stay positive, and move forward even when you don't feel your best or your body isn't cooperating.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "How do Karin von Aroldingen's and Susan Hendl's mentorship styles differ according to her?",
+    "answer": "Karin is noted for her undying passion for the pieces, while Susan is known for drawing out each dancer's unique qualities and femininity.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_4_Rebecca Krohn on Her Retiremen",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "Who will become Nevada Ballet Theatre's new artistic director?",
+    "answer": "Roy Kaiser will become Nevada Ballet Theatre's new artistic director.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_5_Roy Kaiser to Become Nevada Ba",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Whom is Roy Kaiser replacing as Nevada Ballet Theatre's artistic director?",
+    "answer": "He is replacing James Canfield.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_5_Roy Kaiser to Become Nevada Ba",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How many new ballets and world premieres did Pennsylvania Ballet add under Kaiser's leadership?",
+    "answer": "Pennsylvania Ballet added 90 new ballets and 35 world premieres under his leadership.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_5_Roy Kaiser to Become Nevada Ba",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What event will Kaiser immediately work on with Nevada Ballet Theatre upon his arrival?",
+    "answer": "He will work on the company's 10th Anniversary Celebration of A Choreographer's Showcase, a collaboration with Cirque du Soleil opening that weekend.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_5_Roy Kaiser to Become Nevada Ba",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Which works will be featured in the November Classic Americana program that references Kaiser's Balanchine roots?",
+    "answer": "The program will feature Balanchine's Serenade and Western Symphony, as well as Paul Taylor's Company B.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_5_Roy Kaiser to Become Nevada Ba",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Why have New York City Ballet dancers felt Peter Martins' absence most during dress rehearsals?",
+    "answer": "Because Martins routinely supervised final rehearsals before performances and often shared Balanchine-derived insights at those rehearsals, his absence is especially noticeable then.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_6_What It's Like Inside NYCB Aft",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What uncertainties did NYCB dancers face after Peter Martins' retirement?",
+    "answer": "Dancers were uncertain about who would become the new director, who would oversee Balanchine ballets and casting, whether they would have input, and whether a new director would cause major upheaval or job losses.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_6_What It's Like Inside NYCB Aft",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How will Kaiser's Balanchine background be reflected in NBT's programming?",
+    "answer": "NBT will reference his Balanchine roots by including Balanchine works such as Serenade and Western Symphony in the Classic Americana program.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_6_What It's Like Inside NYCB Aft",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How did Kaiser's career progression at Pennsylvania Ballet compare to his new position at Nevada Ballet Theatre?",
+    "answer": "At Pennsylvania Ballet he progressed from principal dancer to ballet master and became artistic director in 1995, whereas at Nevada Ballet Theatre he is stepping in as the company's fourth artistic director to lead the Las Vegas-based company.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_6_What It's Like Inside NYCB Aft",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Who wrote the original Nutcracker and Mouse King story and when was it written?",
+    "answer": "E. T. A. Hoffmann wrote the original \"Nutcracker and Mouse King\" in 1816.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How did Alexandre Dumas alter Hoffmann's Nutcracker when he adapted it?",
+    "answer": "About 30 years later Dumas lightened the tale, softened character descriptions, and changed the protagonist's name from Marie Stahlbaum to Clara Silberhaus.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "What symbolic meaning is attached to the name \"Marie Stahlbaum\" in Hoffmann's original tale?",
+    "answer": "\"Stahlbaum\" means \"steel tree,\" symbolizing the repressive family environment that helped drive Marie's imagination.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Who brought The Nutcracker to the Mariinsky Theatre in 1892, and who completed the choreography when the lead choreographer fell ill?",
+    "answer": "Choreographer Marius Petipa and composer Pyotr Ilyich Tchaikovsky staged it in 1892; Petipa fell ill and his assistant Lev Ivanov completed the choreography.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "How did critics respond to The Nutcracker's 1892 premiere at the Mariinsky Theatre?",
+    "answer": "Critics called the work uneven, lamented the lack of a principal ballerina in the first act, and felt the story was too light compared with historical ballets.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Why did The Nutcracker survive in spite of its poor initial reception in Russia?",
+    "answer": "The ballet endured largely because Pyotr Ilyich Tchaikovsky's score proved successful and sustained interest in the work.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "When and where did The Nutcracker first receive major exposure outside of Russia?",
+    "answer": "The Nutcracker's first major exposure outside Russia occurred in London in 1934.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "How were Petipa's original notations used to stage The Nutcracker at the Vic-Wells Ballet?",
+    "answer": "Former Mariinsky ballet master Nikolas Sergeyev worked from Petipa's original notation—which was incomplete and difficult to read—and persisted in staging the ballets for the Vic-Wells Ballet.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "How did The Nutcracker reach American audiences and what was the first full-length U.S. production?",
+    "answer": "The Ballet Russe de Monte Carlo brought an abridged Nutcracker to the U.S. in 1940, and Willam Christensen choreographed the first full-length U.S. Nutcracker in 1944.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "Which company did Christensen later found, and how is it connected to The Nutcracker?",
+    "answer": "Christensen later founded Ballet West, which continues to perform his version of The Nutcracker each year.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "Why do some historians credit George Balanchine with linking The Nutcracker to the Christmas season?",
+    "answer": "Balanchine staged the ballet for New York City Ballet and, after presenting it in February 1954, moved it to December the following year, making it a fixture of the Christmas season and company repertories.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "How did the growth of regional ballet companies affect The Nutcracker's presence in the United States?",
+    "answer": "As regional ballet companies sprouted around the country, The Nutcracker became a staple of their seasons, cementing its widespread popularity.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "Where is Christopher Wheeldon's Nutcracker for the Joffrey Ballet set?",
+    "answer": "Wheeldon's Nutcracker for the Joffrey Ballet is set at Chicago's 1893 World's Fair.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "How many tickets did San Francisco Ballet and Boston Ballet sell last year for their holiday Nutcracker productions?",
+    "answer": "San Francisco Ballet sold 87,926 tickets and Boston Ballet sold 92,907 tickets to the holiday ballet last year.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "Why do many companies infuse their Nutcracker productions with regional heritage?",
+    "answer": "Companies infuse regional heritage into The Nutcracker to attract audiences and keep the ballet connected to mainstream culture and local interest.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "Who choreographed the Candy Cane variation (Trepak) and what is notable about that choreographer?",
+    "answer": "The Candy Cane variation was choreographed by Alexandre Shiryaev, the original 1892 dancer who created the step and notated choreography in drawings.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "What instrument produces the ethereal twinkling sound in the Sugar Plum Fairy's solo, and where did Tchaikovsky first encounter it?",
+    "answer": "The celesta produces the twinkling sound in the Sugar Plum Fairy's solo, and Tchaikovsky heard this rare instrument in France.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "How did Alexandre Shiryaev document choreography, and how was this method significant?",
+    "answer": "Shiryaev notated his choreography in sequential hand-drawn drawings that could be projected to show the dance in movement, an approach likened to early hand-drawn animation.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "What budget was Balanchine given for his 1954 premiere and how much did he spend on the Christmas tree?",
+    "answer": "He was given a $40,000 budget and spent $25,000 on the Christmas tree.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_6",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 6
+  },
+  {
+    "question": "How much does New York City Ballet's tree weigh and how tall can it reach?",
+    "answer": "The tree weighs one ton and can reach a full height of 41 feet.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_6",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 6
+  },
+  {
+    "question": "Why did Balanchine respond '[The ballet] is the tree' when asked if he could do without the tree?",
+    "answer": "He meant the Christmas tree was central to the work—essentially equating the ballet itself with the tree.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_6",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 6
+  },
+  {
+    "question": "According to choreographic notations, how was the Cavalier's variation originally danced?",
+    "answer": "It was originally danced by a retinue of eight female fairies representing things like fruit, flowers, and dreams.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_7",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 7
+  },
+  {
+    "question": "In Balanchine's grand pas de deux, what move does the lead ballerina perform while being pulled by the prince?",
+    "answer": "She holds an arabesque while gliding across the stage on pointe, pulled by her prince.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_7",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 7
+  },
+  {
+    "question": "From whose choreography did Balanchine take the slide used in his grand pas de deux?",
+    "answer": "Balanchine took the slide from Ivanov's original choreography.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_7",
+    "doc_id": "cc_news_7_Nutcracker Secrets and Surpris",
+    "dataset_type": "cc_news",
+    "chunk_idx": 7
+  },
+  {
+    "question": "What was the Sugar Plum Fairy's prince's original name and what did that name likely refer to?",
+    "answer": "His original name was \"Prince Coqueluche,\" meaning \"whooping cough\" in French, and it likely referred to a lozenge candy.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "How many dance studios are at the Beijing Dance Academy and how do students work during class?",
+    "answer": "There are 60 spacious dance studios, and students work alone while teachers call out corrections from the front of the room.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "Why is Pei Yu Meng described as an example of a new kind of Chinese ballet student?",
+    "answer": "Because she combines a strong classical foundation and clean balletic lines with slithery coordination and laser-sharp focus, producing a polished dance quality.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  },
+  {
+    "question": "When and by whom was the Beijing Dance Academy (BDA) founded?",
+    "answer": "BDA was founded in 1954 by the country's communist government.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "Approximately how many students and full-time teachers does BDA have?",
+    "answer": "BDA has close to 3,000 students and about 275 full-time teachers.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "What are the four departments at BDA and what types of degrees does the school offer?",
+    "answer": "The four departments are ballet, classical Chinese dance, social dance and musical theater, and the school offers degrees in performance, choreography and more.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_1",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 1
+  },
+  {
+    "question": "How is the ballet program structured in terms of divisions and program length?",
+    "answer": "The ballet program has a lower division lasting seven years and a four-year professional bachelor program for the professional division.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "What does the BDA professional ballet audition process involve for applicants aged 16 to 18?",
+    "answer": "Hundreds of 16- to 18-year-olds audition over two days in Beijing, presenting classical and contemporary variations and improvisation, and taking an academic exam.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "Why does BDA rarely host international students despite admitting foreign applicants?",
+    "answer": "Because the academic entrance exam measures Chinese language proficiency and most classes are taught in Chinese, making it difficult for many international students.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_2",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 2
+  },
+  {
+    "question": "How has BDA's ballet training evolved in terms of stylistic emphasis since 2011?",
+    "answer": "While long known for a pristine Russian-style approach, since 2011 BDA has worked to broaden students' knowledge of Chinese dance traditions and works by Western contemporary ballet choreographers.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "How are elements of classical Chinese dance applied to complement ballet technique at BDA?",
+    "answer": "Classical Chinese dance emphasizes circular upper-body movements—for example, students circle their heads in a reverse renversé during an attitude promenade—to create a coordination that complements ballet technique.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "How does the daily schedule at BDA reflect its training methods and what are typical start and end times?",
+    "answer": "Students start with an early 8 am technique class taught in the strict Vaganova method emphasizing precise positions, and rehearsals and classes can continue and end as late as 9 pm.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_3",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 3
+  },
+  {
+    "question": "Where do BDA students live while studying and how do they view that place?",
+    "answer": "Students live on campus in dormitories and consider BDA their home until graduation.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "What is meant by 'Stage Time Performance' at BDA and why is it important?",
+    "answer": "Stage Time Performance refers to annual productions featuring classical, contemporary and student choreography, and it is the most important aspect of students' professional development.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "Why are BDA performances a primary opportunity for students to be discovered?",
+    "answer": "Because dancers rarely audition internationally, directors from nearby Chinese companies attend BDA performances to scout new talent.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_4",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 4
+  },
+  {
+    "question": "How is rehearsal conducted for La Bayadère, Act II, at BDA?",
+    "answer": "Rehearsals have no understudies, four coaches point out any imperfections, and every line, head, arm and foot placement is made precise.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "How do students use multiple run-throughs to build stamina and improve difficult sections?",
+    "answer": "They run the piece twice for stamina and between run-throughs fastidiously practice difficult sections until satisfied with the results.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "Which contemporary choreographers' works have BDA students performed, and who taught Over Glow to Pei Yu?",
+    "answer": "Students have performed works by Paul Taylor, Jorma Elo and Christopher Wheeldon; Pei Yu learned Over Glow from Jorma Elo himself.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "Why did introducing Western choreographers' works at BDA broaden Chinese dancers' overall abilities?",
+    "answer": "Because students initially struggled to move freely or adapt to new movement, but learning these styles over time opened their eyes to new possibilities and improved coordination.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_5",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 5
+  },
+  {
+    "question": "At what ages do BDA students typically enter professional life compared with Western students?",
+    "answer": "BDA students enter professional life somewhat older than in the West, with graduates typically ranging from 20 to 22 years old.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_6",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 6
+  },
+  {
+    "question": "How does BDA's emphasis on performances differ from focusing on competition preparation?",
+    "answer": "Performances encourage and develop the entire student body, whereas preparing competitors requires concentrated, individual attention on select students.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_6",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 6
+  },
+  {
+    "question": "What career paths do BDA graduates typically follow and which American companies employ notable alumni?",
+    "answer": "Most promising graduates get company contracts while others take teaching or dance-related posts; a small percentage work abroad, with alumni at American companies including San Francisco Ballet (Wei Wang, Wanting Zhao) and ABT (Zhiyao Zhang, Xuelan Lu).",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_6",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 6
+  },
+  {
+    "question": "Who has been a guest teacher at BDA since 2002 and was awarded a professorship in 2012?",
+    "answer": "Former Royal Danish Ballet artistic director Frank Andersen has been a guest teacher at BDA since 2002 and was awarded a professorship in 2012.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_7",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 7
+  },
+  {
+    "question": "Which Bournonville ballets have BDA students performed in?",
+    "answer": "BDA students have performed in Napoli's Act III, La Ventana and Conservatory, and some danced in the National Ballet of China's 2015 production of La Sylphide.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_7",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 7
+  },
+  {
+    "question": "Why does Frank Andersen stress making mime believable for young dancers?",
+    "answer": "Andersen stresses making mime believable because young dancers often have the urge to overact, and authenticity is most important.",
+    "question_type": "reason",
+    "source_chunk_id": "chunk_7",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 7
+  },
+  {
+    "question": "How is Bournonville technique taught at BDA when schedule allows?",
+    "answer": "When time allows there are Bournonville technique classes, but Andersen mainly teaches through repertoire and Danish mime.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_8",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 8
+  },
+  {
+    "question": "What does the speaker do when he can't describe what he wants with words?",
+    "answer": "He shows them, using gestures such as holding his hands toward his chest to indicate \"I.\"",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_8",
+    "doc_id": "cc_news_8_Inside the Beijing Dance Acade",
+    "dataset_type": "cc_news",
+    "chunk_idx": 8
+  },
+  {
+    "question": "How does the speaker compare showing to telling in the context of Bournonville's work?",
+    "answer": "He says showing can be more effective than telling because Bournonville's work is so honest.",
+    "question_type": "comparison",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_9_Isabella Boylston and James Wh",
+    "dataset_type": "cc_news",
+    "chunk_idx": "0-1"
+  },
+  {
+    "question": "What nickname do Isabella Boylston and James Whiteside use for each other?",
+    "answer": "They call each other the \"Cindies.\"",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_9_Isabella Boylston and James Wh",
+    "dataset_type": "cc_news",
+    "chunk_idx": "0-1"
+  },
+  {
+    "question": "While on tour at the Kennedy Center, which foods did Boylston and Whiteside say they love?",
+    "answer": "They discussed their mutual love of food, particularly pasta and Japanese curry.",
+    "question_type": "fact",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_9_Isabella Boylston and James Wh",
+    "dataset_type": "cc_news",
+    "chunk_idx": "0-1"
+  },
+  {
+    "question": "What creative project did Boylston say she dreams of choreographing on Whiteside?",
+    "answer": "Boylston said she dreams of choreographing an avant-garde ballet on Whiteside set to a Carly Rae Jepsen song.",
+    "question_type": "application",
+    "source_chunk_id": "chunk_0",
+    "doc_id": "cc_news_9_Isabella Boylston and James Wh",
+    "dataset_type": "cc_news",
+    "chunk_idx": "0-1"
+  }
+]

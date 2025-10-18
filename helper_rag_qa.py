@@ -1,0 +1,2275 @@
+#!/usr/bin/env python3
+"""
+RAG Q&A用ユーティリティモジュール
+キーワード抽出の最良選択とスマート選択機能を提供
+クラス一覧：
+BestKeywordSelector
+SmartKeywordSelector
+QAOptimizedExtractor
+"""
+
+from regex_mecab import KeywordExtractor
+from typing import List, Dict, Tuple, Optional, Any, Set
+import re
+import math
+import json
+import os
+from collections import defaultdict
+import numpy as np
+import tiktoken
+from openai import OpenAI
+from pydantic import BaseModel
+import spacy
+
+"""
+[キーワード抽出関連クラス]
+
+1. BestKeywordSelector - 3手法（MeCab/正規表現/統合版）から最良のキーワードを選択するクラス
+2. SmartKeywordSelector - テキスト特性に応じて最適なtop_nを自動決定してキーワードを抽出するクラス
+3. QAOptimizedExtractor - Q&Aペア生成に最適化されたキーワード抽出クラス（関係性抽出、難易度分類、文脈情報付与機能を含む）
+
+[セマンティックカバレッジ関連クラス]
+
+4. SemanticCoverage - 意味的な網羅性を測定するクラス（文書のセマンティックチャンク分割、埋め込みベクトル生成、コサイン類似度計算）
+5. QAGenerationConsiderations - Q/A生成前のチェックリストクラス（文書特性分析、Q/A要件定義、品質基準設定）
+
+[データモデル pydanticクラス]
+
+6. QAPair - Q/Aペアのデータモデル（Pydantic BaseModel）
+7. QAPairsList - Q/Aペアのリスト構造を定義（Pydantic BaseModel）
+
+[Q/A生成クラス]
+
+8. LLMBasedQAGenerator - LLM（GPT-5-mini）を使用したQ/A生成クラス（基本Q/A生成、多様な種類のQ/A生成）
+9. ChainOfThoughtQAGenerator -
+思考の連鎖（Chain-of-Thought）を使った高品質Q/A生成クラス（推論過程付きQ/A生成、信頼度スコア算出）
+10. RuleBasedQAGenerator - ルールベースのQ/A生成クラス（定義文抽出、事実情報抽出、列挙パターン抽出）
+11. TemplateBasedQAGenerator - テンプレートを使用したQ/A生成クラス（質問テンプレート管理、エンティティベースQ/A生成）
+12. HybridQAGenerator - 複数の手法を組み合わせた高度なQ/A生成クラス（包括的パイプライン、品質検証、重複除去）
+
+[高度なQ/A生成技術クラス]
+
+13. AdvancedQAGenerationTechniques - 高度なQ/A生成技術クラス（敵対的Q/A、マルチホップ推論Q/A、反事実的Q/A生成）
+14. QAGenerationOptimizer - Q/A生成の最適化クラス（カバレッジ最大化戦略、適応的生成、コスト最適化）
+
+
+"""
+class BestKeywordSelector:
+    """3手法から最良のキーワードを選択するクラス"""
+
+    def __init__(self, prefer_mecab: bool = True):
+        """
+        Args:
+            prefer_mecab: MeCabを優先的に使用するか
+        """
+        self.extractor = KeywordExtractor(prefer_mecab=prefer_mecab)
+
+        # 評価重み付け（調整可能）
+        self.weights = {
+            'coverage': 0.25,      # カバレージ率
+            'diversity': 0.15,     # 多様性
+            'technicality': 0.25,  # 専門性
+            'coherence': 0.20,     # 一貫性
+            'length_balance': 0.15 # 長さのバランス
+        }
+
+    def evaluate_keywords(self, keywords: List[str], text: str) -> Dict[str, float]:
+        """
+        キーワードセットの品質を多面的に評価
+
+        Args:
+            keywords: 評価対象のキーワードリスト
+            text: 元のテキスト
+
+        Returns:
+            評価指標の辞書
+        """
+        if not keywords:
+            return {metric: 0.0 for metric in self.weights.keys()}
+
+        metrics = {}
+
+        # 1. カバレージ率（キーワードがテキストに存在する割合）
+        coverage_count = sum(1 for kw in keywords if kw in text)
+        metrics['coverage'] = coverage_count / len(keywords)
+
+        # 2. 多様性（文字数の分散）
+        lengths = [len(kw) for kw in keywords]
+        avg_len = sum(lengths) / len(lengths)
+        if len(lengths) > 1:
+            variance = sum((l - avg_len) ** 2 for l in lengths) / (len(lengths) - 1)
+            # 適度な分散を評価（標準偏差2-4文字が理想）
+            std_dev = variance ** 0.5
+            metrics['diversity'] = min(1.0, (std_dev / 3.0) if std_dev < 3 else (6 - std_dev) / 3.0)
+        else:
+            metrics['diversity'] = 0.5
+
+        # 3. 専門性（カタカナ・英語・漢字複合語の割合）
+        technical_patterns = [
+            (r'^[ァ-ヴー]{3,}$', 1.0),      # カタカナ3文字以上
+            (r'^[A-Z]{2,}[A-Z0-9]*$', 1.2), # 英大文字（略語）
+            (r'^[一-龥]{4,}$', 0.9),        # 漢字4文字以上
+            (r'^[A-Za-z]+[A-Za-z0-9]*$', 0.8) # 英単語
+        ]
+
+        tech_score = 0
+        for kw in keywords:
+            kw_tech = 0
+            for pattern, weight in technical_patterns:
+                if re.match(pattern, kw):
+                    kw_tech = max(kw_tech, weight)
+            tech_score += kw_tech
+        metrics['technicality'] = min(1.0, tech_score / len(keywords))
+
+        # 4. 一貫性（キーワード間の関連性）
+        # 同じ文字を含むキーワードのペア数で評価
+        coherence_score = 0
+        for i, kw1 in enumerate(keywords):
+            for kw2 in keywords[i+1:]:
+                # 部分文字列の共有
+                if len(kw1) >= 2 and len(kw2) >= 2:
+                    if any(sub in kw2 for sub in [kw1[i:i+2] for i in range(len(kw1)-1)]):
+                        coherence_score += 1
+        max_pairs = len(keywords) * (len(keywords) - 1) / 2
+        metrics['coherence'] = coherence_score / max_pairs if max_pairs > 0 else 0
+
+        # 5. 長さのバランス（2-8文字が理想）
+        ideal_length_ratio = sum(1 for kw in keywords if 2 <= len(kw) <= 8) / len(keywords)
+        metrics['length_balance'] = ideal_length_ratio
+
+        return metrics
+
+    def calculate_total_score(self, metrics: Dict[str, float]) -> float:
+        """
+        評価指標から総合スコアを計算
+
+        Args:
+            metrics: 各評価指標の辞書
+
+        Returns:
+            総合スコア（0.0-1.0）
+        """
+        total = sum(metrics.get(metric, 0) * weight
+                   for metric, weight in self.weights.items())
+        return min(1.0, total)
+
+    def extract_best(self, text: str, top_n: int = 10,
+                     return_details: bool = False) -> Dict[str, Any]:
+        """
+        3つの手法で抽出し、最良の結果を選択
+
+        Args:
+            text: 分析対象テキスト
+            top_n: 抽出するキーワード数
+            return_details: 詳細情報を返すか
+
+        Returns:
+            最良のキーワードと選択理由
+        """
+        # 各手法で抽出
+        all_results = self.extractor.extract_with_details(text, top_n)
+
+        # 各手法の評価
+        evaluations = {}
+        for method, keywords_scores in all_results.items():
+            keywords = [kw for kw, _ in keywords_scores[:top_n]]
+
+            # 評価指標を計算
+            metrics = self.evaluate_keywords(keywords, text)
+            total_score = self.calculate_total_score(metrics)
+
+            evaluations[method] = {
+                'keywords': keywords,
+                'metrics': metrics,
+                'total_score': total_score,
+                'keyword_scores': keywords_scores[:top_n]
+            }
+
+        # 最良の手法を選択
+        best_method = max(evaluations.items(),
+                         key=lambda x: x[1]['total_score'])
+
+        result = {
+            'best_method': best_method[0],
+            'keywords': best_method[1]['keywords'],
+            'total_score': best_method[1]['total_score'],
+            'reason': self._generate_reason(best_method[0], evaluations)
+        }
+
+        if return_details:
+            result['all_evaluations'] = evaluations
+
+        return result
+
+    def _generate_reason(self, best_method: str,
+                        evaluations: Dict[str, Dict]) -> str:
+        """選択理由を生成"""
+        best_eval = evaluations[best_method]
+        metrics = best_eval['metrics']
+
+        # 最も優れた指標を特定
+        best_metric = max(metrics.items(), key=lambda x: x[1])
+
+        reasons = {
+            'coverage': 'テキストカバレージが最も高い',
+            'diversity': 'キーワードの多様性が優れている',
+            'technicality': '専門用語の抽出精度が高い',
+            'coherence': 'キーワード間の一貫性が優れている',
+            'length_balance': 'キーワード長のバランスが良い'
+        }
+
+        return f"{reasons.get(best_metric[0], '総合的に優れている')} (スコア: {best_eval['total_score']:.3f})"
+
+
+class SmartKeywordSelector(BestKeywordSelector):
+    """テキスト特性に応じた最適なキーワード抽出を行うクラス"""
+
+    def __init__(self, prefer_mecab: bool = True):
+        super().__init__(prefer_mecab=prefer_mecab)
+
+        # モード別のデフォルトtop_n
+        self.mode_defaults = {
+            "summary": 5,        # 要約・概要把握用
+            "standard": 10,      # 標準的な分析
+            "detailed": 15,      # 詳細分析
+            "exhaustive": 20,    # 網羅的抽出
+            "tag": 3,           # タグ付け用
+        }
+
+    def calculate_auto_top_n(self, text: str) -> Tuple[int, str]:
+        """
+        テキスト特性から最適なtop_nを自動計算
+
+        Returns:
+            (top_n, 判定理由)
+        """
+        # 基本メトリクス
+        text_length = len(text)
+        sentences = len(re.split(r'[。！？\.\!\?]+', text))
+
+        # 専門用語の密度を推定（カタカナ・英字・漢字複合語）
+        technical_pattern = r'[ァ-ヴー]{3,}|[A-Z]{2,}|[一-龥]{4,}'
+        technical_terms = len(re.findall(technical_pattern, text))
+        technical_density = technical_terms / (text_length / 100) if text_length > 0 else 0
+
+        # ルールベースの決定
+        if text_length < 100:
+            return 3, f"超短文（{text_length}文字）"
+        elif text_length < 300:
+            return 5, f"短文（{text_length}文字）"
+        elif text_length < 500:
+            base = 7
+            if technical_density > 2:
+                base += 2  # 専門用語が多い場合は増やす
+            return base, f"中文（{text_length}文字、専門用語密度: {technical_density:.1f}）"
+        elif text_length < 1000:
+            base = 10
+            if sentences > 10:
+                base += 2  # 文が多い場合は増やす
+            return base, f"標準文（{text_length}文字、{sentences}文）"
+        elif text_length < 2000:
+            return 15, f"長文（{text_length}文字）"
+        else:
+            # 非常に長い文書は対数的に増加
+            extra = int(math.log(text_length / 2000, 2))
+            return min(20 + extra, 30), f"超長文（{text_length}文字）"
+
+    def find_optimal_by_coverage(
+        self,
+        text: str,
+        target_coverage: float = 0.7,
+        min_n: int = 3,
+        max_n: int = 20
+    ) -> Tuple[int, float]:
+        """
+        目標カバレッジを達成する最小のtop_nを探索
+
+        Returns:
+            (最適なtop_n, 達成カバレッジ率)
+        """
+        best_n = min_n
+        best_coverage = 0
+
+        for n in range(min_n, max_n + 1):
+            # 3手法で抽出して最良を選択
+            result = self.extract_best(text, n, return_details=False)
+            keywords = result['keywords']
+
+            # カバレッジ計算（キーワードがカバーする文字数の割合）
+            covered_chars = 0
+            for keyword in keywords:
+                occurrences = text.count(keyword)
+                covered_chars += len(keyword) * occurrences
+
+            coverage = covered_chars / len(text) if len(text) > 0 else 0
+
+            if coverage >= target_coverage:
+                return n, coverage
+
+            best_coverage = coverage
+            best_n = n
+
+        # 目標に届かない場合は最大値を返す
+        return best_n, best_coverage
+
+    def find_optimal_by_diminishing_returns(
+        self,
+        text: str,
+        min_n: int = 3,
+        max_n: int = 20,
+        threshold: float = 0.05
+    ) -> Tuple[int, float, List[float]]:
+        """
+        収穫逓減の法則に基づいて最適なtop_nを決定
+
+        Args:
+            threshold: 改善率がこの値以下になったら停止
+
+        Returns:
+            (最適なtop_n, 最終スコア, 各nでのスコアリスト)
+        """
+        scores = []
+        previous_score = 0
+        optimal_n = min_n
+
+        for n in range(min_n, max_n + 1):
+            result = self.extract_best(text, n, return_details=False)
+            current_score = result['total_score']
+            scores.append(current_score)
+
+            if n > min_n:
+                improvement = current_score - previous_score
+                improvement_rate = improvement / previous_score if previous_score > 0 else 1
+
+                # 改善が閾値以下なら前の値が最適
+                if improvement_rate < threshold:
+                    optimal_n = n - 1
+                    break
+
+            previous_score = current_score
+            optimal_n = n
+
+        return optimal_n, scores[optimal_n - min_n], scores
+
+    def extract_best_auto(
+        self,
+        text: str,
+        mode: str = "auto",
+        min_keywords: int = 3,
+        max_keywords: int = 20,
+        target_coverage: float = 0.7,
+        return_analysis: bool = False
+    ) -> Dict[str, Any]:
+        """
+        自動的に最適なtop_nを決定してキーワード抽出
+
+        Args:
+            text: 分析対象テキスト
+            mode: 抽出モード
+                - "auto": テキスト長に基づく自動決定
+                - "summary": 要約用（5個）
+                - "standard": 標準（10個）
+                - "detailed": 詳細（15個）
+                - "coverage": カバレッジベース
+                - "diminishing": 収穫逓減ベース
+            min_keywords: 最小キーワード数
+            max_keywords: 最大キーワード数
+            target_coverage: カバレッジモードでの目標率
+            return_analysis: 分析詳細を返すか
+
+        Returns:
+            抽出結果と決定根拠
+        """
+        analysis = {
+            "mode": mode,
+            "text_length": len(text),
+            "sentence_count": len(re.split(r'[。！？\.\!\?]+', text))
+        }
+
+        # モードに応じてtop_nを決定
+        if mode == "auto":
+            top_n, reason = self.calculate_auto_top_n(text)
+            analysis["decision_reason"] = reason
+
+        elif mode in self.mode_defaults:
+            top_n = self.mode_defaults[mode]
+            analysis["decision_reason"] = f"固定値モード: {mode}"
+
+        elif mode == "coverage":
+            top_n, achieved_coverage = self.find_optimal_by_coverage(
+                text, target_coverage, min_keywords, max_keywords
+            )
+            analysis["decision_reason"] = f"カバレッジ {achieved_coverage:.1%} 達成"
+            analysis["target_coverage"] = target_coverage
+            analysis["achieved_coverage"] = achieved_coverage
+
+        elif mode == "diminishing":
+            top_n, final_score, score_progression = self.find_optimal_by_diminishing_returns(
+                text, min_keywords, max_keywords
+            )
+            analysis["decision_reason"] = f"収穫逓減点: n={top_n}"
+            analysis["score_progression"] = score_progression
+            analysis["final_score"] = final_score
+
+        else:
+            top_n = 10
+            analysis["decision_reason"] = "デフォルト値"
+
+        # 範囲制限
+        top_n = max(min_keywords, min(max_keywords, top_n))
+        analysis["selected_top_n"] = top_n
+
+        # 最良の手法でキーワード抽出
+        result = self.extract_best(text, top_n, return_details=True)
+
+        # 結果に分析情報を追加
+        result["optimization"] = analysis
+
+        if not return_analysis:
+            # 簡潔な結果のみ返す
+            return {
+                "keywords": result["keywords"],
+                "method": result["best_method"],
+                "top_n": top_n,
+                "mode": mode,
+                "reason": analysis["decision_reason"]
+            }
+
+        return result
+
+
+# エクスポート用の関数
+def get_best_keywords(text: str, top_n: int = 10, prefer_mecab: bool = True) -> List[str]:
+    """
+    テキストから最良のキーワードを抽出する簡易関数
+
+    Args:
+        text: 抽出対象のテキスト
+        top_n: 抽出するキーワード数
+        prefer_mecab: MeCabを優先するか
+
+    Returns:
+        キーワードのリスト
+    """
+    selector = BestKeywordSelector(prefer_mecab=prefer_mecab)
+    result = selector.extract_best(text, top_n)
+    return result['keywords']
+
+
+def get_smart_keywords(text: str, mode: str = "auto", prefer_mecab: bool = True) -> Dict[str, Any]:
+    """
+    スマート選択でキーワードを抽出する簡易関数
+
+    Args:
+        text: 抽出対象のテキスト
+        mode: 抽出モード（"auto", "summary", "detailed"等）
+        prefer_mecab: MeCabを優先するか
+
+    Returns:
+        キーワードと選択情報を含む辞書
+    """
+    selector = SmartKeywordSelector(prefer_mecab=prefer_mecab)
+    return selector.extract_best_auto(text, mode=mode)
+
+
+class QACountOptimizer:
+    """Q/Aペア数の最適化を行うクラス"""
+
+    def __init__(self):
+        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+
+    def calculate_optimal_qa_count(self, document: str, mode: str = "auto") -> Dict[str, Any]:
+        """
+        文書特性から最適なQ/A数を算出
+
+        Args:
+            document: 対象文書
+            mode: 決定モード ("auto", "evaluation", "learning", "search_test", "faq")
+
+        Returns:
+            最適なQ/A数と決定根拠を含む辞書
+        """
+        # 基本メトリクスの計算
+        metrics = self._analyze_document_metrics(document)
+
+        # モード別の決定
+        if mode == "evaluation":
+            # 評価用：網羅性重視（文書長の5-10%）
+            base_count = int(metrics['sentence_count'] * 0.075)
+        elif mode == "learning":
+            # 学習用：主要概念をカバー（10-20個）
+            base_count = min(20, max(10, metrics['keyword_count'] // 2))
+        elif mode == "search_test":
+            # 検索テスト：多様な質問パターン（20-30個）
+            base_count = min(30, max(20, metrics['sentence_count'] // 3))
+        elif mode == "faq":
+            # FAQ生成：ユーザーニーズベース（5-15個）
+            base_count = min(15, max(5, metrics['keyword_count'] // 3))
+        else:  # auto
+            # 文書長ベースの自動決定
+            base_count = self._calculate_by_document_length(metrics)
+
+        # 情報密度による調整
+        adjusted_count = self._adjust_by_information_density(document, base_count, metrics)
+
+        # カバレッジ目標による調整
+        final_count = self._adjust_by_coverage_target(document, adjusted_count, metrics)
+
+        return {
+            'optimal_count': final_count,
+            'base_count': base_count,
+            'adjusted_count': adjusted_count,
+            'metrics': metrics,
+            'mode': mode,
+            'reasoning': self._generate_reasoning(metrics, base_count, adjusted_count, final_count, mode)
+        }
+
+    def _analyze_document_metrics(self, document: str) -> Dict:
+        """文書の基本メトリクスを分析"""
+        sentences = re.split(r'[。！？\.\!\?]+', document)
+        sentences = [s.strip() for s in sentences if s.strip()]
+
+        # トークン数の計算
+        token_count = len(self.tokenizer.encode(document))
+
+        # キーワード候補の抽出
+        technical_terms = re.findall(r'[ァ-ヴー]{3,}|[A-Z]{2,}[A-Z0-9]*|[一-龥]{4,}', document)
+
+        # 段落数の計算
+        paragraphs = document.split('\n\n')
+        paragraphs = [p for p in paragraphs if p.strip()]
+
+        return {
+            'doc_length': len(document),
+            'token_count': token_count,
+            'sentence_count': len(sentences),
+            'paragraph_count': len(paragraphs),
+            'avg_sentence_length': len(document) / max(1, len(sentences)),
+            'keyword_count': len(set(technical_terms)),
+            'keyword_density': len(technical_terms) / max(1, len(document) / 100),
+            'complexity_score': self._calculate_complexity_score(document, sentences, technical_terms)
+        }
+
+    def _calculate_complexity_score(self, document: str, sentences: List[str], technical_terms: List[str]) -> float:
+        """文書の複雑さスコアを計算（0.0-1.0）"""
+        score = 0.0
+
+        # 文の長さの変動性
+        if len(sentences) > 1:
+            lengths = [len(s) for s in sentences]
+            avg_len = sum(lengths) / len(lengths)
+            variance = sum((l - avg_len) ** 2 for l in lengths) / len(lengths)
+            std_dev = variance ** 0.5
+            length_complexity = min(1.0, std_dev / avg_len)
+            score += length_complexity * 0.3
+
+        # 専門用語の密度
+        term_density = len(technical_terms) / max(1, len(document) / 100)
+        term_complexity = min(1.0, term_density / 5)
+        score += term_complexity * 0.4
+
+        # 句読点の複雑さ
+        complex_punctuation = len(re.findall(r'[、；：「」『』（）\[\]]', document))
+        punct_complexity = min(1.0, complex_punctuation / max(1, len(sentences)))
+        score += punct_complexity * 0.3
+
+        return min(1.0, score)
+
+    def _calculate_by_document_length(self, metrics: Dict) -> int:
+        """文書長に基づく基本Q/A数の計算"""
+        doc_length = metrics['doc_length']
+
+        if doc_length < 500:
+            return 3
+        elif doc_length < 1000:
+            return 5
+        elif doc_length < 2000:
+            return 8
+        elif doc_length < 5000:
+            return 12
+        elif doc_length < 10000:
+            return 18
+        else:
+            # 対数的増加
+            extra = int(math.log(doc_length / 10000, 2) * 3)
+            return min(30, 18 + extra)
+
+    def _adjust_by_information_density(self, text: str, base_count: int, metrics: Dict) -> int:
+        """情報密度に応じて調整"""
+        keyword_density = metrics['keyword_density']
+        complexity = metrics['complexity_score']
+
+        # 情報密度による調整係数
+        if keyword_density > 4 and complexity > 0.7:
+            # 高密度・高複雑度
+            multiplier = 1.5
+        elif keyword_density > 2.5 or complexity > 0.5:
+            # 中密度または中複雑度
+            multiplier = 1.2
+        elif keyword_density < 1 and complexity < 0.3:
+            # 低密度・低複雑度
+            multiplier = 0.7
+        else:
+            multiplier = 1.0
+
+        return max(3, int(base_count * multiplier))
+
+    def _adjust_by_coverage_target(self, text: str, current_count: int, metrics: Dict, target_coverage: float = 0.7) -> int:
+        """カバレッジ目標による調整"""
+        # セマンティックチャンク数の推定
+        estimated_chunks = metrics['token_count'] // 150  # 150トークン/チャンク
+
+        # 1つのQ/Aが平均2-3チャンクをカバーすると仮定
+        coverage_per_qa = 2.5
+        required_qa = int(estimated_chunks * target_coverage / coverage_per_qa)
+
+        # 現在のカウントと必要数の中間を取る
+        final_count = int((current_count + required_qa) / 2)
+
+        # 範囲制限（3-50）
+        return max(3, min(50, final_count))
+
+    def _generate_reasoning(self, metrics: Dict, base_count: int, adjusted_count: int, final_count: int, mode: str) -> str:
+        """決定理由の生成"""
+        reasons = []
+
+        # モードの説明
+        mode_descriptions = {
+            'auto': '自動決定モード',
+            'evaluation': '評価用（網羅性重視）',
+            'learning': '学習用（主要概念重視）',
+            'search_test': '検索テスト用（多様性重視）',
+            'faq': 'FAQ生成用（実用性重視）'
+        }
+        reasons.append(f"モード: {mode_descriptions.get(mode, mode)}")
+
+        # 文書特性
+        reasons.append(f"文書長: {metrics['doc_length']}文字（{metrics['sentence_count']}文）")
+        reasons.append(f"複雑度: {metrics['complexity_score']:.2f}")
+        reasons.append(f"キーワード密度: {metrics['keyword_density']:.1f}")
+
+        # 調整内容
+        if adjusted_count != base_count:
+            if adjusted_count > base_count:
+                reasons.append(f"情報密度が高いため {base_count}→{adjusted_count} に増加")
+            else:
+                reasons.append(f"情報密度が低いため {base_count}→{adjusted_count} に減少")
+
+        if final_count != adjusted_count:
+            reasons.append(f"カバレッジ目標により {adjusted_count}→{final_count} に調整")
+
+        return " / ".join(reasons)
+
+    def determine_by_coverage_improvement(self, text: str, existing_qa: List[Dict] = None) -> Dict:
+        """カバレッジ改善率に基づく決定"""
+        if existing_qa is None:
+            existing_qa = []
+
+        # 現在のカバレッジを推定
+        current_coverage = len(existing_qa) * 2.5 / max(1, len(text) // 200)
+        current_coverage = min(1.0, current_coverage)
+
+        # 目標カバレッジまでの差分
+        target_coverage = 0.7
+        coverage_gap = max(0, target_coverage - current_coverage)
+
+        # 必要な追加Q/A数
+        additional_qa = int(coverage_gap * len(text) / 500)
+
+        return {
+            'additional_count': additional_qa,
+            'current_coverage': current_coverage,
+            'target_coverage': target_coverage,
+            'total_count': len(existing_qa) + additional_qa
+        }
+
+
+class QAOptimizedExtractor(SmartKeywordSelector):
+    """Q&Aペア生成に最適化されたキーワード抽出クラス"""
+
+    def __init__(self, prefer_mecab: bool = True):
+        super().__init__(prefer_mecab=prefer_mecab)
+        self.qa_optimizer = QACountOptimizer()
+
+        # Q&A用の追加ストップワード
+        self.qa_stopwords = {
+            '最新', '問題', '実現', '可能', '場合', '結果',
+            '方法', '技術', '今後', '現在', '将来', '重要',
+            '必要', '状況', '対象', '目的', '効果', '影響',
+            'これ', 'それ', 'あれ', 'この', 'その', 'あの'
+        }
+
+        # 関係性パターンの定義
+        self.relation_patterns = [
+            (r'(.+?)は(.+?)である', 'is_a'),
+            (r'(.+?)は(.+?)を(.+?)する', 'uses'),
+            (r'(.+?)により(.+?)が(.+?)', 'enables'),
+            (r'(.+?)のため(.+?)を', 'for'),
+            (r'(.+?)を用いて(.+?)を', 'uses'),
+            (r'(.+?)から(.+?)へ', 'transforms'),
+            (r'(.+?)における(.+?)', 'in_context'),
+            (r'(.+?)による(.+?)', 'by_means_of')
+        ]
+
+        # カテゴリ分類用パターン
+        self.category_patterns = {
+            'core_concept': ['技術', '手法', '方式', '理論', 'モデル'],
+            'technical_term': r'^[A-Z]{2,}[A-Z0-9]*$|^[ァ-ヴー]{4,}$',
+            'specific_name': ['BERT', 'GPT', 'CNN', 'RNN', 'LSTM'],
+            'general_term': ['データ', 'システム', '処理', '分析']
+        }
+
+    def filter_for_qa(self, keywords: List[str]) -> List[str]:
+        """Q&A生成に適したキーワードのみを残す"""
+        filtered = []
+
+        # 親クラスのstopwordsを取得
+        parent_stopwords = self.extractor.stopwords if hasattr(self.extractor, 'stopwords') else set()
+
+        for kw in keywords:
+            # 基本フィルタリング
+            if (kw not in self.qa_stopwords and
+                kw not in parent_stopwords and
+                len(kw) >= 2 and
+                not kw.isdigit() and
+                not kw.startswith('第') and  # 第1、第2などを除外
+                not kw.endswith('等') and     # 〜等を除外
+                not kw.endswith('的')):       # 〜的を除外
+                filtered.append(kw)
+        return filtered
+
+    def remove_redundant_keywords(self, keywords: List[str]) -> List[str]:
+        """包含関係にあるキーワードを整理"""
+        # 長い順にソート
+        sorted_keywords = sorted(keywords, key=len, reverse=True)
+        filtered = []
+
+        for kw in sorted_keywords:
+            # 既存のキーワードに部分的に含まれていないかチェック
+            is_redundant = False
+            for existing in filtered:
+                # 完全一致は除外しない
+                if kw != existing:
+                    # より長いキーワードに完全に含まれている場合は冗長
+                    if kw in existing:
+                        is_redundant = True
+                        break
+                    # 意味的に重複している場合（例：AI と 人工知能）
+                    if self._are_synonyms(kw, existing):
+                        is_redundant = True
+                        break
+
+            if not is_redundant:
+                filtered.append(kw)
+
+        return filtered
+
+    def _are_synonyms(self, word1: str, word2: str) -> bool:
+        """同義語判定（簡易版）"""
+        synonym_pairs = [
+            ('AI', '人工知能'),
+            ('ML', '機械学習'),
+            ('DL', '深層学習'),
+            ('NLP', '自然言語処理'),
+            ('DX', 'デジタルトランスフォーメーション')
+        ]
+
+        for pair in synonym_pairs:
+            if (word1 in pair and word2 in pair):
+                return True
+        return False
+
+    def classify_difficulty(self, keyword: str, text: str) -> str:
+        """キーワードの難易度を判定"""
+        frequency = text.count(keyword)
+        is_acronym = bool(re.match(r'^[A-Z]{2,}[A-Z0-9]*$', keyword))
+        is_complex = len(keyword) >= 8
+        has_explanation = any([
+            f"{keyword}とは" in text,
+            f"{keyword}は" in text and "である" in text,
+            f"{keyword}（" in text  # 括弧で説明がある
+        ])
+
+        # 難易度判定ロジック
+        if has_explanation and frequency >= 3:
+            return "basic"
+        elif is_acronym and not has_explanation:
+            return "advanced"
+        elif is_complex or frequency == 1:
+            return "advanced"
+        elif frequency >= 5:
+            return "basic"
+        else:
+            return "intermediate"
+
+    def categorize_keyword(self, keyword: str) -> str:
+        """キーワードをカテゴリに分類"""
+        # 特定の名前
+        if keyword in self.category_patterns['specific_name']:
+            return 'specific_name'
+
+        # 技術用語（英略語やカタカナ専門語）
+        if re.match(self.category_patterns['technical_term'], keyword):
+            return 'technical_term'
+
+        # 中核概念
+        for term in self.category_patterns['core_concept']:
+            if term in keyword:
+                return 'core_concept'
+
+        # 一般用語
+        for term in self.category_patterns['general_term']:
+            if term in keyword:
+                return 'general_term'
+
+        return 'other'
+
+    def extract_keyword_relations(self, text: str, keywords: List[str]) -> List[Dict]:
+        """キーワード間の関係を抽出"""
+        relations = []
+        sentences = re.split(r'[。！？\.\!\?]', text)
+
+        for sent in sentences:
+            if not sent.strip():
+                continue
+
+            # 文内に含まれるキーワードを特定
+            keywords_in_sent = [kw for kw in keywords if kw in sent]
+
+            if len(keywords_in_sent) >= 2:
+                # パターンマッチングで関係性を判定
+                for pattern, rel_type in self.relation_patterns:
+                    match = re.search(pattern, sent)
+                    if match:
+                        # マッチしたパターンからキーワードペアを抽出
+                        for i, kw1 in enumerate(keywords_in_sent):
+                            for kw2 in keywords_in_sent[i+1:]:
+                                if kw1 in sent and kw2 in sent:
+                                    # 出現順序を確認
+                                    pos1 = sent.index(kw1)
+                                    pos2 = sent.index(kw2)
+
+                                    if pos1 < pos2:
+                                        from_kw, to_kw = kw1, kw2
+                                    else:
+                                        from_kw, to_kw = kw2, kw1
+
+                                    relations.append({
+                                        'from': from_kw,
+                                        'to': to_kw,
+                                        'context': sent.strip(),
+                                        'relation_type': rel_type
+                                    })
+                                    break
+                        break
+                else:
+                    # パターンにマッチしない場合は共起関係として記録
+                    if len(keywords_in_sent) >= 2:
+                        for i, kw1 in enumerate(keywords_in_sent):
+                            for kw2 in keywords_in_sent[i+1:]:
+                                relations.append({
+                                    'from': kw1,
+                                    'to': kw2,
+                                    'context': sent.strip(),
+                                    'relation_type': 'co_occurs'
+                                })
+
+        # 重複を除去
+        unique_relations = []
+        seen = set()
+        for rel in relations:
+            key = (rel['from'], rel['to'], rel['relation_type'])
+            if key not in seen:
+                seen.add(key)
+                unique_relations.append(rel)
+
+        return unique_relations
+
+    def extract_with_context(self, text: str, keyword: str) -> Dict:
+        """キーワードと周辺文脈を抽出"""
+        sentences = re.split(r'[。！？\.\!\?]', text)
+        contexts = []
+
+        for i, sent in enumerate(sentences):
+            if keyword in sent:
+                # 文の重要度を計算
+                importance = self._calculate_sentence_importance(sent, keyword, text)
+
+                contexts.append({
+                    'sentence': sent.strip(),
+                    'position': sent.index(keyword),
+                    'sentence_index': i,
+                    'importance': importance
+                })
+
+        # 最も重要な文脈を選択
+        if contexts:
+            best_context = max(contexts, key=lambda x: x['importance'])
+            best_context_sentence = best_context['sentence']
+        else:
+            best_context_sentence = ""
+
+        # 難易度とカテゴリを判定
+        difficulty = self.classify_difficulty(keyword, text)
+        category = self.categorize_keyword(keyword)
+
+        return {
+            'keyword': keyword,
+            'contexts': contexts,
+            'best_context': best_context_sentence,
+            'difficulty': difficulty,
+            'category': category,
+            'frequency': text.count(keyword)
+        }
+
+    def _calculate_sentence_importance(self, sentence: str, keyword: str, full_text: str) -> float:
+        """文の重要度を計算"""
+        importance = 0.0
+
+        # 基準1: キーワードの位置（文頭に近いほど高スコア）
+        position = sentence.index(keyword) if keyword in sentence else len(sentence)
+        position_score = 1.0 - (position / len(sentence)) if len(sentence) > 0 else 0
+        importance += position_score * 0.2
+
+        # 基準2: 他のキーワードとの共起
+        other_keywords = re.findall(r'[ァ-ヴー]{3,}|[A-Z]{2,}|[一-龥]{4,}', sentence)
+        co_occurrence_score = min(len(other_keywords) / 5.0, 1.0)
+        importance += co_occurrence_score * 0.3
+
+        # 基準3: 説明的表現の存在
+        explanatory_patterns = ['とは', 'である', 'という', 'により', 'ため']
+        explanation_score = sum(1 for p in explanatory_patterns if p in sentence) / len(explanatory_patterns)
+        importance += explanation_score * 0.3
+
+        # 基準4: 文の長さ（適度な長さが理想）
+        ideal_length = 50
+        length_diff = abs(len(sentence) - ideal_length)
+        length_score = max(0.0, 1.0 - (length_diff / ideal_length))
+        importance += length_score * 0.2
+
+        return min(importance, 1.0)
+
+    def suggest_qa_templates(self, keywords_with_context: List[Dict]) -> List[Dict]:
+        """キーワードに基づくQ&Aテンプレートを生成"""
+        qa_templates = []
+
+        for item in keywords_with_context:
+            keyword = item['keyword']
+            context = item['best_context']
+            difficulty = item['difficulty']
+            category = item['category']
+
+            templates = []
+
+            # 難易度とカテゴリに応じた質問テンプレート
+            if difficulty == 'basic':
+                templates.extend([
+                    f"{keyword}とは何ですか？",
+                    f"{keyword}について説明してください。"
+                ])
+            elif difficulty == 'intermediate':
+                if category == 'core_concept':
+                    templates.extend([
+                        f"{keyword}の仕組みを説明してください。",
+                        f"{keyword}の特徴は何ですか？"
+                    ])
+                else:
+                    templates.extend([
+                        f"{keyword}はどのように使われますか？",
+                        f"{keyword}の利点は何ですか？"
+                    ])
+            else:  # advanced
+                if category == 'technical_term':
+                    templates.extend([
+                        f"{keyword}の技術的な詳細を説明してください。",
+                        f"{keyword}と他の手法との違いは何ですか？"
+                    ])
+                else:
+                    templates.extend([
+                        f"{keyword}の応用例を挙げてください。",
+                        f"{keyword}の課題と解決策は何ですか？"
+                    ])
+
+            qa_templates.append({
+                'keyword': keyword,
+                'difficulty': difficulty,
+                'category': category,
+                'question_templates': templates,
+                'answer_hint': context,
+                'suggested_answer_length': {
+                    'basic': '1-2文',
+                    'intermediate': '2-3文',
+                    'advanced': '3-5文'
+                }.get(difficulty, '2-3文')
+            })
+
+        return qa_templates
+
+    def extract_for_qa_generation(
+        self,
+        text: str,
+        qa_count: Optional[int] = None,
+        mode: str = "auto",
+        difficulty_distribution: Optional[Dict[str, float]] = None,
+        return_details: bool = True,
+        use_progressive: bool = False
+    ) -> Dict:
+        """
+        Q&Aペア生成に最適化されたキーワード抽出（自動Q/A数決定機能付き）
+
+        Args:
+            text: 分析対象テキスト
+            qa_count: 生成するQ&Aペアの目標数（Noneで自動決定）
+            mode: Q/A数決定モード ("auto", "evaluation", "learning", "search_test", "faq")
+            difficulty_distribution: 難易度の分布
+            return_details: 詳細情報を返すか
+            use_progressive: 段階的生成を使用するか
+
+        Returns:
+            Q&A生成に必要な全情報を含む辞書
+        """
+
+        # Q/A数の自動決定
+        if qa_count is None:
+            optimization_result = self.qa_optimizer.calculate_optimal_qa_count(text, mode)
+            qa_count = optimization_result['optimal_count']
+            optimization_info = optimization_result
+        else:
+            optimization_info = None
+
+        # デフォルトの難易度分布
+        if difficulty_distribution is None:
+            difficulty_distribution = {
+                'basic': 0.3,
+                'intermediate': 0.5,
+                'advanced': 0.2
+            }
+
+        # 段階的生成を使用する場合
+        if use_progressive:
+            return self._progressive_qa_generation(
+                text, qa_count, difficulty_distribution,
+                optimization_info, return_details
+            )
+
+        # STEP 1: 基本キーワード抽出（多めに抽出）
+        base_result = self.extract_best_auto(
+            text,
+            mode="auto",
+            min_keywords=qa_count,
+            max_keywords=qa_count * 3,
+            return_analysis=False
+        )
+
+        # STEP 2: Q&A用フィルタリング
+        qa_keywords = self.filter_for_qa(base_result['keywords'])
+
+        # STEP 3: 重複除去
+        qa_keywords = self.remove_redundant_keywords(qa_keywords)
+
+        # STEP 4: 関係性抽出
+        relations = self.extract_keyword_relations(text, qa_keywords)
+
+        # STEP 5: 各キーワードの詳細情報を取得
+        keywords_with_context = []
+        keyword_difficulty_map = {}
+
+        for kw in qa_keywords[:qa_count * 2]:  # 余裕を持って処理
+            context_info = self.extract_with_context(text, kw)
+            keywords_with_context.append(context_info)
+            keyword_difficulty_map[kw] = context_info['difficulty']
+
+        # STEP 6: 難易度分布に基づいて選択
+        selected_keywords = self._select_by_difficulty_distribution(
+            keywords_with_context,
+            qa_count,
+            difficulty_distribution
+        )
+
+        # STEP 7: Q&Aテンプレート生成
+        qa_templates = self.suggest_qa_templates(selected_keywords)
+
+        # 結果の構築
+        result = {
+            'keywords': selected_keywords,
+            'relations': relations,
+            'difficulty_map': keyword_difficulty_map,
+            'suggested_qa_pairs': qa_templates,
+            'metadata': {
+                'total_keywords_extracted': len(qa_keywords),
+                'total_relations_found': len(relations),
+                'text_length': len(text),
+                'extraction_method': base_result['method'],
+                'qa_count': qa_count,
+                'optimization_info': optimization_info
+            }
+        }
+
+        if not return_details:
+            # 簡潔版を返す
+            return {
+                'keywords': [kw['keyword'] for kw in selected_keywords],
+                'qa_templates': [
+                    {
+                        'keyword': qa['keyword'],
+                        'question': qa['question_templates'][0] if qa['question_templates'] else '',
+                        'difficulty': qa['difficulty']
+                    }
+                    for qa in qa_templates
+                ],
+                'qa_count': qa_count,
+                'mode': mode
+            }
+
+        return result
+
+    def _select_by_difficulty_distribution(
+        self,
+        keywords_with_context: List[Dict],
+        target_count: int,
+        distribution: Dict[str, float]
+    ) -> List[Dict]:
+        """難易度分布に基づいてキーワードを選択"""
+
+        # 難易度別にグループ化
+        by_difficulty = defaultdict(list)
+        for item in keywords_with_context:
+            by_difficulty[item['difficulty']].append(item)
+
+        # 各難易度から選択する数を計算
+        selected = []
+        for difficulty, ratio in distribution.items():
+            count = int(target_count * ratio)
+            if difficulty in by_difficulty:
+                # 重要度順にソート
+                candidates = sorted(
+                    by_difficulty[difficulty],
+                    key=lambda x: x['contexts'][0]['importance'] if x['contexts'] else 0,
+                    reverse=True
+                )
+                selected.extend(candidates[:count])
+
+        # 目標数に満たない場合は残りから補充
+        if len(selected) < target_count:
+            remaining = []
+            for items in by_difficulty.values():
+                remaining.extend([
+                    item for item in items
+                    if item not in selected
+                ])
+
+            # 重要度順にソート
+            remaining.sort(
+                key=lambda x: x['contexts'][0]['importance'] if x['contexts'] else 0,
+                reverse=True
+            )
+
+            needed = target_count - len(selected)
+            selected.extend(remaining[:needed])
+
+        return selected[:target_count]
+
+    def _progressive_qa_generation(
+        self,
+        text: str,
+        target_count: int,
+        difficulty_distribution: Dict[str, float],
+        optimization_info: Optional[Dict],
+        return_details: bool
+    ) -> Dict:
+        """
+        段階的にQ/Aを生成し、収穫逓減を検出して停止
+
+        Args:
+            text: 分析対象テキスト
+            target_count: 目標Q/A数
+            difficulty_distribution: 難易度分布
+            optimization_info: 最適化情報
+            return_details: 詳細情報を返すか
+
+        Returns:
+            生成結果の辞書
+        """
+        all_keywords = []
+        all_relations = []
+        all_qa_templates = []
+        coverage_scores = []
+
+        # バッチサイズの定義（段階的に生成）
+        batch_sizes = [5, 5, 10, 10, 10]
+        diminishing_threshold = 0.05
+
+        previous_coverage = 0
+        total_generated = 0
+
+        for batch_idx, batch_size in enumerate(batch_sizes):
+            if total_generated >= target_count:
+                break
+
+            # 現在のバッチを生成
+            current_batch_size = min(batch_size, target_count - total_generated)
+
+            # キーワード抽出
+            batch_result = self.extract_best_auto(
+                text,
+                mode="auto",
+                min_keywords=current_batch_size,
+                max_keywords=current_batch_size * 2,
+                return_analysis=False
+            )
+
+            # フィルタリングと重複除去
+            batch_keywords = self.filter_for_qa(batch_result['keywords'])
+            batch_keywords = self.remove_redundant_keywords(batch_keywords)
+
+            # 既存キーワードとの重複をチェック
+            new_keywords = self._remove_duplicate_keywords(batch_keywords, all_keywords)
+
+            if not new_keywords:
+                # 新しいキーワードが見つからない場合は終了
+                break
+
+            # 詳細情報を取得
+            keywords_with_context = []
+            for kw in new_keywords[:current_batch_size]:
+                context_info = self.extract_with_context(text, kw)
+                keywords_with_context.append(context_info)
+
+            # カバレッジを計算
+            current_coverage = self._calculate_coverage(text, all_keywords + new_keywords)
+            coverage_improvement = current_coverage - previous_coverage
+            coverage_scores.append({
+                'batch': batch_idx + 1,
+                'coverage': current_coverage,
+                'improvement': coverage_improvement,
+                'keywords_added': len(new_keywords)
+            })
+
+            # 収穫逓減をチェック
+            if batch_idx > 0 and coverage_improvement < diminishing_threshold:
+                print(f"収穫逓減検出: 改善率 {coverage_improvement:.3f} < 閾値 {diminishing_threshold}")
+                break
+
+            # 結果を追加
+            all_keywords.extend(new_keywords)
+            total_generated += len(new_keywords)
+            previous_coverage = current_coverage
+
+            # 関係性を抽出
+            batch_relations = self.extract_keyword_relations(text, new_keywords)
+            all_relations.extend(batch_relations)
+
+            # Q&Aテンプレートを生成
+            batch_templates = self.suggest_qa_templates(keywords_with_context)
+            all_qa_templates.extend(batch_templates)
+
+        # 最終的な難易度分布に基づいて選択
+        selected_keywords = self._select_by_difficulty_distribution(
+            [self.extract_with_context(text, kw) for kw in all_keywords[:target_count * 2]],
+            min(target_count, len(all_keywords)),
+            difficulty_distribution
+        )
+
+        # 結果の構築
+        result = {
+            'keywords': selected_keywords,
+            'relations': all_relations,
+            'suggested_qa_pairs': all_qa_templates[:target_count],
+            'metadata': {
+                'total_keywords_extracted': len(all_keywords),
+                'total_relations_found': len(all_relations),
+                'text_length': len(text),
+                'qa_count': min(target_count, len(all_qa_templates)),
+                'optimization_info': optimization_info,
+                'progressive_generation': {
+                    'batches_processed': len(coverage_scores),
+                    'final_coverage': previous_coverage,
+                    'coverage_history': coverage_scores
+                }
+            }
+        }
+
+        if not return_details:
+            return {
+                'keywords': [kw['keyword'] for kw in selected_keywords],
+                'qa_templates': [
+                    {
+                        'keyword': qa['keyword'],
+                        'question': qa['question_templates'][0] if qa['question_templates'] else '',
+                        'difficulty': qa['difficulty']
+                    }
+                    for qa in all_qa_templates[:target_count]
+                ],
+                'qa_count': min(target_count, len(all_qa_templates)),
+                'final_coverage': previous_coverage
+            }
+
+        return result
+
+    def _remove_duplicate_keywords(self, new_keywords: List[str], existing_keywords: List[str]) -> List[str]:
+        """既存のキーワードと重複しない新しいキーワードを返す"""
+        existing_set = set(existing_keywords)
+        unique_new = []
+
+        for kw in new_keywords:
+            if kw not in existing_set:
+                # 同義語チェック
+                is_synonym = False
+                for existing in existing_set:
+                    if self._are_synonyms(kw, existing):
+                        is_synonym = True
+                        break
+
+                if not is_synonym:
+                    unique_new.append(kw)
+
+        return unique_new
+
+    def _calculate_coverage(self, text: str, keywords: List[str]) -> float:
+        """キーワードのテキストカバレッジを計算"""
+        if not keywords or not text:
+            return 0.0
+
+        # キーワードがカバーする文字数を計算
+        covered_chars = 0
+        covered_positions = set()
+
+        for keyword in keywords:
+            # すべての出現位置を見つける
+            start = 0
+            while True:
+                pos = text.find(keyword, start)
+                if pos == -1:
+                    break
+                # この位置の文字をマーク
+                for i in range(pos, pos + len(keyword)):
+                    covered_positions.add(i)
+                start = pos + 1
+
+        # カバレッジ率を計算
+        coverage = len(covered_positions) / len(text) if len(text) > 0 else 0
+        return min(1.0, coverage)
+
+    def calculate_qa_quality_score(self, qa_pair: Dict) -> float:
+        """Q/Aペアの品質スコアを計算"""
+        score = 0.0
+
+        # 質問の明確さ（疑問詞の存在）
+        question_words = ['何', 'なぜ', 'どのように', 'いつ', 'どこ', 'だれ', 'どちら']
+        has_question_word = any(word in qa_pair.get('question', '') for word in question_words)
+        score += 0.2 if has_question_word else 0.0
+
+        # 回答の適切な長さ
+        answer_length = len(qa_pair.get('answer', ''))
+        if 20 <= answer_length <= 200:
+            score += 0.2
+        elif 10 <= answer_length < 20 or 200 < answer_length <= 300:
+            score += 0.1
+
+        # 難易度の適切性
+        difficulty = qa_pair.get('difficulty', 'intermediate')
+        if difficulty in ['basic', 'intermediate', 'advanced']:
+            score += 0.2
+
+        # キーワードの含有
+        keywords = qa_pair.get('keywords', [])
+        if keywords:
+            score += min(0.2, len(keywords) * 0.1)
+
+        # カテゴリの明確さ
+        if qa_pair.get('category'):
+            score += 0.1
+
+        # 提案された長さとの一致
+        suggested_length = qa_pair.get('suggested_length', '')
+        if suggested_length and self._check_length_compliance(answer_length, suggested_length):
+            score += 0.1
+
+        return min(1.0, score)
+
+    def _check_length_compliance(self, actual_length: int, suggested_length: str) -> bool:
+        """実際の長さが提案された長さに準拠しているかチェック"""
+        if '1-2文' in suggested_length:
+            return actual_length <= 100
+        elif '2-3文' in suggested_length:
+            return 50 <= actual_length <= 150
+        elif '3-5文' in suggested_length:
+            return 100 <= actual_length <= 250
+        return True
+
+    def detect_duplicate_qa(self, qa_pairs: List[Dict]) -> List[Tuple[int, int]]:
+        """重複するQ/Aペアを検出"""
+        duplicates = []
+
+        for i in range(len(qa_pairs)):
+            for j in range(i + 1, len(qa_pairs)):
+                # 質問の類似度をチェック
+                q1 = qa_pairs[i].get('question', '')
+                q2 = qa_pairs[j].get('question', '')
+
+                if self._are_similar_questions(q1, q2):
+                    duplicates.append((i, j))
+
+        return duplicates
+
+    def _are_similar_questions(self, q1: str, q2: str) -> bool:
+        """2つの質問が類似しているかチェック"""
+        # 完全一致
+        if q1 == q2:
+            return True
+
+        # キーワードの重複率
+        words1 = set(q1.split())
+        words2 = set(q2.split())
+
+        if len(words1) == 0 or len(words2) == 0:
+            return False
+
+        overlap = len(words1 & words2)
+        union = len(words1 | words2)
+
+        if union == 0:
+            return False
+
+        jaccard_similarity = overlap / union
+        return jaccard_similarity > 0.7
+
+    def generate_qa_pairs(self, extraction_output: Dict) -> List[Dict]:
+        """抽出結果から実際のQ&Aペアを生成"""
+        qa_pairs = []
+
+        for qa_template in extraction_output['suggested_qa_pairs']:
+            keyword = qa_template['keyword']
+
+            # 関連するキーワードを探す
+            related_keywords = []
+            for rel in extraction_output['relations']:
+                if rel['from'] == keyword:
+                    related_keywords.append(rel['to'])
+                elif rel['to'] == keyword:
+                    related_keywords.append(rel['from'])
+
+            # 各質問テンプレートに対してQ&Aペアを生成
+            for question in qa_template['question_templates']:
+                # 回答のヒントから回答を構築
+                answer_hint = qa_template['answer_hint']
+
+                # 関連キーワードを含む回答を生成
+                if related_keywords and answer_hint:
+                    answer = f"{answer_hint} "
+                    if qa_template['difficulty'] != 'basic':
+                        answer += f"関連する概念として、{'、'.join(related_keywords[:2])}があります。"
+                else:
+                    answer = answer_hint if answer_hint else f"{keyword}に関する説明"
+
+                qa_pairs.append({
+                    'question': question,
+                    'answer': answer,
+                    'difficulty': qa_template['difficulty'],
+                    'category': qa_template['category'],
+                    'keywords': [keyword] + related_keywords[:2],
+                    'suggested_length': qa_template['suggested_answer_length']
+                })
+
+        return qa_pairs
+
+
+# -----------------------------
+# Classes moved from a03_rag_qa_coverage.py
+# -----------------------------
+
+class SemanticCoverage:
+    """意味的な網羅性を測定するクラス"""
+
+    def __init__(self, embedding_model="text-embedding-3-small"):
+        self.embedding_model = embedding_model
+        # APIキーの確認
+        api_key = os.getenv('OPENAI_API_KEY')
+        if api_key and api_key != 'your-openai-api-key-here':
+            self.client = OpenAI()
+            self.has_api_key = True
+        else:
+            self.client = None
+            self.has_api_key = False
+        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+
+    def create_semantic_chunks(self, document: str, verbose: bool = True) -> List[Dict]:
+        """
+        文書を意味的に区切られたチャンクに分割
+
+        重要ポイント：
+        1. 文の境界で分割（意味の断絶を防ぐ）
+        2. トピックの変化を検出
+        3. 適切なサイズを維持（埋め込みモデルの制限内）
+        """
+
+        # Step 1: 文単位で分割
+        sentences = self._split_into_sentences(document)
+        if verbose:
+            print(f"文の数: {len(sentences)}")
+
+        # Step 2: 意味的に関連する文をグループ化
+        chunks = []
+        current_chunk = []
+        current_tokens = 0
+        max_tokens = 200  # チャンクの最大トークン数
+
+        for i, sentence in enumerate(sentences):
+            sentence_tokens = len(self.tokenizer.encode(sentence))
+
+            # 現在のチャンクにこの文を追加すべきか判断
+            if current_tokens + sentence_tokens > max_tokens and current_chunk:
+                # チャンクを保存
+                chunk_text = " ".join(current_chunk)
+                chunks.append({
+                    "id"                : f"chunk_{len(chunks)}",
+                    "text"              : chunk_text,
+                    "sentences"         : current_chunk.copy(),
+                    "start_sentence_idx": i - len(current_chunk),
+                    "end_sentence_idx"  : i - 1
+                })
+                current_chunk = [sentence]
+                current_tokens = sentence_tokens
+            else:
+                current_chunk.append(sentence)
+                current_tokens += sentence_tokens
+
+        # 最後のチャンクを追加
+        if current_chunk:
+            chunks.append({
+                "id"                : f"chunk_{len(chunks)}",
+                "text"              : " ".join(current_chunk),
+                "sentences"         : current_chunk,
+                "start_sentence_idx": len(sentences) - len(current_chunk),
+                "end_sentence_idx"  : len(sentences) - 1
+            })
+
+        # Step 3: トピックの連続性を考慮した再調整
+        chunks = self._adjust_chunks_for_topic_continuity(chunks)
+
+        return chunks
+
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """文単位で分割（日本語対応）"""
+        # 日本語と英語の文末記号で分割
+        sentences = re.split(r'(?<=[。．.!?])\s*', text)
+        # 空文字列を除去
+        sentences = [s.strip() for s in sentences if s.strip()]
+        return sentences
+
+    def _adjust_chunks_for_topic_continuity(self, chunks: List[Dict]) -> List[Dict]:
+        """トピックの連続性を考慮してチャンクを調整"""
+
+        adjusted_chunks = []
+        for i, chunk in enumerate(chunks):
+            # 隣接チャンクとの意味的類似度を計算
+            if i > 0 and len(chunk["sentences"]) < 2:
+                # 短すぎるチャンクは前のチャンクとマージを検討
+                prev_chunk = adjusted_chunks[-1]
+                combined_text = prev_chunk["text"] + " " + chunk["text"]
+
+                if len(self.tokenizer.encode(combined_text)) < 300:
+                    # マージ
+                    prev_chunk["text"] = combined_text
+                    prev_chunk["sentences"].extend(chunk["sentences"])
+                    prev_chunk["end_sentence_idx"] = chunk["end_sentence_idx"]
+                    continue
+
+            adjusted_chunks.append(chunk)
+
+        return adjusted_chunks
+
+    def generate_embeddings(self, doc_chunks: List[Dict]) -> np.ndarray:
+        """
+        チャンクのリストから埋め込みベクトルを生成
+
+        重要ポイント：
+        1. バッチ処理で効率化
+        2. エラーハンドリング
+        3. 正規化（コサイン類似度計算の準備）
+        """
+
+        if not self.has_api_key:
+            print("⚠️  OpenAI APIキーが設定されていません。埋め込み生成をスキップします。")
+            # ダミーのゼロベクトルを返す
+            return np.zeros((len(doc_chunks), 1536))
+
+        embeddings = []
+        batch_size = 20  # OpenAI APIの制限を考慮
+
+        for i in range(0, len(doc_chunks), batch_size):
+            batch = doc_chunks[i:i + batch_size]
+            texts = [chunk["text"] for chunk in batch]
+
+            try:
+                # OpenAI APIを呼び出し
+                response = self.client.embeddings.create(
+                    model=self.embedding_model,
+                    input=texts
+                )
+
+                # 埋め込みベクトルを取得
+                for embedding_data in response.data:
+                    embedding = np.array(embedding_data.embedding)
+                    # L2正規化（コサイン類似度の計算を高速化）
+                    embedding = embedding / np.linalg.norm(embedding)
+                    embeddings.append(embedding)
+
+            except Exception as e:
+                print(f"埋め込み生成エラー: {e}")
+                # エラー時はゼロベクトルを追加
+                for _ in batch:
+                    embeddings.append(np.zeros(1536))  # embedding dimension
+
+        return np.array(embeddings)
+
+    def generate_embedding(self, text: str) -> np.ndarray:
+        """単一テキストの埋め込み生成"""
+        if not self.has_api_key:
+            return np.zeros(1536)
+
+        try:
+            response = self.client.embeddings.create(
+                model=self.embedding_model,
+                input=text
+            )
+            embedding = np.array(response.data[0].embedding)
+            # 正規化
+            return embedding / np.linalg.norm(embedding)
+        except Exception as e:
+            print(f"埋め込み生成エラー: {e}")
+            return np.zeros(1536)
+
+    def cosine_similarity(self, doc_emb: np.ndarray, qa_emb: np.ndarray) -> float:
+        """
+        コサイン類似度を計算
+
+        重要ポイント：
+        1. 事前に正規化済みなら内積で計算可能
+        2. 範囲は[-1, 1]、1に近いほど類似
+        """
+
+        # ベクトルが正規化済みの場合は内積で計算
+        if np.allclose(np.linalg.norm(doc_emb), 1.0) and \
+                np.allclose(np.linalg.norm(qa_emb), 1.0):
+            return float(np.dot(doc_emb, qa_emb))
+
+        # 正規化されていない場合は完全な計算
+        dot_product = np.dot(doc_emb, qa_emb)
+        norm_doc = np.linalg.norm(doc_emb)
+        norm_qa = np.linalg.norm(qa_emb)
+
+        if norm_doc == 0 or norm_qa == 0:
+            return 0.0
+
+        return float(dot_product / (float(norm_doc) * float(norm_qa)))
+
+
+class QAGenerationConsiderations:
+    """Q/A生成前のチェックリスト"""
+
+    def analyze_document_characteristics(self, document):
+        """文書の特性分析"""
+        return {
+            "document_type   ": self.detect_document_type(document),  # 技術文書、物語、レポート等
+            "complexity_level": self.assess_complexity(document),   # 専門性のレベル
+            "factual_density ": self.measure_factual_content(document),  # 事実情報の密度
+            "structure       ": self.analyze_structure(document),  # 構造化の度合い
+            "language        ": self.detect_language(document),     # 言語と文体
+            "domain          ": self.identify_domain(document),       # ドメイン特定
+            "length          ": len(document.split()),               # 文書長
+            "ambiguity_level ": self.assess_ambiguity(document)  # 曖昧さの度合い
+        }
+
+    def define_qa_requirements(self):
+        """Q/A生成の要件定義"""
+        return {
+            "purpose          ": ["評価", "学習", "検索テスト", "ユーザー支援"],
+            "question_types   ": [
+                "事実確認型",    # What/Who/When/Where
+                "理解確認型",    # Why/How
+                "推論型",       # What if/影響は
+                "要約型",       # 要点は何か
+                "比較型"        # 違いは何か
+            ],
+            "difficulty_levels": ["基礎", "中級", "上級", "専門家"],
+            "answer_formats   ": ["短答", "説明", "リスト", "段落"],
+            "coverage_targets ": {
+                "minimum      ": 0.3,  # 最低限のカバレッジ
+                "optimal      ": 0.6,  # 最適なカバレッジ
+                "comprehensive": 0.8  # 包括的なカバレッジ
+            }
+        }
+
+
+class QAPair(BaseModel):
+    """Q/Aペアのデータモデル"""
+    question: str
+    answer: str
+    question_type: str
+    difficulty: str
+    source_span: str
+
+
+class QAPairsList(BaseModel):
+    """Q/Aペアのリスト"""
+    qa_pairs: List[QAPair]
+
+
+class LLMBasedQAGenerator:
+    """LLMを使用したQ/A生成"""
+
+    def __init__(self, model="gpt-5-mini"):
+        self.client = OpenAI()
+        self.model = model
+
+    def generate_basic_qa(self, text: str, num_pairs: int = 5) -> List[Dict]:
+        """基本的なQ/A生成"""
+
+        prompt = f"""
+        以下のテキストから{num_pairs}個の質問と回答のペアを生成してください。
+
+        要件：
+        1. 質問は具体的で明確にする
+        2. 回答はテキストから直接答えられるものにする
+        3. 質問の種類を多様にする（What/Why/How/When/Where）
+        4. 回答は簡潔かつ正確にする
+
+        テキスト：
+        {text[:3000]}  # トークン制限のため切り詰め
+
+        出力形式（JSON）：
+        {{
+            "qa_pairs": [
+                {{
+                    "question": "質問文",
+                    "answer": "回答文",
+                    "question_type": "種類（factual/reasoning/summary等）",
+                    "difficulty": "難易度（easy/medium/hard）",
+                    "source_span": "回答の根拠となる元テキストの一部"
+                }}
+            ]
+        }}
+        """
+
+        response = self.client.responses.parse(
+            model=self.model,
+            input=prompt,
+            text_format=QAPairsList
+        )
+
+        parsed_data = response.output_parsed
+        return [qa.model_dump() for qa in parsed_data.qa_pairs]
+
+    def generate_diverse_qa(self, text: str) -> List[Dict]:
+        """多様な種類のQ/A生成"""
+
+        qa_types = {
+            "factual"    : "事実確認の質問（Who/What/When/Where）",
+            "causal"     : "因果関係の質問（Why/How）",
+            "comparative": "比較の質問（違い、類似点）",
+            "inferential": "推論が必要な質問",
+            "summary"    : "要約を求める質問",
+            "application": "応用・活用に関する質問"
+        }
+
+        all_qa_pairs = []
+
+        for qa_type, description in qa_types.items():
+            prompt = f"""
+            以下のテキストから「{description}」を2個生成してください。
+
+            テキスト：{text[:2000]}
+
+            JSON形式で出力：
+            {{"qa_pairs": [...]}}
+            """
+
+            response = self.client.responses.parse(
+                model=self.model,
+                input=prompt,
+                text_format=QAPairsList
+            )
+
+            parsed_data = response.output_parsed
+            qa_pairs = [qa.model_dump() for qa in parsed_data.qa_pairs]
+            for qa in qa_pairs:
+                qa["question_type"] = qa_type
+            all_qa_pairs.extend(qa_pairs)
+
+        return all_qa_pairs
+
+
+class ChainOfThoughtQAGenerator:
+    """思考の連鎖を使った高品質Q/A生成"""
+
+    def __init__(self, model: str = "gpt-4o-mini", api_key: Optional[str] = None):
+        """
+        Args:
+            model: 使用するOpenAIモデル
+            api_key: OpenAI APIキー（Noneの場合は環境変数から取得）
+        """
+        self.model = model
+        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
+
+    def generate_with_reasoning(self, text: str) -> List[Dict]:
+        """推論過程付きのQ/A生成"""
+
+        prompt = f"""
+        以下のテキストから質の高いQ/Aペアを生成します。
+        各ステップを踏んで考えてください。
+
+        ステップ1: テキストの主要なトピックと概念を抽出
+        ステップ2: 各トピックについて重要な情報を特定
+        ステップ3: その情報を問う質問を設計
+        ステップ4: テキストから正確な回答を抽出
+        ステップ5: 質問と回答の妥当性を検証
+
+        テキスト：
+        {text}
+
+        必ずJSON形式で出力してください：
+        {{
+            "analysis": {{
+                "main_topics": ["トピック1", "トピック2"],
+                "key_concepts": ["概念1", "概念2"],
+                "information_density": "high/medium/low"
+            }},
+            "qa_pairs": [
+                {{
+                    "question": "質問",
+                    "answer": "回答",
+                    "reasoning": "なぜこの質問が重要か",
+                    "confidence": 0.95
+                }}
+            ]
+        }}
+        """
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.3  # より確定的な出力のため低温
+        )
+
+        return json.loads(response.choices[0].message.content)
+
+
+class RuleBasedQAGenerator:
+    """ルールベースのQ/A生成"""
+
+    def __init__(self):
+        self.nlp = spacy.load("ja_core_news_lg")
+
+    def extract_definition_qa(self, text: str) -> List[Dict]:
+        """定義文からQ/A生成"""
+
+        qa_pairs = []
+
+        # パターン1: 「〜とは〜である」
+        pattern1 = r'([^。]+)とは([^。]+)(?:である|です)'
+        matches = re.findall(pattern1, text)
+
+        for term, definition in matches:
+            qa_pairs.append({
+                "question"  : f"{term.strip()}とは何ですか？",
+                "answer"    : f"{term.strip()}とは{definition.strip()}です。",
+                "type"      : "definition",
+                "confidence": 0.9
+            })
+
+        # パターン2: 「〜は〜と呼ばれる」
+        pattern2 = r'([^。]+)は([^。]+)と呼ばれ'
+        matches = re.findall(pattern2, text)
+
+        for subject, name in matches:
+            qa_pairs.append({
+                "question"  : f"{subject.strip()}は何と呼ばれますか？",
+                "answer"    : f"{name.strip()}と呼ばれます。",
+                "type"      : "terminology",
+                "confidence": 0.85
+            })
+
+        return qa_pairs
+
+    def extract_fact_qa(self, text: str) -> List[Dict]:
+        """事実情報からQ/A生成"""
+
+        doc = self.nlp(text)
+        qa_pairs = []
+
+        for sent in doc.sents:
+            # 主語と動詞を含む文を対象
+            subjects = [token for token in sent if token.dep_ == "nsubj"]
+            verbs = [token for token in sent if token.pos_ == "VERB"]
+
+            if subjects and verbs:
+                # 日付を含む文
+                dates = [ent for ent in sent.ents if ent.label_ == "DATE"]
+                if dates:
+                    qa_pairs.append({
+                        "question"  : f"{subjects[0].text}はいつ{verbs[0].text}ましたか？",
+                        "answer"    : f"{dates[0].text}です。",
+                        "type"      : "temporal",
+                        "confidence": 0.7
+                    })
+
+                # 場所を含む文
+                locations = [ent for ent in sent.ents if ent.label_ in ["GPE", "LOC"]]
+                if locations:
+                    qa_pairs.append({
+                        "question"  : f"{subjects[0].text}はどこで{verbs[0].text}ますか？",
+                        "answer"    : f"{locations[0].text}です。",
+                        "type"      : "location",
+                        "confidence": 0.7
+                    })
+
+        return qa_pairs
+
+    def extract_list_qa(self, text: str) -> List[Dict]:
+        """列挙からQ/A生成"""
+
+        qa_pairs = []
+
+        # 「〜には、A、B、Cがある」パターン
+        pattern = r'([^。]+)(?:には|に|では)、([^。]+(?:、[^。]+)+)が(?:ある|あります|含まれ|存在)'
+        matches = re.findall(pattern, text)
+
+        for topic, items in matches:
+            item_list = [item.strip() for item in items.split('、')]
+            qa_pairs.append({
+                "question"  : f"{topic.strip()}には何がありますか？",
+                "answer"    : f"{topic.strip()}には、{'、'.join(item_list)}があります。",
+                "type"      : "enumeration",
+                "items"     : item_list,
+                "confidence": 0.8
+            })
+
+        return qa_pairs
+
+
+class TemplateBasedQAGenerator:
+    """テンプレートを使用したQ/A生成"""
+
+    def __init__(self):
+        self.templates = self._load_templates()
+
+    def _load_templates(self):
+        """質問テンプレートの定義"""
+        return {
+            "comparison"     : [
+                "{A}と{B}の違いは何ですか？",
+                "{A}と{B}のどちらが{property}ですか？",
+                "{A}と{B}の共通点は何ですか？"
+            ],
+            "process"        : [
+                "{process}のプロセスを説明してください。",
+                "{process}にはどのようなステップがありますか？",
+                "{process}の最初のステップは何ですか？"
+            ],
+            "cause_effect"   : [
+                "{event}の原因は何ですか？",
+                "{cause}の結果として何が起こりますか？",
+                "なぜ{phenomenon}が発生するのですか？"
+            ],
+            "characteristics": [
+                "{entity}の特徴は何ですか？",
+                "{entity}の主な機能は何ですか？",
+                "{entity}はどのように使用されますか？"
+            ]
+        }
+
+    def generate_from_entities(self, text: str, entities: List[Dict]) -> List[Dict]:
+        """抽出されたエンティティからQ/A生成"""
+
+        qa_pairs = []
+
+        for entity in entities:
+            entity_type = entity['type']
+            entity_text = entity['text']
+
+            # エンティティタイプに応じたテンプレート選択
+            if entity_type == "PERSON":
+                questions = [
+                    f"{entity_text}は誰ですか？",
+                    f"{entity_text}は何をしましたか？",
+                    f"{entity_text}の役割は何ですか？"
+                ]
+            elif entity_type == "ORG":
+                questions = [
+                    f"{entity_text}はどのような組織ですか？",
+                    f"{entity_text}の使命は何ですか？",
+                    f"{entity_text}は何を提供していますか？"
+                ]
+            elif entity_type in ["PRODUCT", "WORK_OF_ART"]:
+                questions = [
+                    f"{entity_text}の特徴は何ですか？",
+                    f"{entity_text}はどのように使われますか？",
+                    f"{entity_text}の利点は何ですか？"
+                ]
+            else:
+                # 一般的なテンプレート
+                questions = [
+                    f"{entity_text}とは何ですか？",
+                    f"{entity_text}の重要性は何ですか？",
+                    f"{entity_text}の例を挙げてください。"
+                ]
+
+            # テキストから回答を探索
+            for question in questions:
+                answer = self.find_answer_in_text(text, entity_text, question)
+                if answer:
+                    qa_pairs.append({
+                        "question"  : question,
+                        "answer"    : answer,
+                        "entity"    : entity_text,
+                        "type"      : "entity_based",
+                        "confidence": 0.75
+                    })
+
+        return qa_pairs
+
+
+class HybridQAGenerator:
+    """複数の手法を組み合わせた高度なQ/A生成"""
+
+    def __init__(self):
+        self.llm_generator = LLMBasedQAGenerator()
+        self.rule_generator = RuleBasedQAGenerator()
+        self.template_generator = TemplateBasedQAGenerator()
+
+    def generate_comprehensive_qa(self, text: str,
+                                  target_count: int = 20,
+                                  quality_threshold: float = 0.7) -> List[Dict]:
+        """包括的なQ/A生成パイプライン"""
+
+        all_qa_pairs = []
+
+        # Phase 1: ルールベースで確実なQ/Aを生成
+        print("Phase 1: ルールベース生成...")
+        rule_based_qa = []
+        rule_based_qa.extend(self.rule_generator.extract_definition_qa(text))
+        rule_based_qa.extend(self.rule_generator.extract_fact_qa(text))
+        rule_based_qa.extend(self.rule_generator.extract_list_qa(text))
+
+        # 高信頼度のものだけを選択
+        rule_based_qa = [qa for qa in rule_based_qa
+                         if qa.get('confidence', 0) >= quality_threshold]
+        all_qa_pairs.extend(rule_based_qa)
+        print(f"  生成数: {len(rule_based_qa)}")
+
+        # Phase 2: テンプレートベースで補完
+        print("Phase 2: テンプレートベース生成...")
+        entities = self.extract_entities(text)
+        template_qa = self.template_generator.generate_from_entities(text, entities)
+
+        # 重複を除去
+        template_qa = self.remove_duplicates(template_qa, all_qa_pairs)
+        all_qa_pairs.extend(template_qa)
+        print(f"  生成数: {len(template_qa)}")
+
+        # Phase 3: LLMで不足分を補完
+        remaining_count = target_count - len(all_qa_pairs)
+        if remaining_count > 0:
+            print(f"Phase 3: LLM生成（残り{remaining_count}個）...")
+
+            # カバーされていない領域を特定
+            uncovered_text = self.identify_uncovered_sections(text, all_qa_pairs)
+
+            llm_qa = self.llm_generator.generate_diverse_qa(uncovered_text)
+            llm_qa = llm_qa[:remaining_count]
+
+            all_qa_pairs.extend(llm_qa)
+            print(f"  生成数: {len(llm_qa)}")
+
+        # Phase 4: 品質検証と改善
+        print("Phase 4: 品質検証...")
+        validated_qa = self.validate_and_improve_qa(all_qa_pairs, text)
+
+        return validated_qa
+
+    def validate_and_improve_qa(self, qa_pairs: List[Dict],
+                                source_text: str) -> List[Dict]:
+        """Q/Aペアの品質検証と改善"""
+
+        validated_qa = []
+
+        for qa in qa_pairs:
+            # 検証項目
+            validations = {
+                "answer_found"      : self.verify_answer_in_text(
+                    qa['answer'], source_text
+                ),
+                "question_clear"    : self.check_question_clarity(
+                    qa['question']
+                ),
+                "no_contradiction"  : self.check_no_contradiction(
+                    qa, validated_qa
+                ),
+                "appropriate_length": self.check_length_appropriateness(qa)
+            }
+
+            # すべての検証をパスしたものだけを採用
+            if all(validations.values()):
+                qa['validations'] = validations
+                qa['quality_score'] = self.calculate_quality_score(qa)
+                validated_qa.append(qa)
+
+        # 品質スコアでソート
+        validated_qa.sort(key=lambda x: x['quality_score'], reverse=True)
+
+        return validated_qa
+
+
+class AdvancedQAGenerationTechniques:
+    """高度なQ/A生成技術"""
+
+    def generate_adversarial_qa(self, text: str, existing_qa: List[Dict]) -> List[Dict]:
+        """敵対的Q/A（システムを混乱させる質問）の生成"""
+
+        adversarial_qa = []
+
+        # 1. 否定質問
+        for qa in existing_qa[:5]:
+            adversarial_qa.append({
+                "question": qa['question'].replace("何ですか", "何ではありませんか"),
+                "answer"  : f"{qa['answer']}ではないものを指します。",
+                "type"    : "adversarial_negation"
+            })
+
+        # 2. 文脈外質問
+        adversarial_qa.append({
+            "question": "この文書に書かれていない情報は何ですか？",
+            "answer"  : "文書には含まれていない情報です。",
+            "type"    : "out_of_context"
+        })
+
+        # 3. 曖昧な参照
+        adversarial_qa.append({
+            "question": "それは何を指していますか？",
+            "answer"  : "文脈により異なります。",
+            "type"    : "ambiguous_reference"
+        })
+
+        return adversarial_qa
+
+    def generate_multi_hop_qa(self, text: str) -> List[Dict]:
+        """マルチホップ推論が必要なQ/A生成"""
+
+        prompt = f"""
+        以下のテキストから、複数の情報を組み合わせて答える必要がある質問を生成してください。
+
+        例：
+        - AがBである、BがCである → AとCの関係は？
+        - XはYより大きい、YはZより大きい → X、Y、Zの順序は？
+
+        テキスト：{text}
+
+        JSON形式で3つ生成してください。
+        """
+
+        # LLM呼び出し（実装略）
+        return []
+
+    def generate_counterfactual_qa(self, text: str) -> List[Dict]:
+        """反事実的Q/A（もし〜だったら）の生成"""
+
+        counterfactual_templates = [
+            "もし{condition}でなかったら、{outcome}はどうなっていましたか？",
+            "{event}が起こらなかった場合、何が変わっていましたか？",
+            "{factor}が異なっていたら、結果はどう変わりますか？"
+        ]
+
+        # テキストから条件と結果を抽出して適用
+        return []
+
+
+class QAGenerationOptimizer:
+    """Q/A生成の最適化"""
+
+    def optimize_for_coverage(self, text: str, budget: int) -> Dict:
+        """カバレッジを最大化する生成戦略"""
+
+        strategy = {
+            "phase1": {
+                "method"     : "rule_based",
+                "target"     : "high_confidence_facts",
+                "cost"       : 0,
+                "expected_qa": 10
+            },
+            "phase2": {
+                "method"     : "template_based",
+                "target"     : "entities_and_concepts",
+                "cost"       : 0,
+                "expected_qa": 15
+            },
+            "phase3": {
+                "method"     : "llm_cheap",
+                "model"      : "gpt-3.5-turbo",
+                "target"     : "gap_filling",
+                "cost"       : budget * 0.3,
+                "expected_qa": 20
+            },
+            "phase4": {
+                "method"     : "llm_quality",
+                "model"      : "gpt-4o",
+                "target"     : "complex_reasoning",
+                "cost"       : budget * 0.5,
+                "expected_qa": 10
+            },
+            "phase5": {
+                "method"     : "human_validation",
+                "target"     : "quality_assurance",
+                "cost"       : budget * 0.2,
+                "expected_qa": "validation_only"
+            }
+        }
+
+        return strategy
+
+    def adaptive_generation(self, text: str,
+                            initial_qa: List[Dict]) -> List[Dict]:
+        """既存Q/Aを分析して適応的に生成"""
+
+        # カバレッジ分析
+        coverage_analysis = self.analyze_coverage(text, initial_qa)
+
+        # 不足している質問タイプを特定
+        missing_types = self.identify_missing_question_types(initial_qa)
+
+        # ギャップを埋める新しいQ/A生成
+        new_qa = []
+        for missing_type in missing_types:
+            new_qa.extend(
+                self.generate_specific_type(text, missing_type, count=3)
+            )
+
+        return new_qa
+
+
+# テスト用コード
+if __name__ == "__main__":
+    # サンプルテキスト
+    sample_text = """
+    人工知能（AI）は、機械学習と深層学習を基盤として急速に発展しています。
+    特に自然言語処理（NLP）の分野では、トランスフォーマーモデルが革命的な成果を上げました。
+    BERTやGPTなどの大規模言語モデルは、文脈理解能力を大幅に向上させています。
+    """
+
+    print("=" * 80)
+    print("util_rag_qa.py - キーワード抽出ユーティリティのテスト")
+    print("=" * 80)
+
+    # BestKeywordSelectorのテスト
+    print("\n【BestKeywordSelectorのテスト】")
+    best_keywords = get_best_keywords(sample_text, top_n=5)
+    print(f"最良のキーワード: {', '.join(best_keywords)}")
+
+    # SmartKeywordSelectorのテスト
+    print("\n【SmartKeywordSelectorのテスト】")
+    smart_result = get_smart_keywords(sample_text, mode="auto")
+    print(f"スマート選択結果:")
+    print(f"  キーワード: {', '.join(smart_result['keywords'][:5])}")
+    print(f"  選択手法: {smart_result['method']}")
+    print(f"  決定理由: {smart_result['reason']}")
