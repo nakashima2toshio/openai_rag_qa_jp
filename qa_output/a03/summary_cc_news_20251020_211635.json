@@ -1,0 +1,16 @@
+{
+  "dataset_type": "cc_news",
+  "generated_at": "20251020_211635",
+  "total_qa_pairs": 4852,
+  "files": {
+    "qa_json": "qa_output/qa_pairs_cc_news_20251020_211635.json",
+    "qa_csv": "qa_output/qa_pairs_cc_news_20251020_211635.csv",
+    "coverage": "qa_output/coverage_cc_news_20251020_211635.json"
+  },
+  "coverage_rate": 0.9928952042628775,
+  "coverage_details": {
+    "high_coverage": 1208,
+    "medium_coverage": 462,
+    "low_coverage": 19
+  }
+}

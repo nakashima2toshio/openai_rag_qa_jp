@@ -1,0 +1,3928 @@
+{
+  "coverage_rate": 0.7449392712550608,
+  "covered_chunks": 368,
+  "total_chunks": 494,
+  "uncovered_chunks": [
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6846048727798136,
+      "gap": 0.015395127220186322,
+      "text_preview": "The team will be responsible for the day-to-day artistic needs of the company including scheduling, casting and conducting rehearsals. While there's no word yet on the length of their tenure, we'll co..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6779764526140036,
+      "gap": 0.022023547385996323,
+      "text_preview": "dance shoes Looking for your next audition shoe? Shot at and in collaboration with Broadway Dance Center, Só Dança has launched a new collection of shoes working with some pretty famous faces of the m..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6761418393230952,
+      "gap": 0.023858160676904716,
+      "text_preview": "In general I would say the time that I've had onstage with some of my friends and dancing partners has been so special. It's one thing to be a friend with someone and another to also share the stage w..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.5973361941310629,
+      "gap": 0.10266380586893709,
+      "text_preview": "There are a couple of ballet masters that I've connected to. I'm very close to Karin von Aroldingen. Her undying passion for these pieces is incredibly inspiring. Susan Hendl has also been an inspirat..."
+    },
+    {
+      "chunk_id": "chunk_5",
+      "similarity": 0.681409496762603,
+      "gap": 0.01859050323739697,
+      "text_preview": "More secrets and surprises… According to dance historian Doug Fullington, in the original 1892 scenario the Nutcracker has two sisters who graciously welcome Clara to the Land of Sweets with warm hugs..."
+    },
+    {
+      "chunk_id": "chunk_8",
+      "similarity": 0.6498530633324002,
+      "gap": 0.05014693666759973,
+      "text_preview": "If I can't describe what I want with words, I have to show them. \" He holds his hands towards his chest, indicating the sign for \"I. \" \"Showing can be more effective than telling. That's the beauty of..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6737914916362228,
+      "gap": 0.026208508363777194,
+      "text_preview": "Isabella Boylston and James Whiteside Get Hilariously Candid Though American Ballet Theatre principals James Whiteside and Isabella Boylston have long displayed their envy-worthy friendship on Instagr..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.5399733150094979,
+      "gap": 0.1600266849905021,
+      "text_preview": "Boylston also delves into her experience guesting with the Paris Opéra Ballet, her dream of choreographing an avant-garde ballet on Whiteside to a Carly Rae Jepsen song and best and worst Kennedy Cent..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.658184424288209,
+      "gap": 0.04181557571179095,
+      "text_preview": "Robert had just finished his documentary and has a really deep understanding of this kind of Canadian culture. He'd already gotten incredible footage from the National Film Board of Canada of McLaren ..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6614149812381109,
+      "gap": 0.03858501876188902,
+      "text_preview": "\"I can't think of another performance that has so many props,\" says Wheater, listing giant bales of hay, long banquet tables, umbrellas, beach chairs and more. The piece features a commissioned score ..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6744855437935033,
+      "gap": 0.025514456206496616,
+      "text_preview": "Bay Community News The Bay County Sheriff’s Office has arrested four men from Atlanta after they allegedly hired local transients to cash fraudulent checks for them using stolen personal information. ..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.648775255207064,
+      "gap": 0.05122474479293593,
+      "text_preview": "A BOLO was put out to local law enforcement on the vehicles. One was located at a business on East Avenue and contact was made with Clarence Suggs, age 27, and Reginald Hughes, age 26. They were arres..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.5729462764654694,
+      "gap": 0.1270537235345306,
+      "text_preview": "I'll be demonstrating the installation on a Ubuntu Server 16. 04. And so, let's get to it. Installation The installation isn't terribly challenging, but does require a bit of typing. Log into your Ubu..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6935725468455978,
+      "gap": 0.006427453154402185,
+      "text_preview": "The exam consists of 65 multiple choice questions and will likely take 170 minutes to complete. The registration fee is $300. SEE: Cloud computing policy (Tech Pro Research) According to the post, onc..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6830158411824037,
+      "gap": 0.016984158817596295,
+      "text_preview": "Each appliance is a single board computer (based on the Raspberry Pi). The device is smaller than a credit card, has no moving parts, generates no heat, is wall-mountable, is powered by a standard USB..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6733414328828351,
+      "gap": 0.026658567117164855,
+      "text_preview": "6 GB (GS-64) Certifications - CE, FCC Processor - H2 quadcore Cortex-A7 with 512 MB RAM Power supply - Standard USB Connectors - 1 × 10/100 MBit/s Ethernet, USB-A, Power (USB Micro-B) Web interface la..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6661344285123318,
+      "gap": 0.03386557148766811,
+      "text_preview": "5 data protection policies your employees must know in the post-GDPR era The EU's General Data Protection Regulation (GDPR) went into effect in May, requiring all organizations that handle the data of..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6963398877352329,
+      "gap": 0.0036601122647670348,
+      "text_preview": "Why a cloud-friendly Java could finally be possible with Jakarta EE Over the past two decades, Java has arguably been the most successful programming language on the planet. Go is cool, Swift is nifty..."
+    },
+    {
+      "chunk_id": "chunk_5",
+      "similarity": 0.608986716262773,
+      "gap": 0.09101328373722695,
+      "text_preview": "-Spiceworks, 2017 Image: iStockphoto/Rawpixel Keep up to date on all of the latest leadership news. Click here to subscribe to the TechRepublic Executive Briefing newsletter. Subscribe Also see..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6669762854402512,
+      "gap": 0.03302371455974873,
+      "text_preview": "Top 5: Things AI might actually be good for Artificial intelligence (AI) is increasingly mocked as being used as a marketing term. But AI is also being used to create some legitimately useful tools. S..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6508671593595647,
+      "gap": 0.049132840640435216,
+      "text_preview": "We didn't even include autonomous cars, which use all kinds of machine learning and types of AI to interpret sensors. And there are loads more. There's a lot of fog around the idea of AI these days, b..."
+    },
+    {
+      "chunk_id": "chunk_8",
+      "similarity": 0.6373683953458371,
+      "gap": 0.06263160465416284,
+      "text_preview": "When I say that with a sense of responsibility that there would be still be a certain set of companies that may not adopt it, because of how they would want to position it, which would be challenging,..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6731793814504685,
+      "gap": 0.02682061854953144,
+      "text_preview": "Python Currently enjoying a surge in usage, Python is regularly used by web and desktop developers, sysadmin/devops, and more recently by data scientists and machine-learning engineers. The IOActive p..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6676240407789475,
+      "gap": 0.03237595922105241,
+      "text_preview": "There was a lot of momentum and excitement behind all the work that we were doing. Especially when we took it to the tech side. And one thing that I've always focused on throughout my career was how d..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.6931093988846841,
+      "gap": 0.006890601115315809,
+      "text_preview": "What I mean by that is right now, we are used to a web, where we can delete, where we can change, and where we can alter. And what's really happened there is that people throw ideas out there, knowing..."
+    },
+    {
+      "chunk_id": "chunk_6",
+      "similarity": 0.6696106339085084,
+      "gap": 0.030389366091491565,
+      "text_preview": "But once you do that, what can you actually do on the domain? And I think there's two major things. One is really being able to own and manage your ideas. So how do you issue a content license? What s..."
+    },
+    {
+      "chunk_id": "chunk_7",
+      "similarity": 0.6020082833069249,
+      "gap": 0.09799171669307505,
+      "text_preview": "Sure, here's my private key with the smart contract and rules that you need to abide by if you want to license and leverage this content. \" So that is one thing that I think is extremely important tha..."
+    },
+    {
+      "chunk_id": "chunk_8",
+      "similarity": 0.5645130528694269,
+      "gap": 0.13548694713057308,
+      "text_preview": "\" Or, you may say, \"No, like I don't want all that fat. \" But when it comes to information and transparency, that doesn't really exist. So I think this idea of building reputation for creators, not ju..."
+    },
+    {
+      "chunk_id": "chunk_9",
+      "similarity": 0.6750544789677466,
+      "gap": 0.024945521032253337,
+      "text_preview": "So I think that sort of information really is applicable, especially nowadays, when it comes to deep fakes and people putting information out there, to really just get more exposure and transparency t..."
+    },
+    {
+      "chunk_id": "chunk_10",
+      "similarity": 0.6688566767415144,
+      "gap": 0.031143323258485567,
+      "text_preview": "et, not just in terms of content, but you are building a content library. Why did you elect to use Ethereum? What are some of the advantages of that? And, is this the next emerging hot blockchain? Dic..."
+    },
+    {
+      "chunk_id": "chunk_11",
+      "similarity": 0.6173151808883741,
+      "gap": 0.08268481911162584,
+      "text_preview": "There's also companies like ConsenSys out in Bushwick, that are building right on top of this, companies for every single pocket of the industry that could leverage blockchain for proof, right, of val..."
+    },
+    {
+      "chunk_id": "chunk_12",
+      "similarity": 0.6785779126892003,
+      "gap": 0.021422087310799642,
+      "text_preview": "et is build a protocol that is helping build reputation on the web. And if you want to help leverage that, to help build reputation within your applications, then you should build on Po. et. There's a..."
+    },
+    {
+      "chunk_id": "chunk_13",
+      "similarity": 0.5898745533665146,
+      "gap": 0.11012544663348534,
+      "text_preview": "If you value your money and you trust Bitcoin blockchain because money is the most important thing to you at this moment, well, your ideas are equally important, right? And if your ideas are important..."
+    },
+    {
+      "chunk_id": "chunk_15",
+      "similarity": 0.6544638181639393,
+      "gap": 0.045536181836060674,
+      "text_preview": "And I'm sure you agree, as well, and anyone who works in this space constantly is telling people that, \"Content cost money. Content is valuable. It costs a lot to create great content. If you want goo..."
+    },
+    {
+      "chunk_id": "chunk_11",
+      "similarity": 0.616226915086436,
+      "gap": 0.08377308491356394,
+      "text_preview": "It also supports TrueCrypt's hidden volume and hidden operating system features. BitLocker is Microsoft's full-disk encryption featured in supported versions of Windows Vista and later. Using default ..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.6780854369152913,
+      "gap": 0.021914563084708627,
+      "text_preview": "Six potential cities—Portland, OR, San Jose, CA, Los Angeles, CA, Dallas, TX, Oklahoma City, OK, Tampa, FL, Jacksonville, FL, Phoenix, AZ—are listed as places the company is exploring. SEE: Louisville..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6304844408073297,
+      "gap": 0.06951555919267027,
+      "text_preview": "If you use Cisco networking, EMC storage, and Dell computing, which is a pretty standard thing, there's over 800 configurations. [In HCI] the vendor's done all the heavy lifting. They're not plug-and-..."
+    },
+    {
+      "chunk_id": "chunk_5",
+      "similarity": 0.6887905244631469,
+      "gap": 0.01120947553685303,
+      "text_preview": "Zeus Kerravala: \"There's a lot of products on the market and they all kind of pitch the same message. But the performance from box to box, from vendor to vendor, is going to be quite different dependi..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6747408951156819,
+      "gap": 0.02525910488431804,
+      "text_preview": "How to sort and delete sets of Gmail messages: 4 steps You might want to mass delete email from Gmail for many reasons: To remove non-work-related messages from an account, to achieve \"inbox zero\" as ..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6451841510501829,
+      "gap": 0.05481584894981706,
+      "text_preview": "Enter to: or from: followed by an email address to find all of the email sent to or received from an address. Subject . Enter subject: followed by a word (or a phrase in quotes) to find all email that..."
+    },
+    {
+      "chunk_id": "chunk_5",
+      "similarity": 0.6592036692317731,
+      "gap": 0.04079633076822686,
+      "text_preview": "Refine and review the results until you're confident that all the email found by your search is email you wish to delete. 3. Select / Select All Select the box at the top of the column above your emai..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6726969629907102,
+      "gap": 0.02730303700928971,
+      "text_preview": "Analytics, artificial intelligence, and deep learning are put into play by analyzing medical images and reports on different pathological conditions, and then coming up with different models and sourc..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.5126713689761888,
+      "gap": 0.18732863102381114,
+      "text_preview": "Get a roundup of the biggest Microsoft news of the week in your inbox: Subscribe to our Microsoft Weekly newsletter. Subscribe Also see..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.6101738676401236,
+      "gap": 0.08982613235987635,
+      "text_preview": "No it's not the most cutting edge (Essential went with an LCD display, instead of the more popular, flagship level, OLED option), but the edge to edge is absolutely beautiful. Essential essentially pr..."
+    },
+    {
+      "chunk_id": "chunk_7",
+      "similarity": 0.5626532161794999,
+      "gap": 0.13734678382050003,
+      "text_preview": "Bravo Essential, you've created something special. Automatically sign up for TechRepublic's Mobile Enterprise Newsletter for more news and tips. Subscribe Also see..."
+    },
+    {
+      "chunk_id": "chunk_9",
+      "similarity": 0.6819845441685485,
+      "gap": 0.018015455831451477,
+      "text_preview": "\" SEE: Turning Big Data into Business Insights (ZDNet special report) | Download the report as a PDF (TechRepublic) This stuff is obviously great source material for fantasy football junkies, but it c..."
+    },
+    {
+      "chunk_id": "chunk_10",
+      "similarity": 0.653346250754824,
+      "gap": 0.04665374924517596,
+      "text_preview": "For the fans watching Super Bowl LII between the New England Patriots and the Philadelphia Eagles on Sunday, here are a pair of Next Gen Stats videos that break down what's likely to be the game's key..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.5802095560016522,
+      "gap": 0.1197904439983477,
+      "text_preview": "If a user clicks on the attached file, it will run a remote access tool, and could allow attackers access to a user's keystrokes, screen, webcam, and microphone. IT should keep systems update and educ..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6846358653562565,
+      "gap": 0.015364134643743421,
+      "text_preview": "Figure A We'll create this simple timesheet that allows you to track time by projects. The sheet has an input area for employee, company, and department information, including the time (pay) period. T..."
+    },
+    {
+      "chunk_id": "chunk_7",
+      "similarity": 0.6753553673960764,
+      "gap": 0.024644632603923577,
+      "text_preview": "Add category input range With your projects list in place you're ready to start building the work-hour input ranges. Beginning at A7, and using Figure I as a guide, add a row of header labels and cate..."
+    },
+    {
+      "chunk_id": "chunk_8",
+      "similarity": 0.6479704065460428,
+      "gap": 0.05202959345395719,
+      "text_preview": "Figure I shows the finished category Table input range. By making the range a Table, you can easily add or delete new categories, but each category requires only one row per pay period. You can add a ..."
+    },
+    {
+      "chunk_id": "chunk_9",
+      "similarity": 0.6513652267501138,
+      "gap": 0.04863477324988619,
+      "text_preview": "If you like, click the Error Alert tab, and enter a meaningful error message. This step isn't necessary for the sheet to work, but your users will appreciate the information. Click OK. Figure J Create..."
+    },
+    {
+      "chunk_id": "chunk_11",
+      "similarity": 0.6035152281177149,
+      "gap": 0.0964847718822851,
+      "text_preview": "Instead of entering those long references, you could click B15 and B19. Figure L shows the timesheet after disabling the gridlines and applying Table formats consistently to both Table objects. It's a..."
+    },
+    {
+      "chunk_id": "chunk_13",
+      "similarity": 0.6568029040146621,
+      "gap": 0.04319709598533783,
+      "text_preview": "Using the sheet Each pay period, the user will open the template file and rename it to reflect the current pay period. It's not the only way, of course, but it's the easiest way. Employees can submit ..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.693978341374866,
+      "gap": 0.00602165862513393,
+      "text_preview": "2: Don't select things If you use the macro recorder, you may have noticed that it's fond of using the Select method to explicitly reference things. It works, but it's slow and prone to runtime errors..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.6204447341867141,
+      "gap": 0.07955526581328587,
+      "text_preview": "Italic = True End Sub Macro2() accomplishes the same thing with one line of code and without selecting the range. In short, you simply combine the two statements and delete the Select method and the S..."
+    },
+    {
+      "chunk_id": "chunk_6",
+      "similarity": 0.6887131583882128,
+      "gap": 0.011286841611787168,
+      "text_preview": "Value Select Case intFee Case 1 ReturnFee = intFee * 10 Case 2 ReturnFee = intFee * 20 Case 3 ReturnFee = intFee * 30 Case 4 ReturnFee = intFee * 40 Case 5 ReturnFee = intFee * 50 End Select MsgBox Re..."
+    },
+    {
+      "chunk_id": "chunk_7",
+      "similarity": 0.6301722819149862,
+      "gap": 0.06982771808501376,
+      "text_preview": "Subscribe Send me your question about Office I answer readers' questions when I can, but there's no guarantee. Don't send files unless requested; initial requests for help that arrive with attached fi..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6391595340616307,
+      "gap": 0.060840465938369226,
+      "text_preview": "Reimagine work by configuring work from the bottom up Some 46% of business leaders agreed that job descriptions are already obsolete, and 29% said they have redesigned jobs extensively. Leaders should..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6840023224144318,
+      "gap": 0.015997677585568137,
+      "text_preview": "Too often, however, venture money isn't a sign of success—it means a company still hasn't figured out how to make money, so it's buying time with VC money. While venture money can be used to fuel grow..."
+    },
+    {
+      "chunk_id": "chunk_5",
+      "similarity": 0.627700537619787,
+      "gap": 0.07229946238021301,
+      "text_preview": "It meets the needs of the business, the pace, it helps people tackle digital transformation, get ahead of disruptive competitors in the marketplace, and so I think you're just going to see more and mo..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6831658367276634,
+      "gap": 0.016834163272336555,
+      "text_preview": "In my case, that link just took me to the application list, where the only OneDrive application that could be removed was the new version—there was no separate entry for OneDrive for Business. Figure ..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.662597104404264,
+      "gap": 0.03740289559573595,
+      "text_preview": "Next, navigate to this entry: Computer Configuration | Administrative Templates | Windows Components | OneDrive You should see a screen similar to Figure C. Figure C Double-click Prevent The Usage Of ..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6694248690757653,
+      "gap": 0.030575130924234695,
+      "text_preview": "6 tips for managing your mental bandwidth Time is an interesting thing. It's the one \"commodity\" that cannot be created or destroyed, and you can't acquire more than 24 hours each day. What we do with..."
+    },
+    {
+      "chunk_id": "chunk_5",
+      "similarity": 0.6211860116437673,
+      "gap": 0.07881398835623266,
+      "text_preview": "For more business and leadership advice, subscribe to our Executive Briefing newsletter. Subscribe Also see:..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6606382551036676,
+      "gap": 0.039361744896332374,
+      "text_preview": "It's a small look at the future of the connected world and why people like Larry Dignan, of our sister site ZDNet, have called the company out as being one of the most innovative tech companies today...."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.5637405749198916,
+      "gap": 0.13625942508010835,
+      "text_preview": "\"There are baseline HR things that you should do at every company, that's the biggest lesson, and if you're not doing them, you're missing out. \" Discover the secrets to IT leadership success with the..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6769862693797979,
+      "gap": 0.023013730620202066,
+      "text_preview": "\" Cambridge Analytica famously states its database contains over 5,000 data points on nearly every American consumer. The company is hardly the only big data company to make grand assertions about the..."
+    },
+    {
+      "chunk_id": "chunk_6",
+      "similarity": 0.5921599816799774,
+      "gap": 0.10784001832002255,
+      "text_preview": "Hindsight is always 20/20, but going back and doing it all over again I would have traded money for time. I say this on most campaigns that I work on, but a bit more maturity in a few of the programs ..."
+    },
+    {
+      "chunk_id": "chunk_7",
+      "similarity": 0.6331018097302425,
+      "gap": 0.06689819026975741,
+      "text_preview": "We recently hired our CTO, Darren Bolding, who served as CTO of the RNC this past cycle. Darren and I manage, and are currently expanding, our in-house team of engineers to productize our offering a b..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.646791120499783,
+      "gap": 0.05320887950021691,
+      "text_preview": "Ultimately, it's more important to understand how to solve a problem by breaking it down into smaller pieces than it is to know the language itself, Facemire said. \"At the end of the day it's just a w..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6927728955012764,
+      "gap": 0.007227104498723547,
+      "text_preview": "Next time you're stuck in line, waiting for a meal, or in a waiting room at a doctor's office, put your phone away and just observe. How are people interacting? What technologies are being used or dis..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6945734108270293,
+      "gap": 0.005426589172970675,
+      "text_preview": "Automotive companies have long been faced with similarly complex distribution and dealership networks, yet must market directly to consumers, and may provide techniques and inspiration that haven't ye..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.6898323786930722,
+      "gap": 0.010167621306927721,
+      "text_preview": "Other companies have proven that unconventional business models can be successful, so at the very least thinking through how these could apply to your industry will prepare you for potential competito..."
+    },
+    {
+      "chunk_id": "chunk_5",
+      "similarity": 0.5525002072459742,
+      "gap": 0.1474997927540258,
+      "text_preview": "First, it allows you to call on specific people when you need expertise in a particular area. Secondly, it can help identify areas where your team is lacking. You may have a dozen technologists, but n..."
+    },
+    {
+      "chunk_id": "chunk_6",
+      "similarity": 0.6976596568825248,
+      "gap": 0.0023403431174751077,
+      "text_preview": "It can be uncomfortable to spend time with someone who has never heard of you, and regards some aspect of your company as significantly lagging or even irrelevant. However, just as sitting in an \"echo..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6858993984883799,
+      "gap": 0.01410060151162007,
+      "text_preview": "Securing smart factories: How Schneider Electric connects devices and prevents outages TechRepublic's Dan Patterson spoke with Andrew Bennett, the SVP of IoT EcoStruxure at Schneider Electric about Ec..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6806931241844617,
+      "gap": 0.01930687581553825,
+      "text_preview": "And one of the things that we've been doing for a long time is thinking about connecting devices in those settings to enhance analytics. That's really kind of the core of what we do as a company. We t..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6514051600672932,
+      "gap": 0.048594839932706746,
+      "text_preview": "It's an architecture that allows all three of those layers to interoperate, and it's really designed to be completely open and interoperable, because while we think our customers should only buy Schne..."
+    },
+    {
+      "chunk_id": "chunk_6",
+      "similarity": 0.6542942007897604,
+      "gap": 0.04570579921023954,
+      "text_preview": "SEE: Green tech initiatives: Best practices and breakthroughs (free PDF) (TechRepublic) Bennett: Yeah, listen I think there's an endless set of applications in the IoT and industrial space of the Inte..."
+    },
+    {
+      "chunk_id": "chunk_7",
+      "similarity": 0.6742341620059319,
+      "gap": 0.025765837994068064,
+      "text_preview": "But what's happening over time for sure is, as you aggregate that data, as you can start to look at broader trends, you could start to bring in things like machine learning, and the thing that I think..."
+    },
+    {
+      "chunk_id": "chunk_8",
+      "similarity": 0.6084073568298449,
+      "gap": 0.09159264317015503,
+      "text_preview": "And so today, if you kind of looked at the signatures of what that looks like, a human being can look at that, you know we have thousands of electrical engineers in our company. Incredibly intelligent..."
+    },
+    {
+      "chunk_id": "chunk_9",
+      "similarity": 0.5832529384636295,
+      "gap": 0.11674706153637049,
+      "text_preview": "So you saying this, this is what that pattern looks like, now you can feed that into an AI system, and you can start to create a set of patterns that you can look for, and then obviously do what we ul..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6983899029558074,
+      "gap": 0.001610097044192571,
+      "text_preview": "It makes it easy for executives and other key decision-makers to quickly understand what to expect in the document and is used to capture their interest. A statement of the problem or opportunity This..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6089909370160558,
+      "gap": 0.09100906298394418,
+      "text_preview": "Mary Meeker's 2018 internet trends report: 5 things business pros need to know On Wednesday, KPCB partner Mary Meeker released her 2018 Internet Trends report—a 294-slide presentation examining the gl..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6931836803340379,
+      "gap": 0.006816319665962078,
+      "text_preview": "SEE: IT leader's guide to achieving digital transformation (Tech Pro Research) 1. Internet is impacting, disrupting jobs Technology disruption is nothing new in the workplace, but the pace at which it..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6936971339779187,
+      "gap": 0.006302866022081299,
+      "text_preview": "Mobile shopping and mobile payment apps are providing better online and in-store experiences, and many services—including mobile app-based ones— are shifting from one-time purchases to subscription mo..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.610083390703688,
+      "gap": 0.08991660929631196,
+      "text_preview": "\" The US and China are the two biggest players in AI right now, according to the report. 4. The privacy paradox One of the most poignant points that Meeker noted was the rise of the \"privacy paradox,\"..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6279792984606185,
+      "gap": 0.07202070153938145,
+      "text_preview": "\"They had strong writing skills, they had analytical skills, so those relate well to a project management position,\" he said. \"So even though it's a technical role, the person is doing well on the job..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.690374723069632,
+      "gap": 0.009625276930367965,
+      "text_preview": "\" Many companies require a bachelor's degree for every position, even administrative ones, Hennigan said. \"You should really break it down into what tasks have to be performed in order to achieve succ..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.636626561547905,
+      "gap": 0.06337343845209498,
+      "text_preview": "\"We're finding companies that are fortunate enough to have that budget to provide training or certification are loosening up some of the specific technical requirements and ramping the people up,\" he ..."
+    },
+    {
+      "chunk_id": "chunk_4",
+      "similarity": 0.6434830316355133,
+      "gap": 0.05651696836448661,
+      "text_preview": "For example, when interviewing for a software development role, interviewers give candidates a coding exercise, examine their GitHub repository, and talk to them about the code they wrote. SEE: How CX..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.6639393273600934,
+      "gap": 0.03606067263990653,
+      "text_preview": "Following our example, you have a plant list in Excel, but you might also have a vendor contract in Word and several graphic files you're using in different publicity venues. Searching Now let's use F..."
+    },
+    {
+      "chunk_id": "chunk_7",
+      "similarity": 0.6792450128676579,
+      "gap": 0.02075498713234203,
+      "text_preview": "If you work alone, this is easy. If you're trying to corral files for an organization, it's much harder. Everyone may not be on the same page, so searches will be incomplete at best. That might be one..."
+    },
+    {
+      "chunk_id": "chunk_8",
+      "similarity": 0.6304863256329786,
+      "gap": 0.06951367436702138,
+      "text_preview": "Subscribe Send me your question about Office I answer readers' questions when I can, but there's no guarantee. Don't send files unless requested; initial requests for help that arrive with attached fi..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.651400866959068,
+      "gap": 0.048599133040932,
+      "text_preview": "SEE: How to manage job stress: An IT leader's guide (free PDF) (TechRepublic) If you're operating in a management capacity, but find yourself needing coaching and mentoring, you may want to consider e..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.5657092121805045,
+      "gap": 0.13429078781949544,
+      "text_preview": "She had many great ideas, was frequently drowned out in meetings, and it was beneficial for her and the company that she get the training. Unfortunately, she also ended up reinforcing her boss' opinio..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6621216931299035,
+      "gap": 0.03787830687009641,
+      "text_preview": "The Delta runs on an Intel Celeron N4100 processor, has 4GB of RAM but still keeps many of the advantages of the Alpha board, such as 802. 11ac Wi-Fi and 3 x USB 3. 0 ports. Both boards are being crow..."
+    },
+    {
+      "chunk_id": "chunk_3",
+      "similarity": 0.5453228219947859,
+      "gap": 0.15467717800521408,
+      "text_preview": "Image: DFRobot Image: DFRobot Automatically sign up for TechRepublic's Open Source Weekly Newsletter for more hot tips and tricks. Subscribe Read more about the Raspberry Pi..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.5875106200620196,
+      "gap": 0.11248937993798036,
+      "text_preview": "data center decision, free PDF (ZDNet/TechRepublic special report) Some of the unique questions from the current survey are: What is your organization doing to deal with media migration and long term ..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6375881038292035,
+      "gap": 0.062411896170796455,
+      "text_preview": "The werewolf family of Nepal ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma) ঽ = & (Avagrah) ৺ = ~ (Isshar) ৹ = a~ ..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.659268741980793,
+      "gap": 0.04073125801920696,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6515133984163908,
+      "gap": 0.04848660158360918,
+      "text_preview": "Transgender College Principal Manabi Resigns After 'Non-Cooperation' From Staff ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' ..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6592985423426477,
+      "gap": 0.040701457657352225,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6489132183338888,
+      "gap": 0.051086781666111136,
+      "text_preview": "জেনের সঙ্গে আলাপ‚প্রেম থেকে বিয়ে – অকপট প্রীতি জিন্টা ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma) ঽ = & (Avagra..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6592985423426477,
+      "gap": 0.040701457657352225,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6790891181777114,
+      "gap": 0.020910881822288507,
+      "text_preview": "Shame on us ! What is this? ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma) ঽ = & (Avagrah) ৺ = ~ (Isshar) ৹ = a~ (..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6592985423426477,
+      "gap": 0.040701457657352225,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6702660177534815,
+      "gap": 0.029733982246518464,
+      "text_preview": "Yogeeta Bali Wanted To Commit Suicide Because Of Mithun Chakraborty ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma)..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.659268741980793,
+      "gap": 0.04073125801920696,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.3780771861551091,
+      "gap": 0.32192281384489085,
+      "text_preview": "সোশ্যাল মিডিয়ায় ছবি দিয়ে কি বয়ফ্রেন্ডের কথাই সবাইকে জানাতে চাইছেন সোনম?..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6801663002818343,
+      "gap": 0.01983369971816562,
+      "text_preview": "০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma) ঽ = & (Avagrah) ৺ = ~ (Isshar) ৹ = a~ (Bengali ana sign) ৲ = Rs~ (B..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.659268741980793,
+      "gap": 0.04073125801920696,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6301520669455951,
+      "gap": 0.06984793305440484,
+      "text_preview": "Cricketer Mohammad Kaif Trolled On Social Media For Doing Surya Namaskar ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhac..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.659268741980793,
+      "gap": 0.04073125801920696,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6624652941997377,
+      "gap": 0.0375347058002623,
+      "text_preview": "Sara & Ibrahim are very excited on the birth of their half-brother Taimur ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdha..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.659268741980793,
+      "gap": 0.04073125801920696,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.26845938275154096,
+      "gap": 0.431540617248459,
+      "text_preview": "প্রাক্তন প্রেমিকা প্রিয়াঙ্কাকে মেরে ফেলতে চান শাহিদ! !..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6800077995302055,
+      "gap": 0.01999220046979444,
+      "text_preview": "০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma) ঽ = & (Avagrah) ৺ = ~ (Isshar) ৹ = a~ (Bengali ana sign) ৲ = Rs~ (B..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6592985423426477,
+      "gap": 0.040701457657352225,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6635087124141616,
+      "gap": 0.036491287585838306,
+      "text_preview": "In a befitting reply to his detractors Mohammed Shami posted a photo on Twitter ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' ..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6592985423426477,
+      "gap": 0.040701457657352225,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6788199938014808,
+      "gap": 0.02118000619851912,
+      "text_preview": "সাগর, আই লাভ ইউ ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma) ঽ = & (Avagrah) ৺ = ~ (Isshar) ৹ = a~ (Bengali ana ..."
+    },
+    {
+      "chunk_id": "chunk_1",
+      "similarity": 0.6592985423426477,
+      "gap": 0.040701457657352225,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    },
+    {
+      "chunk_id": "chunk_0",
+      "similarity": 0.6618482548556611,
+      "gap": 0.03815174514433883,
+      "text_preview": "আরিব্বাস, জাল ডাক্তার! ০ = 0, ১ = 1, ২ = 2, ৩ = 3, ৪ = 4, ৫ = 5, ৬ = 6, ৭ = 7, ৮ = 8, ৯ = 9 ্ = See example (Hasant/Viram) ় = * (Nukta) ʼ = ' (Urdhacomma) ঽ = & (Avagrah) ৺ = ~ (Isshar) ৹ = a~ (Benga..."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "similarity": 0.6592985423426477,
+      "gap": 0.040701457657352225,
+      "text_preview": "Symbols & ~ * : ^ | ' have special meaning. You can type this way & = &~ ~ = ~~ * = *~ : = :~ ^ = ^~ | = |~ ' = '~ The English symbols [ ] { } ( ) < > - + / = ; . , \" ? ! % \\ _ $ @ # translate into th..."
+    }
+  ],
+  "max_similarities": [
+    0.8282809843983354,
+    0.7487555175253429,
+    0.8881140360381992,
+    0.6846048727798136,
+    0.8440215472133318,
+    0.6779764526140036,
+    0.8052345429074883,
+    0.7257398565991751,
+    0.6761418393230952,
+    0.702630185038939,
+    0.5973361941310629,
+    0.7266427655610872,
+    0.8849897667517911,
+    0.8251046380114813,
+    0.8659467130146933,
+    0.8245679902430809,
+    0.8026602465458889,
+    0.8582584683976728,
+    0.882593038924704,
+    0.8469363113913921,
+    0.681409496762603,
+    0.7809213344679014,
+    0.7149285124597069,
+    0.7606548587422477,
+    0.8345976474344735,
+    0.8228338295150688,
+    0.7101504744529747,
+    0.777889715063677,
+    0.7670025244518213,
+    0.7363535694155309,
+    0.760542023289589,
+    0.6498530633324002,
+    0.6737914916362228,
+    0.5399733150094979,
+    0.8001090232153094,
+    0.7236013329736952,
+    0.738040949258008,
+    0.7632294168488583,
+    0.7325592666606724,
+    0.74592809668053,
+    0.658184424288209,
+    0.8234062784338819,
+    0.7440446613672227,
+    0.741662544178869,
+    0.8096475092782272,
+    0.736586474051977,
+    0.6614149812381109,
+    0.7233209101158788,
+    0.7947651489400827,
+    0.6744855437935033,
+    0.7025335056779758,
+    0.7189426304752109,
+    0.648775255207064,
+    0.859126131700076,
+    0.7651364582317757,
+    0.8461230206616593,
+    0.7662013068134701,
+    0.5729462764654694,
+    0.7022772284929137,
+    0.755923234509825,
+    0.7515156014167792,
+    0.7669512658529334,
+    0.7315491425365488,
+    0.7703867125094821,
+    0.6935725468455978,
+    0.7941647138389298,
+    0.849172362268714,
+    0.6830158411824037,
+    0.6733414328828351,
+    0.793331036134096,
+    0.7892935854542298,
+    0.722027911678284,
+    0.786068645258916,
+    0.7391931845582652,
+    0.8789831338812228,
+    0.7589779058587967,
+    0.8548858098821546,
+    0.8350618062466837,
+    0.8013865129293586,
+    0.740796069243005,
+    0.7667538292521916,
+    0.7335768614369029,
+    0.7181291581205751,
+    0.7331223471965574,
+    0.7114978110643089,
+    0.6661344285123318,
+    0.780301383072628,
+    0.7628984764446372,
+    0.7493755408519689,
+    0.7076249581341797,
+    0.6963398877352329,
+    0.7441096537807095,
+    0.8309113867777695,
+    0.8402925170344885,
+    0.7802017851586927,
+    0.8353152708894186,
+    0.7347450878946673,
+    0.8059155748332945,
+    0.7460071463336099,
+    0.7962407787404827,
+    0.608986716262773,
+    0.8314212556886762,
+    0.8161502649714588,
+    0.7103890106225346,
+    0.7457229604709659,
+    0.7477359709330788,
+    0.8550079149968991,
+    0.7947857010983769,
+    0.8568294220046411,
+    0.746084382965582,
+    0.7587147082472003,
+    0.7185834189428996,
+    0.8730721839279001,
+    0.7664503599830779,
+    0.7953692182541918,
+    0.7687625690894937,
+    0.7352261752028288,
+    0.6669762854402512,
+    0.7124152753695291,
+    0.6508671593595647,
+    0.7628072060387396,
+    0.735350289437654,
+    0.7845341250536451,
+    0.7047140067669417,
+    0.7662988270360718,
+    0.7973575022541648,
+    0.7224301249330741,
+    0.6373683953458371,
+    0.750376346363415,
+    0.6731793814504685,
+    0.7553122720231598,
+    0.7748282947082696,
+    0.765689192329067,
+    0.6676240407789475,
+    0.8034386301809012,
+    0.7443027828807699,
+    0.6931093988846841,
+    0.7233642120363212,
+    0.6696106339085084,
+    0.6020082833069249,
+    0.5645130528694269,
+    0.6750544789677466,
+    0.6688566767415144,
+    0.6173151808883741,
+    0.6785779126892003,
+    0.5898745533665146,
+    0.7751941034303579,
+    0.6544638181639393,
+    0.7577820164915208,
+    0.7000339100987261,
+    0.8119852891377785,
+    0.7560137659888031,
+    0.7849855034674904,
+    0.7681588013082528,
+    0.8574948352236329,
+    0.8532981918313982,
+    0.8267286410347885,
+    0.8538720353166223,
+    0.8755387684234714,
+    0.7443824674620769,
+    0.8083453169580963,
+    0.8098212815754713,
+    0.8723035832627498,
+    0.8428636092014753,
+    0.8385327961856581,
+    0.8945182690857766,
+    0.7762421309499237,
+    0.8492734748955877,
+    0.8553293367062884,
+    0.7884270259265838,
+    0.7956046363073389,
+    0.8549638679034258,
+    0.616226915086436,
+    0.7211789783237015,
+    0.7064442321422463,
+    0.8296874056570438,
+    0.8851395958965568,
+    0.8565888480037249,
+    0.7405087939840544,
+    0.8383695066221268,
+    0.8156899605198557,
+    0.6780854369152913,
+    0.8283222488129589,
+    0.8349230177181924,
+    0.6304844408073297,
+    0.7577795569372953,
+    0.7118444221033025,
+    0.7988607076190015,
+    0.6887905244631469,
+    0.8469432017208189,
+    0.8508031903560482,
+    0.7861924448230202,
+    0.7178670195006402,
+    0.6747408951156819,
+    0.7143254919304209,
+    0.6451841510501829,
+    0.7032327230747485,
+    0.794255431559562,
+    0.6592036692317731,
+    0.74908876196017,
+    0.7148860397452399,
+    0.7995698579790464,
+    0.7601140742765577,
+    0.7663359843246693,
+    0.7802689034037374,
+    0.8376228689761078,
+    0.7779611297783846,
+    0.7471631416485351,
+    0.8429552550116556,
+    0.6726969629907102,
+    0.7261809085005279,
+    0.7612560929843799,
+    0.7426373447153897,
+    0.733320091835296,
+    0.8226295680485334,
+    0.8373799839635655,
+    0.8229764607765571,
+    0.8737769990633908,
+    0.5126713689761888,
+    0.795531052701713,
+    0.7490359812849026,
+    0.7416091419849601,
+    0.7019093399725183,
+    0.6101738676401236,
+    0.7282295641008432,
+    0.7743085629938353,
+    0.5626532161794999,
+    0.849947591079705,
+    0.8090396945964742,
+    0.8404328456356951,
+    0.783238534642399,
+    0.8555551980585223,
+    0.762731435326113,
+    0.8582492958281283,
+    0.7290004816667098,
+    0.743373719389429,
+    0.7784348344979736,
+    0.842834835299958,
+    0.8418295197061936,
+    0.815423425351581,
+    0.8606907913161126,
+    0.8195471561455201,
+    0.7463762886423604,
+    0.7973378547224029,
+    0.6819845441685485,
+    0.653346250754824,
+    0.8200294591015562,
+    0.7602196034057308,
+    0.7749625297100269,
+    0.5802095560016522,
+    0.8516438341381932,
+    0.8131019142900623,
+    0.824874357741098,
+    0.8113231126963599,
+    0.8250263367653801,
+    0.7486749760443228,
+    0.7198738638563849,
+    0.7377655584773777,
+    0.6846358653562565,
+    0.7733534106195643,
+    0.7126466022718687,
+    0.7150928260183909,
+    0.7307635827698263,
+    0.6753553673960764,
+    0.6479704065460428,
+    0.6513652267501138,
+    0.7044095892645685,
+    0.6035152281177149,
+    0.7565514472624603,
+    0.6568029040146621,
+    0.703683159159523,
+    0.8494855410073532,
+    0.7675473428100898,
+    0.794056538551957,
+    0.7457761150905151,
+    0.693978341374866,
+    0.6204447341867141,
+    0.7799723174389102,
+    0.6887131583882128,
+    0.6301722819149862,
+    0.7004223648960153,
+    0.735494212600867,
+    0.7480523687477444,
+    0.7357090600722185,
+    0.7547920033011275,
+    0.7850863805982162,
+    0.7906074054110307,
+    0.7475424421062841,
+    0.7040669187349806,
+    0.7547920033011275,
+    0.8342878108982031,
+    0.8509546940987277,
+    0.8263618089444893,
+    0.8123524420104448,
+    0.7601717405790589,
+    0.8238851099628881,
+    0.7483037843892112,
+    0.7293203504929492,
+    0.6391595340616307,
+    0.8258380360290665,
+    0.7438871874793309,
+    0.7309483217788783,
+    0.7070161597957911,
+    0.7330059004088396,
+    0.8556449217435262,
+    0.7566148332782957,
+    0.7248962387025366,
+    0.7249370994226825,
+    0.8281542854777116,
+    0.8285097315193114,
+    0.7771488511454276,
+    0.7781149786622437,
+    0.6840023224144318,
+    0.7655357250023261,
+    0.8102586926891764,
+    0.805078168738764,
+    0.74256081708749,
+    0.7659949798284555,
+    0.7069759981129204,
+    0.7772493569502915,
+    0.7501070046326794,
+    0.7804568237883011,
+    0.8291538561267136,
+    0.7346624889868981,
+    0.7008981387134527,
+    0.7197602852174217,
+    0.627700537619787,
+    0.7938707193311247,
+    0.7375415387837128,
+    0.8587683519611433,
+    0.9053361380623773,
+    0.917276705340122,
+    0.7760072076062489,
+    0.7878139577924628,
+    0.7599541351391537,
+    0.7325219016638624,
+    0.7932980403337148,
+    0.7668955776510697,
+    0.7506797475065583,
+    0.7648046499220662,
+    0.8228623287320832,
+    0.7430544460441443,
+    0.7130079645441036,
+    0.7670004474864989,
+    0.6831658367276634,
+    0.662597104404264,
+    0.7980946058476527,
+    0.6694248690757653,
+    0.7250870557009208,
+    0.7436222779670352,
+    0.746158793076539,
+    0.7092208474408629,
+    0.6211860116437673,
+    0.8434776045343942,
+    0.8892173591568571,
+    0.8551717720119609,
+    0.6606382551036676,
+    0.7884864436569141,
+    0.8212785372496314,
+    0.8314469882000326,
+    0.7320966498288463,
+    0.7164329300027319,
+    0.7731596314579214,
+    0.5637405749198916,
+    0.7581471532681374,
+    0.7079032243868802,
+    0.6769862693797979,
+    0.7004044121821402,
+    0.7171267088537568,
+    0.717133707637847,
+    0.5921599816799774,
+    0.6331018097302425,
+    0.7083208846952118,
+    0.709572968700241,
+    0.7408400981643413,
+    0.646791120499783,
+    0.72825592750027,
+    0.7104969064804186,
+    0.8286955004660673,
+    0.7676668739016222,
+    0.721396236129018,
+    0.6927728955012764,
+    0.6945734108270293,
+    0.6898323786930722,
+    0.5525002072459742,
+    0.6976596568825248,
+    0.81255789194669,
+    0.8522059463022762,
+    0.7446629584128036,
+    0.6858993984883799,
+    0.6806931241844617,
+    0.7352688014185838,
+    0.6514051600672932,
+    0.721893651650783,
+    0.7172755138914971,
+    0.6542942007897604,
+    0.6742341620059319,
+    0.6084073568298449,
+    0.5832529384636295,
+    0.7712384899492262,
+    0.8080293614955925,
+    0.783835282398711,
+    0.6983899029558074,
+    0.7036037445334928,
+    0.8271488650027723,
+    0.8176371232700207,
+    0.7616914884843755,
+    0.7371111432965382,
+    0.8796076904966947,
+    0.7922417599613409,
+    0.8269984936494534,
+    0.6089909370160558,
+    0.6931836803340379,
+    0.6936971339779187,
+    0.610083390703688,
+    0.7978565957077255,
+    0.7542067628725346,
+    0.7419641197342175,
+    0.7483639254330245,
+    0.7516121318835782,
+    0.802247600880355,
+    0.8065194434856611,
+    0.6279792984606185,
+    0.690374723069632,
+    0.636626561547905,
+    0.6434830316355133,
+    0.7817781632622856,
+    0.7875338371834053,
+    0.7966466199727336,
+    0.8572942307417271,
+    0.7267016022926168,
+    0.7663480020950011,
+    0.7553932308292983,
+    0.7333305976523476,
+    0.7474345224566266,
+    0.8017874132694358,
+    0.8586380463914863,
+    0.8523732465716213,
+    0.6639393273600934,
+    0.8069525388191578,
+    0.8093399652863855,
+    0.8557261124500011,
+    0.6792450128676579,
+    0.6304863256329786,
+    0.7102624651614995,
+    0.651400866959068,
+    0.7447701939566105,
+    0.5657092121805045,
+    0.7800564736480037,
+    0.7495181601666399,
+    0.6621216931299035,
+    0.5453228219947859,
+    0.8169190435556275,
+    0.7527616103208083,
+    0.5875106200620196,
+    0.7471613433027631,
+    0.6375881038292035,
+    0.659268741980793,
+    0.7933087936838128,
+    0.6515133984163908,
+    0.6592985423426477,
+    0.7932738108286435,
+    0.6489132183338888,
+    0.6592985423426477,
+    0.7932738108286435,
+    0.6790891181777114,
+    0.6592985423426477,
+    0.7932738108286435,
+    0.6702660177534815,
+    0.659268741980793,
+    0.7932800699877445,
+    0.3780771861551091,
+    0.6801663002818343,
+    0.659268741980793,
+    0.7933087936838128,
+    0.6301520669455951,
+    0.659268741980793,
+    0.7932800699877445,
+    0.6624652941997377,
+    0.659268741980793,
+    0.7932800699877445,
+    0.26845938275154096,
+    0.6800077995302055,
+    0.6592985423426477,
+    0.7932738108286435,
+    0.6635087124141616,
+    0.6592985423426477,
+    0.7932738108286435,
+    0.6788199938014808,
+    0.6592985423426477,
+    0.7933087936838128,
+    0.6618482548556611,
+    0.6592985423426477,
+    0.7933087936838128
+  ],
+  "threshold": 0.7,
+  "multi_threshold": {
+    "strict": {
+      "threshold": 0.8,
+      "covered_chunks": 120,
+      "coverage_rate": 0.242914979757085,
+      "uncovered_count": 374,
+      "uncovered_chunks": [
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7487555175253429,
+          "gap": 0.05124448247465718
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6846048727798136,
+          "gap": 0.11539512722018641
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6779764526140036,
+          "gap": 0.12202354738599641
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7257398565991751,
+          "gap": 0.07426014340082498
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6761418393230952,
+          "gap": 0.1238581606769048
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.702630185038939,
+          "gap": 0.09736981496106101
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.5973361941310629,
+          "gap": 0.20266380586893717
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7266427655610872,
+          "gap": 0.07335723443891284
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.681409496762603,
+          "gap": 0.11859050323739706
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7809213344679014,
+          "gap": 0.019078665532098693
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.7149285124597069,
+          "gap": 0.08507148754029314
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7606548587422477,
+          "gap": 0.03934514125775235
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7101504744529747,
+          "gap": 0.0898495255470253
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.777889715063677,
+          "gap": 0.022110284936323055
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7670025244518213,
+          "gap": 0.03299747554817878
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7363535694155309,
+          "gap": 0.06364643058446917
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.760542023289589,
+          "gap": 0.03945797671041107
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6498530633324002,
+          "gap": 0.15014693666759982
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6737914916362228,
+          "gap": 0.12620850836377728
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5399733150094979,
+          "gap": 0.2600266849905022
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7236013329736952,
+          "gap": 0.07639866702630482
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.738040949258008,
+          "gap": 0.06195905074199204
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7632294168488583,
+          "gap": 0.03677058315114179
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7325592666606724,
+          "gap": 0.06744073333932765
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.74592809668053,
+          "gap": 0.054071903319470094
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.658184424288209,
+          "gap": 0.14181557571179104
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7440446613672227,
+          "gap": 0.05595533863277735
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.741662544178869,
+          "gap": 0.058337455821131035
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.736586474051977,
+          "gap": 0.06341352594802308
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6614149812381109,
+          "gap": 0.1385850187618891
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7233209101158788,
+          "gap": 0.0766790898841212
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7947651489400827,
+          "gap": 0.005234851059917389
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6744855437935033,
+          "gap": 0.1255144562064967
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7025335056779758,
+          "gap": 0.09746649432202426
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7189426304752109,
+          "gap": 0.08105736952478915
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.648775255207064,
+          "gap": 0.15122474479293602
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7651364582317757,
+          "gap": 0.03486354176822437
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7662013068134701,
+          "gap": 0.03379869318652995
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5729462764654694,
+          "gap": 0.22705372353453068
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7022772284929137,
+          "gap": 0.0977227715070863
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.755923234509825,
+          "gap": 0.04407676549017503
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7515156014167792,
+          "gap": 0.048484398583220845
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7669512658529334,
+          "gap": 0.03304873414706666
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7315491425365488,
+          "gap": 0.06845085746345125
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7703867125094821,
+          "gap": 0.029613287490517948
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6935725468455978,
+          "gap": 0.10642745315440227
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7941647138389298,
+          "gap": 0.005835286161070208
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6830158411824037,
+          "gap": 0.11698415881759638
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6733414328828351,
+          "gap": 0.12665856711716494
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.793331036134096,
+          "gap": 0.006668963865904098
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7892935854542298,
+          "gap": 0.01070641454577026
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.722027911678284,
+          "gap": 0.0779720883217161
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.786068645258916,
+          "gap": 0.01393135474108409
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.7391931845582652,
+          "gap": 0.06080681544173483
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7589779058587967,
+          "gap": 0.04102209414120339
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.740796069243005,
+          "gap": 0.05920393075699504
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7667538292521916,
+          "gap": 0.033246170747808446
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7335768614369029,
+          "gap": 0.06642313856309712
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7181291581205751,
+          "gap": 0.08187084187942495
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7331223471965574,
+          "gap": 0.0668776528034426
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7114978110643089,
+          "gap": 0.08850218893569117
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6661344285123318,
+          "gap": 0.1338655714876682
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.780301383072628,
+          "gap": 0.01969861692737207
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7628984764446372,
+          "gap": 0.03710152355536289
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7493755408519689,
+          "gap": 0.05062445914803115
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7076249581341797,
+          "gap": 0.09237504186582035
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6963398877352329,
+          "gap": 0.10366011226476712
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7441096537807095,
+          "gap": 0.055890346219290565
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7802017851586927,
+          "gap": 0.019798214841307393
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7347450878946673,
+          "gap": 0.06525491210533274
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7460071463336099,
+          "gap": 0.05399285366639017
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7962407787404827,
+          "gap": 0.0037592212595173313
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.608986716262773,
+          "gap": 0.19101328373722704
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7103890106225346,
+          "gap": 0.08961098937746548
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7457229604709659,
+          "gap": 0.05427703952903418
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7477359709330788,
+          "gap": 0.05226402906692129
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7947857010983769,
+          "gap": 0.005214298901623171
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.746084382965582,
+          "gap": 0.05391561703441805
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7587147082472003,
+          "gap": 0.04128529175279971
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7185834189428996,
+          "gap": 0.08141658105710048
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7664503599830779,
+          "gap": 0.03354964001692218
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7953692182541918,
+          "gap": 0.004630781745808221
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7687625690894937,
+          "gap": 0.031237430910506347
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7352261752028288,
+          "gap": 0.0647738247971712
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6669762854402512,
+          "gap": 0.13302371455974882
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7124152753695291,
+          "gap": 0.08758472463047096
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6508671593595647,
+          "gap": 0.1491328406404353
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7628072060387396,
+          "gap": 0.037192793961260406
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.735350289437654,
+          "gap": 0.06464971056234603
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7845341250536451,
+          "gap": 0.015465874946354985
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7047140067669417,
+          "gap": 0.09528599323305831
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7662988270360718,
+          "gap": 0.03370117296392827
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7973575022541648,
+          "gap": 0.0026424977458352483
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.7224301249330741,
+          "gap": 0.07756987506692592
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6373683953458371,
+          "gap": 0.16263160465416293
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.750376346363415,
+          "gap": 0.04962365363658505
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6731793814504685,
+          "gap": 0.12682061854953153
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7553122720231598,
+          "gap": 0.044687727976840286
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7748282947082696,
+          "gap": 0.025171705291730406
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.765689192329067,
+          "gap": 0.034310807670933086
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6676240407789475,
+          "gap": 0.1323759592210525
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7443027828807699,
+          "gap": 0.05569721711923015
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6931093988846841,
+          "gap": 0.1068906011153159
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7233642120363212,
+          "gap": 0.07663578796367887
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6696106339085084,
+          "gap": 0.13038936609149165
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6020082833069249,
+          "gap": 0.19799171669307514
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.5645130528694269,
+          "gap": 0.23548694713057317
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.6750544789677466,
+          "gap": 0.12494552103225343
+        },
+        {
+          "chunk_id": "chunk_10",
+          "similarity": 0.6688566767415144,
+          "gap": 0.13114332325848566
+        },
+        {
+          "chunk_id": "chunk_11",
+          "similarity": 0.6173151808883741,
+          "gap": 0.18268481911162593
+        },
+        {
+          "chunk_id": "chunk_12",
+          "similarity": 0.6785779126892003,
+          "gap": 0.12142208731079973
+        },
+        {
+          "chunk_id": "chunk_13",
+          "similarity": 0.5898745533665146,
+          "gap": 0.21012544663348542
+        },
+        {
+          "chunk_id": "chunk_14",
+          "similarity": 0.7751941034303579,
+          "gap": 0.02480589656964216
+        },
+        {
+          "chunk_id": "chunk_15",
+          "similarity": 0.6544638181639393,
+          "gap": 0.14553618183606076
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7577820164915208,
+          "gap": 0.04221798350847927
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7000339100987261,
+          "gap": 0.09996608990127398
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7560137659888031,
+          "gap": 0.043986234011196945
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7849855034674904,
+          "gap": 0.015014496532509636
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7681588013082528,
+          "gap": 0.031841198691747286
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7443824674620769,
+          "gap": 0.05561753253792312
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7762421309499237,
+          "gap": 0.023757869050076375
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.7884270259265838,
+          "gap": 0.011572974073416287
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.7956046363073389,
+          "gap": 0.004395363692661136
+        },
+        {
+          "chunk_id": "chunk_11",
+          "similarity": 0.616226915086436,
+          "gap": 0.18377308491356403
+        },
+        {
+          "chunk_id": "chunk_12",
+          "similarity": 0.7211789783237015,
+          "gap": 0.07882102167629856
+        },
+        {
+          "chunk_id": "chunk_13",
+          "similarity": 0.7064442321422463,
+          "gap": 0.09355576785775377
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7405087939840544,
+          "gap": 0.0594912060159456
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6780854369152913,
+          "gap": 0.12191456308470872
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6304844408073297,
+          "gap": 0.16951555919267036
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7577795569372953,
+          "gap": 0.04222044306270478
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7118444221033025,
+          "gap": 0.08815557789669759
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7988607076190015,
+          "gap": 0.0011392923809985245
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.6887905244631469,
+          "gap": 0.11120947553685312
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7861924448230202,
+          "gap": 0.013807555176979847
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7178670195006402,
+          "gap": 0.0821329804993598
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6747408951156819,
+          "gap": 0.12525910488431813
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7143254919304209,
+          "gap": 0.0856745080695791
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6451841510501829,
+          "gap": 0.15481584894981715
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7032327230747485,
+          "gap": 0.09676727692525156
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.794255431559562,
+          "gap": 0.005744568440438025
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.6592036692317731,
+          "gap": 0.14079633076822695
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.74908876196017,
+          "gap": 0.05091123803983
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.7148860397452399,
+          "gap": 0.08511396025476015
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.7995698579790464,
+          "gap": 0.00043014202095359444
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7601140742765577,
+          "gap": 0.039885925723442295
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7663359843246693,
+          "gap": 0.03366401567533073
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7802689034037374,
+          "gap": 0.0197310965962626
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7779611297783846,
+          "gap": 0.022038870221615436
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7471631416485351,
+          "gap": 0.0528368583514649
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6726969629907102,
+          "gap": 0.1273030370092898
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7261809085005279,
+          "gap": 0.07381909149947219
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7612560929843799,
+          "gap": 0.03874390701562014
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7426373447153897,
+          "gap": 0.057362655284610375
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.733320091835296,
+          "gap": 0.06667990816470404
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.5126713689761888,
+          "gap": 0.28732863102381123
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.795531052701713,
+          "gap": 0.004468947298287063
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7490359812849026,
+          "gap": 0.05096401871509748
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7416091419849601,
+          "gap": 0.05839085801503996
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7019093399725183,
+          "gap": 0.09809066002748179
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6101738676401236,
+          "gap": 0.18982613235987644
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7282295641008432,
+          "gap": 0.07177043589915688
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7743085629938353,
+          "gap": 0.02569143700616472
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.5626532161794999,
+          "gap": 0.23734678382050012
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.783238534642399,
+          "gap": 0.016761465357601035
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.762731435326113,
+          "gap": 0.03726856467388706
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7290004816667098,
+          "gap": 0.07099951833329021
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.743373719389429,
+          "gap": 0.05662628061057107
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7784348344979736,
+          "gap": 0.021565165502026473
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.7463762886423604,
+          "gap": 0.05362371135763966
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.7973378547224029,
+          "gap": 0.0026621452775971166
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.6819845441685485,
+          "gap": 0.11801545583145157
+        },
+        {
+          "chunk_id": "chunk_10",
+          "similarity": 0.653346250754824,
+          "gap": 0.14665374924517605
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7602196034057308,
+          "gap": 0.03978039659426924
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7749625297100269,
+          "gap": 0.025037470289973163
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5802095560016522,
+          "gap": 0.2197904439983478
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7486749760443228,
+          "gap": 0.051325023955677285
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7198738638563849,
+          "gap": 0.08012613614361519
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7377655584773777,
+          "gap": 0.062234441522622364
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6846358653562565,
+          "gap": 0.11536413464374351
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7733534106195643,
+          "gap": 0.026646589380435737
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7126466022718687,
+          "gap": 0.08735339772813133
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7150928260183909,
+          "gap": 0.08490717398160919
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7307635827698263,
+          "gap": 0.06923641723017371
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6753553673960764,
+          "gap": 0.12464463260392367
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6479704065460428,
+          "gap": 0.15202959345395728
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.6513652267501138,
+          "gap": 0.14863477324988628
+        },
+        {
+          "chunk_id": "chunk_10",
+          "similarity": 0.7044095892645685,
+          "gap": 0.09559041073543151
+        },
+        {
+          "chunk_id": "chunk_11",
+          "similarity": 0.6035152281177149,
+          "gap": 0.1964847718822852
+        },
+        {
+          "chunk_id": "chunk_12",
+          "similarity": 0.7565514472624603,
+          "gap": 0.04344855273753978
+        },
+        {
+          "chunk_id": "chunk_13",
+          "similarity": 0.6568029040146621,
+          "gap": 0.14319709598533792
+        },
+        {
+          "chunk_id": "chunk_14",
+          "similarity": 0.703683159159523,
+          "gap": 0.09631684084047709
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7675473428100898,
+          "gap": 0.032452657189910195
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.794056538551957,
+          "gap": 0.00594346144804303
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7457761150905151,
+          "gap": 0.05422388490948493
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.693978341374866,
+          "gap": 0.10602165862513402
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6204447341867141,
+          "gap": 0.17955526581328596
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7799723174389102,
+          "gap": 0.020027682561089888
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6887131583882128,
+          "gap": 0.11128684161178726
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6301722819149862,
+          "gap": 0.16982771808501385
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7004223648960153,
+          "gap": 0.09957763510398476
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.735494212600867,
+          "gap": 0.06450578739913304
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7480523687477444,
+          "gap": 0.051947631252255655
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7357090600722185,
+          "gap": 0.06429093992778157
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7547920033011275,
+          "gap": 0.04520799669887254
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7850863805982162,
+          "gap": 0.014913619401783818
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7906074054110307,
+          "gap": 0.00939259458896935
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7475424421062841,
+          "gap": 0.05245755789371598
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7040669187349806,
+          "gap": 0.09593308126501943
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7547920033011275,
+          "gap": 0.04520799669887254
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7601717405790589,
+          "gap": 0.03982825942094115
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7483037843892112,
+          "gap": 0.051696215610788854
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7293203504929492,
+          "gap": 0.07067964950705086
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6391595340616307,
+          "gap": 0.16084046593836931
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7438871874793309,
+          "gap": 0.05611281252066913
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7309483217788783,
+          "gap": 0.06905167822112179
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7070161597957911,
+          "gap": 0.09298384020420891
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7330059004088396,
+          "gap": 0.06699409959116043
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7566148332782957,
+          "gap": 0.04338516672170434
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7248962387025366,
+          "gap": 0.07510376129746343
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7249370994226825,
+          "gap": 0.07506290057731757
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7771488511454276,
+          "gap": 0.0228511488545724
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7781149786622437,
+          "gap": 0.021885021337756383
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6840023224144318,
+          "gap": 0.11599767758556823
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7655357250023261,
+          "gap": 0.034464274997673905
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.74256081708749,
+          "gap": 0.057439182912510045
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7659949798284555,
+          "gap": 0.0340050201715445
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7069759981129204,
+          "gap": 0.0930240018870796
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7772493569502915,
+          "gap": 0.02275064304970853
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7501070046326794,
+          "gap": 0.049892995367320614
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7804568237883011,
+          "gap": 0.019543176211698987
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7346624889868981,
+          "gap": 0.06533751101310192
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7008981387134527,
+          "gap": 0.0991018612865473
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7197602852174217,
+          "gap": 0.0802397147825783
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.627700537619787,
+          "gap": 0.1722994623802131
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7938707193311247,
+          "gap": 0.006129280668875303
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7375415387837128,
+          "gap": 0.06245846121628729
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7760072076062489,
+          "gap": 0.023992792393751183
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7878139577924628,
+          "gap": 0.012186042207537273
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7599541351391537,
+          "gap": 0.04004586486084638
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7325219016638624,
+          "gap": 0.0674780983361376
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7932980403337148,
+          "gap": 0.006701959666285284
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7668955776510697,
+          "gap": 0.033104422348930296
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7506797475065583,
+          "gap": 0.04932025249344174
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7648046499220662,
+          "gap": 0.03519535007793384
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7430544460441443,
+          "gap": 0.056945553955855766
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7130079645441036,
+          "gap": 0.0869920354558964
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7670004474864989,
+          "gap": 0.032999552513501174
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6831658367276634,
+          "gap": 0.11683416327233664
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.662597104404264,
+          "gap": 0.13740289559573604
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7980946058476527,
+          "gap": 0.0019053941523473616
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6694248690757653,
+          "gap": 0.13057513092423478
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7250870557009208,
+          "gap": 0.07491294429907924
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7436222779670352,
+          "gap": 0.05637772203296487
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.746158793076539,
+          "gap": 0.05384120692346106
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7092208474408629,
+          "gap": 0.09077915255913716
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.6211860116437673,
+          "gap": 0.17881398835623274
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6606382551036676,
+          "gap": 0.13936174489633246
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7884864436569141,
+          "gap": 0.011513556343085929
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7320966498288463,
+          "gap": 0.06790335017115379
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7164329300027319,
+          "gap": 0.08356706999726815
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7731596314579214,
+          "gap": 0.026840368542078608
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.5637405749198916,
+          "gap": 0.23625942508010844
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7581471532681374,
+          "gap": 0.041852846731862625
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7079032243868802,
+          "gap": 0.0920967756131198
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6769862693797979,
+          "gap": 0.12301373062020216
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7004044121821402,
+          "gap": 0.09959558781785982
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7171267088537568,
+          "gap": 0.0828732911462432
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.717133707637847,
+          "gap": 0.08286629236215304
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.5921599816799774,
+          "gap": 0.20784001832002263
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6331018097302425,
+          "gap": 0.1668981902697575
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.7083208846952118,
+          "gap": 0.09167911530478823
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.709572968700241,
+          "gap": 0.09042703129975904
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7408400981643413,
+          "gap": 0.05915990183565878
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.646791120499783,
+          "gap": 0.153208879500217
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.72825592750027,
+          "gap": 0.07174407249973003
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7104969064804186,
+          "gap": 0.08950309351958141
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7676668739016222,
+          "gap": 0.032333126098377796
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.721396236129018,
+          "gap": 0.078603763870982
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6927728955012764,
+          "gap": 0.10722710449872364
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6945734108270293,
+          "gap": 0.10542658917297076
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6898323786930722,
+          "gap": 0.11016762130692781
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.5525002072459742,
+          "gap": 0.2474997927540259
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6976596568825248,
+          "gap": 0.1023403431174752
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7446629584128036,
+          "gap": 0.055337041587196434
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6858993984883799,
+          "gap": 0.11410060151162016
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6806931241844617,
+          "gap": 0.11930687581553834
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7352688014185838,
+          "gap": 0.0647311985814163
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6514051600672932,
+          "gap": 0.14859483993270683
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.721893651650783,
+          "gap": 0.07810634834921704
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7172755138914971,
+          "gap": 0.08272448610850291
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6542942007897604,
+          "gap": 0.14570579921023963
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6742341620059319,
+          "gap": 0.12576583799406815
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6084073568298449,
+          "gap": 0.19159264317015512
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.5832529384636295,
+          "gap": 0.21674706153637058
+        },
+        {
+          "chunk_id": "chunk_10",
+          "similarity": 0.7712384899492262,
+          "gap": 0.028761510050773875
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.783835282398711,
+          "gap": 0.016164717601289014
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6983899029558074,
+          "gap": 0.10161009704419266
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7036037445334928,
+          "gap": 0.09639625546650721
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7616914884843755,
+          "gap": 0.03830851151562453
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7371111432965382,
+          "gap": 0.06288885670346189
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7922417599613409,
+          "gap": 0.007758240038659103
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6089909370160558,
+          "gap": 0.19100906298394427
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6931836803340379,
+          "gap": 0.10681631966596217
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6936971339779187,
+          "gap": 0.10630286602208139
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.610083390703688,
+          "gap": 0.18991660929631204
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7978565957077255,
+          "gap": 0.0021434042922745533
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7542067628725346,
+          "gap": 0.045793237127465414
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7419641197342175,
+          "gap": 0.05803588026578255
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7483639254330245,
+          "gap": 0.0516360745669755
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7516121318835782,
+          "gap": 0.04838786811642182
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6279792984606185,
+          "gap": 0.17202070153938154
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.690374723069632,
+          "gap": 0.10962527693036805
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.636626561547905,
+          "gap": 0.16337343845209507
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6434830316355133,
+          "gap": 0.1565169683644867
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.7817781632622856,
+          "gap": 0.018221836737714492
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.7875338371834053,
+          "gap": 0.012466162816594739
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7966466199727336,
+          "gap": 0.0033533800272664838
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7267016022926168,
+          "gap": 0.07329839770738322
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7663480020950011,
+          "gap": 0.033651997904998954
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.7553932308292983,
+          "gap": 0.04460676917070172
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7333305976523476,
+          "gap": 0.0666694023476524
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7474345224566266,
+          "gap": 0.052565477543373484
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6639393273600934,
+          "gap": 0.13606067263990662
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6792450128676579,
+          "gap": 0.12075498713234212
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6304863256329786,
+          "gap": 0.16951367436702147
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7102624651614995,
+          "gap": 0.08973753483850055
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.651400866959068,
+          "gap": 0.14859913304093209
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7447701939566105,
+          "gap": 0.05522980604338956
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5657092121805045,
+          "gap": 0.23429078781949553
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.7800564736480037,
+          "gap": 0.019943526351996366
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7495181601666399,
+          "gap": 0.05048183983336019
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6621216931299035,
+          "gap": 0.1378783068700965
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5453228219947859,
+          "gap": 0.25467717800521417
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.7527616103208083,
+          "gap": 0.047238389679191695
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.5875106200620196,
+          "gap": 0.21248937993798045
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7471613433027631,
+          "gap": 0.052838656697236974
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6375881038292035,
+          "gap": 0.16241189617079654
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.14073125801920705
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7933087936838128,
+          "gap": 0.006691206316187248
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6515133984163908,
+          "gap": 0.14848660158360927
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.1407014576573523
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7932738108286435,
+          "gap": 0.006726189171356589
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6489132183338888,
+          "gap": 0.15108678166611123
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.1407014576573523
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7932738108286435,
+          "gap": 0.006726189171356589
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6790891181777114,
+          "gap": 0.1209108818222886
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6592985423426477,
+          "gap": 0.1407014576573523
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7932738108286435,
+          "gap": 0.006726189171356589
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6702660177534815,
+          "gap": 0.12973398224651855
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.14073125801920705
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7932800699877445,
+          "gap": 0.0067199300122555705
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.3780771861551091,
+          "gap": 0.42192281384489094
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6801663002818343,
+          "gap": 0.11983369971816571
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.659268741980793,
+          "gap": 0.14073125801920705
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7933087936838128,
+          "gap": 0.006691206316187248
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6301520669455951,
+          "gap": 0.16984793305440493
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.14073125801920705
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7932800699877445,
+          "gap": 0.0067199300122555705
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6624652941997377,
+          "gap": 0.1375347058002624
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.14073125801920705
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7932800699877445,
+          "gap": 0.0067199300122555705
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.26845938275154096,
+          "gap": 0.5315406172484591
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6800077995302055,
+          "gap": 0.11999220046979453
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6592985423426477,
+          "gap": 0.1407014576573523
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7932738108286435,
+          "gap": 0.006726189171356589
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6635087124141616,
+          "gap": 0.1364912875858384
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.1407014576573523
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7932738108286435,
+          "gap": 0.006726189171356589
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6788199938014808,
+          "gap": 0.12118000619851921
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.1407014576573523
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.7933087936838128,
+          "gap": 0.006691206316187248
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6618482548556611,
+          "gap": 0.13815174514433892
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6592985423426477,
+          "gap": 0.1407014576573523
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.7933087936838128,
+          "gap": 0.006691206316187248
+        }
+      ]
+    },
+    "standard": {
+      "threshold": 0.7,
+      "covered_chunks": 368,
+      "coverage_rate": 0.7449392712550608,
+      "uncovered_count": 126,
+      "uncovered_chunks": [
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6846048727798136,
+          "gap": 0.015395127220186322
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6779764526140036,
+          "gap": 0.022023547385996323
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6761418393230952,
+          "gap": 0.023858160676904716
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.5973361941310629,
+          "gap": 0.10266380586893709
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.681409496762603,
+          "gap": 0.01859050323739697
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6498530633324002,
+          "gap": 0.05014693666759973
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6737914916362228,
+          "gap": 0.026208508363777194
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5399733150094979,
+          "gap": 0.1600266849905021
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.658184424288209,
+          "gap": 0.04181557571179095
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6614149812381109,
+          "gap": 0.03858501876188902
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6744855437935033,
+          "gap": 0.025514456206496616
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.648775255207064,
+          "gap": 0.05122474479293593
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5729462764654694,
+          "gap": 0.1270537235345306
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6935725468455978,
+          "gap": 0.006427453154402185
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6830158411824037,
+          "gap": 0.016984158817596295
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6733414328828351,
+          "gap": 0.026658567117164855
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6661344285123318,
+          "gap": 0.03386557148766811
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6963398877352329,
+          "gap": 0.0036601122647670348
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.608986716262773,
+          "gap": 0.09101328373722695
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6669762854402512,
+          "gap": 0.03302371455974873
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6508671593595647,
+          "gap": 0.049132840640435216
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6373683953458371,
+          "gap": 0.06263160465416284
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6731793814504685,
+          "gap": 0.02682061854953144
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6676240407789475,
+          "gap": 0.03237595922105241
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6931093988846841,
+          "gap": 0.006890601115315809
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6696106339085084,
+          "gap": 0.030389366091491565
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6020082833069249,
+          "gap": 0.09799171669307505
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.5645130528694269,
+          "gap": 0.13548694713057308
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.6750544789677466,
+          "gap": 0.024945521032253337
+        },
+        {
+          "chunk_id": "chunk_10",
+          "similarity": 0.6688566767415144,
+          "gap": 0.031143323258485567
+        },
+        {
+          "chunk_id": "chunk_11",
+          "similarity": 0.6173151808883741,
+          "gap": 0.08268481911162584
+        },
+        {
+          "chunk_id": "chunk_12",
+          "similarity": 0.6785779126892003,
+          "gap": 0.021422087310799642
+        },
+        {
+          "chunk_id": "chunk_13",
+          "similarity": 0.5898745533665146,
+          "gap": 0.11012544663348534
+        },
+        {
+          "chunk_id": "chunk_15",
+          "similarity": 0.6544638181639393,
+          "gap": 0.045536181836060674
+        },
+        {
+          "chunk_id": "chunk_11",
+          "similarity": 0.616226915086436,
+          "gap": 0.08377308491356394
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6780854369152913,
+          "gap": 0.021914563084708627
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6304844408073297,
+          "gap": 0.06951555919267027
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.6887905244631469,
+          "gap": 0.01120947553685303
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6747408951156819,
+          "gap": 0.02525910488431804
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6451841510501829,
+          "gap": 0.05481584894981706
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.6592036692317731,
+          "gap": 0.04079633076822686
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6726969629907102,
+          "gap": 0.02730303700928971
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.5126713689761888,
+          "gap": 0.18732863102381114
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6101738676401236,
+          "gap": 0.08982613235987635
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.5626532161794999,
+          "gap": 0.13734678382050003
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.6819845441685485,
+          "gap": 0.018015455831451477
+        },
+        {
+          "chunk_id": "chunk_10",
+          "similarity": 0.653346250754824,
+          "gap": 0.04665374924517596
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5802095560016522,
+          "gap": 0.1197904439983477
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6846358653562565,
+          "gap": 0.015364134643743421
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6753553673960764,
+          "gap": 0.024644632603923577
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6479704065460428,
+          "gap": 0.05202959345395719
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.6513652267501138,
+          "gap": 0.04863477324988619
+        },
+        {
+          "chunk_id": "chunk_11",
+          "similarity": 0.6035152281177149,
+          "gap": 0.0964847718822851
+        },
+        {
+          "chunk_id": "chunk_13",
+          "similarity": 0.6568029040146621,
+          "gap": 0.04319709598533783
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.693978341374866,
+          "gap": 0.00602165862513393
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6204447341867141,
+          "gap": 0.07955526581328587
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6887131583882128,
+          "gap": 0.011286841611787168
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6301722819149862,
+          "gap": 0.06982771808501376
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6391595340616307,
+          "gap": 0.060840465938369226
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6840023224144318,
+          "gap": 0.015997677585568137
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.627700537619787,
+          "gap": 0.07229946238021301
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6831658367276634,
+          "gap": 0.016834163272336555
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.662597104404264,
+          "gap": 0.03740289559573595
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6694248690757653,
+          "gap": 0.030575130924234695
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.6211860116437673,
+          "gap": 0.07881398835623266
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6606382551036676,
+          "gap": 0.039361744896332374
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.5637405749198916,
+          "gap": 0.13625942508010835
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6769862693797979,
+          "gap": 0.023013730620202066
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.5921599816799774,
+          "gap": 0.10784001832002255
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6331018097302425,
+          "gap": 0.06689819026975741
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.646791120499783,
+          "gap": 0.05320887950021691
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6927728955012764,
+          "gap": 0.007227104498723547
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6945734108270293,
+          "gap": 0.005426589172970675
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6898323786930722,
+          "gap": 0.010167621306927721
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.5525002072459742,
+          "gap": 0.1474997927540258
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6976596568825248,
+          "gap": 0.0023403431174751077
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6858993984883799,
+          "gap": 0.01410060151162007
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6806931241844617,
+          "gap": 0.01930687581553825
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6514051600672932,
+          "gap": 0.048594839932706746
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.6542942007897604,
+          "gap": 0.04570579921023954
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6742341620059319,
+          "gap": 0.025765837994068064
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6084073568298449,
+          "gap": 0.09159264317015503
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.5832529384636295,
+          "gap": 0.11674706153637049
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6983899029558074,
+          "gap": 0.001610097044192571
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6089909370160558,
+          "gap": 0.09100906298394418
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6931836803340379,
+          "gap": 0.006816319665962078
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6936971339779187,
+          "gap": 0.006302866022081299
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.610083390703688,
+          "gap": 0.08991660929631196
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6279792984606185,
+          "gap": 0.07202070153938145
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.690374723069632,
+          "gap": 0.009625276930367965
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.636626561547905,
+          "gap": 0.06337343845209498
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.6434830316355133,
+          "gap": 0.05651696836448661
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.6639393273600934,
+          "gap": 0.03606067263990653
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.6792450128676579,
+          "gap": 0.02075498713234203
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.6304863256329786,
+          "gap": 0.06951367436702138
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.651400866959068,
+          "gap": 0.048599133040932
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5657092121805045,
+          "gap": 0.13429078781949544
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6621216931299035,
+          "gap": 0.03787830687009641
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5453228219947859,
+          "gap": 0.15467717800521408
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.5875106200620196,
+          "gap": 0.11248937993798036
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6375881038292035,
+          "gap": 0.062411896170796455
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.04073125801920696
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6515133984163908,
+          "gap": 0.04848660158360918
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.040701457657352225
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6489132183338888,
+          "gap": 0.051086781666111136
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.040701457657352225
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6790891181777114,
+          "gap": 0.020910881822288507
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6592985423426477,
+          "gap": 0.040701457657352225
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6702660177534815,
+          "gap": 0.029733982246518464
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.04073125801920696
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.3780771861551091,
+          "gap": 0.32192281384489085
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6801663002818343,
+          "gap": 0.01983369971816562
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.659268741980793,
+          "gap": 0.04073125801920696
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6301520669455951,
+          "gap": 0.06984793305440484
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.04073125801920696
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6624652941997377,
+          "gap": 0.0375347058002623
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.659268741980793,
+          "gap": 0.04073125801920696
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.26845938275154096,
+          "gap": 0.431540617248459
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6800077995302055,
+          "gap": 0.01999220046979444
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6592985423426477,
+          "gap": 0.040701457657352225
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6635087124141616,
+          "gap": 0.036491287585838306
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.040701457657352225
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6788199938014808,
+          "gap": 0.02118000619851912
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.6592985423426477,
+          "gap": 0.040701457657352225
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.6618482548556611,
+          "gap": 0.03815174514433883
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.6592985423426477,
+          "gap": 0.040701457657352225
+        }
+      ]
+    },
+    "lenient": {
+      "threshold": 0.6,
+      "covered_chunks": 477,
+      "coverage_rate": 0.9655870445344129,
+      "uncovered_count": 17,
+      "uncovered_chunks": [
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.5973361941310629,
+          "gap": 0.002663805868937108
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5399733150094979,
+          "gap": 0.06002668499050212
+        },
+        {
+          "chunk_id": "chunk_1",
+          "similarity": 0.5729462764654694,
+          "gap": 0.027053723534530616
+        },
+        {
+          "chunk_id": "chunk_8",
+          "similarity": 0.5645130528694269,
+          "gap": 0.0354869471305731
+        },
+        {
+          "chunk_id": "chunk_13",
+          "similarity": 0.5898745533665146,
+          "gap": 0.010125446633485358
+        },
+        {
+          "chunk_id": "chunk_4",
+          "similarity": 0.5126713689761888,
+          "gap": 0.08732863102381117
+        },
+        {
+          "chunk_id": "chunk_7",
+          "similarity": 0.5626532161794999,
+          "gap": 0.03734678382050005
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5802095560016522,
+          "gap": 0.01979044399834773
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.5637405749198916,
+          "gap": 0.036259425080108376
+        },
+        {
+          "chunk_id": "chunk_6",
+          "similarity": 0.5921599816799774,
+          "gap": 0.007840018320022568
+        },
+        {
+          "chunk_id": "chunk_5",
+          "similarity": 0.5525002072459742,
+          "gap": 0.04749979275402583
+        },
+        {
+          "chunk_id": "chunk_9",
+          "similarity": 0.5832529384636295,
+          "gap": 0.01674706153637051
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5657092121805045,
+          "gap": 0.03429078781949546
+        },
+        {
+          "chunk_id": "chunk_3",
+          "similarity": 0.5453228219947859,
+          "gap": 0.0546771780052141
+        },
+        {
+          "chunk_id": "chunk_2",
+          "similarity": 0.5875106200620196,
+          "gap": 0.012489379937980383
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.3780771861551091,
+          "gap": 0.22192281384489088
+        },
+        {
+          "chunk_id": "chunk_0",
+          "similarity": 0.26845938275154096,
+          "gap": 0.331540617248459
+        }
+      ]
+    }
+  },
+  "chunk_analysis": {
+    "by_length": {
+      "medium": {
+        "count": 407,
+        "covered": 311,
+        "avg_similarity": 0.7497748220877326,
+        "coverage_rate": 0.7641277641277642
+      },
+      "short": {
+        "count": 57,
+        "covered": 41,
+        "avg_similarity": 0.7253682704528968,
+        "coverage_rate": 0.7192982456140351
+      },
+      "long": {
+        "count": 30,
+        "covered": 16,
+        "avg_similarity": 0.7185008625966206,
+        "coverage_rate": 0.5333333333333333
+      }
+    },
+    "by_position": {
+      "beginning": {
+        "count": 164,
+        "covered": 130,
+        "avg_similarity": 0.7531115318913144,
+        "coverage_rate": 0.7926829268292683
+      },
+      "middle": {
+        "count": 167,
+        "covered": 140,
+        "avg_similarity": 0.7595501148731651,
+        "coverage_rate": 0.8383233532934131
+      },
+      "end": {
+        "count": 163,
+        "covered": 98,
+        "avg_similarity": 0.7221117145363605,
+        "coverage_rate": 0.6012269938650306
+      }
+    },
+    "summary": {
+      "total_chunks": 494,
+      "total_qa_pairs": 1433,
+      "threshold_used": 0.7,
+      "insights": [
+        "longチャンクのカバレージが低い（53.3%）",
+        "文書end部分のカバレージが低い（60.1%）"
+      ]
+    }
+  },
+  "dataset_type": "cc_news",
+  "optimal_thresholds": {
+    "strict": 0.8,
+    "standard": 0.7,
+    "lenient": 0.6
+  }
+}

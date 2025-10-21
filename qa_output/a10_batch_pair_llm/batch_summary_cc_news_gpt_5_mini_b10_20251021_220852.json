@@ -1,0 +1,35 @@
+{
+  "dataset_type": "cc_news",
+  "dataset_name": "CC-News英語ニュース",
+  "model_used": "gpt-5-mini",
+  "batch_processing": true,
+  "batch_sizes": {
+    "llm_batch_size": 10,
+    "embedding_batch_size": 100
+  },
+  "documents_processed": 497,
+  "total_qa_generated": 2060,
+  "avg_qa_per_doc": 4.144869215291751,
+  "processing_time": {
+    "total_seconds": 2995.009186029434,
+    "minutes": 49.916819767157236,
+    "docs_per_second": 0.16594272976467445
+  },
+  "api_usage": {
+    "total_cost": 0.15309999999999999,
+    "cost_per_doc": 0.00030804828973843057,
+    "batch_statistics": {
+      "llm_batches": 50,
+      "embedding_batches": 26,
+      "total_llm_calls": 50,
+      "total_embedding_calls": 26
+    }
+  },
+  "coverage": {
+    "calculated": true,
+    "avg_coverage": 75.65392354124748,
+    "min_coverage": 0.0,
+    "max_coverage": 100.0
+  },
+  "generation_timestamp": "2025-10-21T22:08:52.280880"
+}

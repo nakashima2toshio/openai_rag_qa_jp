@@ -1,0 +1,21 @@
+{
+  "dataset_type": "cc_news",
+  "dataset_name": "CC-News英語ニュース",
+  "model_used": "rule-based",
+  "documents_processed": 497,
+  "total_qa_generated": 1880,
+  "avg_qa_per_doc": 3.782696177062374,
+  "api_usage": {
+    "total_calls": 994,
+    "total_tokens": 0,
+    "total_cost": 0.0,
+    "cost_per_doc": 0.0
+  },
+  "coverage": {
+    "calculated": true,
+    "avg_coverage": 40.84507042253521,
+    "min_coverage": 0.0,
+    "max_coverage": 100.0
+  },
+  "generation_timestamp": "2025-10-21T13:08:36.740490"
+}

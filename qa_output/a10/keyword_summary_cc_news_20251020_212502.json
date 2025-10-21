@@ -1,0 +1,12 @@
+{
+  "dataset_type": "cc_news",
+  "dataset_name": "CC-News英語ニュース",
+  "documents_processed": 497,
+  "total_keywords": 3647,
+  "total_relations": 7736,
+  "total_qa_templates": 1880,
+  "avg_keywords_per_doc": 7.338028169014085,
+  "avg_relations_per_doc": 15.565392354124748,
+  "avg_qa_templates_per_doc": 3.782696177062374,
+  "extraction_timestamp": "2025-10-20T21:25:02.855351"
+}

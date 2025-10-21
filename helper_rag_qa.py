@@ -2373,15 +2373,21 @@ Return a JSON with "qa_pairs" array, each containing "question" and "answer".
 """
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+            # temperature非対応モデルの処理
+            api_params = {
+                "model": self.model,
+                "messages": [
                     {"role": "system", "content": "You are a Q&A generation expert."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                response_format={"type": "json_object"}
-            )
+                "response_format": {"type": "json_object"}
+            }
+
+            # temperature対応モデルのみパラメータを追加
+            if self.model not in self.no_temperature_models:
+                api_params["temperature"] = 0.7
+
+            response = self.client.chat.completions.create(**api_params)
 
             result = json.loads(response.choices[0].message.content)
             tokens_used = response.usage.total_tokens if response.usage else 0
@@ -2684,16 +2690,22 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
             batch_prompt = self._create_batch_prompt(batch_texts, batch_rules, doc_type)
 
             try:
-                # 一度のAPI呼び出しで複数文書処理
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
+                # temperature非対応モデルの処理
+                api_params = {
+                    "model": self.model,
+                    "messages": [
                         {"role": "system", "content": "You are a Q&A generation expert. Process multiple documents."},
                         {"role": "user", "content": batch_prompt}
                     ],
-                    temperature=0.7,
-                    response_format={"type": "json_object"}
-                )
+                    "response_format": {"type": "json_object"}
+                }
+
+                # temperature対応モデルのみパラメータを追加
+                if self.model not in self.no_temperature_models:
+                    api_params["temperature"] = 0.7
+
+                # 一度のAPI呼び出しで複数文書処理
+                response = self.client.chat.completions.create(**api_params)
 
                 self.batch_stats["llm_batches"] += 1
                 self.batch_stats["total_llm_calls"] += 1
@@ -2755,7 +2767,9 @@ Instructions:
 2. Generate 3-5 Q&A pairs per document
 3. Ensure factual accuracy
 
-Output format:
+IMPORTANT: Return your response in JSON format.
+
+Output format (JSON):
 {{
     "results": [
         {{
