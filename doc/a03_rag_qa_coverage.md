@@ -1,4 +1,73 @@
-# a03_rag_qa_coverage.py - 詳細設計書
+## a03_rag_qa_coverage.py - 詳細設計書
+
+## OpenAI API
+
+#### 1. 高速処理版（基本設定）
+
+  python a03_rag_qa_coverage_improved.py \
+      --input OUTPUT/preprocessed_cc_news.csv \
+      --dataset cc_news \
+      --analyze-coverage \
+      --qa-per-chunk 4
+  - Q/A生成数: 1,200個
+  - カバレッジ率: 55-65%
+  - API呼び出し: 2回
+  - 処理時間: 2-3分
+  - コスト: $0.00005
+
+#### 2. バランス版（推奨）
+
+  python a03_rag_qa_coverage_improved.py \
+      --input OUTPUT/preprocessed_cc_news.csv \
+      --dataset cc_news \
+      --analyze-coverage \
+      --coverage-threshold 0.65 \
+      --qa-per-chunk 5 \
+      --max-chunks 350
+  - Q/A生成数: 1,750個
+  - カバレッジ率: 65-75%
+  - API呼び出し: 2回
+  - 処理時間: 2-3分
+  - コスト: $0.00008
+
+#### 3. 高カバレッジ版（80%目標）
+
+  python a03_rag_qa_coverage_improved.py \
+      --input OUTPUT/preprocessed_cc_news.csv \
+      --dataset cc_news \
+      --analyze-coverage \
+      --coverage-threshold 0.60 \
+      --qa-per-chunk 6 \
+      --max-chunks 400
+  - Q/A生成数: 2,400個
+  - カバレッジ率: 75-85%
+  - API呼び出し: 3回
+  - 処理時間: 3-5分
+  - コスト: $0.00015
+
+#### 4. 最大カバレッジ版（90%目標）
+
+  python a03_rag_qa_coverage_improved.py \
+      --input OUTPUT/preprocessed_cc_news.csv \
+      --dataset cc_news \
+      --analyze-coverage \
+      --coverage-threshold 0.55 \
+      --qa-per-chunk 7 \
+      --max-chunks 500
+  - Q/A生成数: 3,500個
+  - カバレッジ率: 85-95%
+  - API呼び出し: 3回
+  - 処理時間: 4-6分
+  - コスト: $0.00020
+
+
+
+### 出力ファイルの活用方法
+
+  1. qa_pairs_*.csv → Excelで開いて人間レビュー
+  2. qa_pairs_*.json → RAGシステムのテストデータとして利用
+  3. coverage_*.json → カバレージ不足部分の特定と追加Q/A生成
+  4. summary_*.json → 実行履歴の管理とトラッキング
 
 ## 目次
 

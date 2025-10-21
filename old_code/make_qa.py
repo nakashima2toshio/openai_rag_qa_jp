@@ -41,8 +41,8 @@ example_qa_pairs = [
 
 def demonstrate_semantic_coverage():
     """セマンティックカバレージの処理を実演"""
-    
-    from rag_qa import SemanticCoverage
+
+    from helper_rag_qa import SemanticCoverage
     
     # インスタンス化
     analyzer = SemanticCoverage()
@@ -767,8 +767,8 @@ def main():
     4. キーワード抽出: 各チャンクから主要キーワードを3つ抽出して表示
     5. オプション機能: セマンティックカバレージ分析と可視化を選択的に実行可能
     """
-    # rag_qa.pyからSemanticCoverageクラスをインポート
-    from rag_qa import SemanticCoverage
+    # helper_rag_qa.pyからSemanticCoverageクラスをインポート
+    from helper_rag_qa import SemanticCoverage
     
     print("=" * 60)
     print("意味的チャンク分割デモンストレーション")

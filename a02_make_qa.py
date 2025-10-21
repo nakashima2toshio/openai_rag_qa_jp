@@ -14,6 +14,21 @@ OUTPUTフォルダ内のpreprocessedファイルから自動的にQ/Aペアを�
     python a02_make_qa.py [--dataset DATASET_TYPE] [--model MODEL_NAME] [--output OUTPUT_DIR]
 
 例:
+本番運用向け：
+  # a02_make_qa.py（100記事、20分、$0.15）
+  python a02_make_qa.py --dataset cc_news --max-docs 100 --batch-chunks 3 --merge-chunks --model gpt-5-mini --analyze-coverage
+
+  生成Q/Aペア数: 525
+  保存ファイル:
+  - Q/A (JSON): qa_output/qa_pairs_cc_news_20251020_143052.json
+  - Q/A (CSV): qa_output/qa_pairs_cc_news_20251020_143052.csv
+  - カバレージ: qa_output/coverage_cc_news_20251020_143052.json
+  - サマリー: qa_output/summary_cc_news_20251020_143052.json
+    • 文書後半部分のカバレージがやや低い（85.0%）
+    • Shortチャンクで追加Q/A生成の余地あり
+ ----------------------------------------------------------
+    python a02_make_qa.py --dataset cc_news --batch-chunks 5 --merge-chunks --analyze-coverage
+
     python a02_make_qa.py --dataset cc_news --model gpt-5-mini  --analyze-coverage --max-docs 10
     python a02_make_qa.py --dataset wikipedia_ja --model gpt-5-mini  --analyze-coverage --max-docs 10
     python a02_make_qa.py --dataset japanese_text --model gpt-5-mini  --analyze-coverage --max-docs 10

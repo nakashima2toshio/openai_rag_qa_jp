@@ -1,5 +1,62 @@
 # a10_qa_optimized.py ドキュメント
 
+#### ---------------------------------------------
+
+ハイブリッド版
+
+実装内容
+
+1. helper_rag_qa.pyにOptimizedHybridQAGeneratorクラスを追加
+
+- gpt-5-miniをデフォルトモデルとして設定
+- 複数のモデルをサポート（gpt-5, gpt-4o, o1, o3シリーズなど）
+- ルールベース → LLM品質向上 → カバレージ計算の3段階処理
+
+2. 新ファイルa10_qa_optimized_hybrid.pyを作成
+
+- ハイブリッドアプローチの完全実装
+- コマンドラインオプションでモデル選択可能
+- コスト見積もり機能付き
+
+使用方法
+
+# 基本使用（gpt-5-mini使用）
+
+python a10_qa_optimized_hybrid.py --dataset cc_news
+
+# モデル指定
+
+python a10_qa_optimized_hybrid.py --dataset cc_news --model gpt-5-mini
+
+# ルールベースのみ（コスト0円）
+
+python a10_qa_optimized_hybrid.py --dataset cc_news --no-llm
+
+# コスト見積もり
+
+python a10_qa_optimized_hybrid.py --dataset cc_news --estimate-only
+
+改善効果
+
+
+| 項目              | 従来版 (a10_qa_optimized.py) | ハイブリッド版                   |
+| ----------------- | ---------------------------- | -------------------------------- |
+| API使用回数       | 0回                          | 497回（LLM） + 994回（埋め込み） |
+| コスト（497記事） | $0.00                        | $0.07（gpt-5-mini使用時）        |
+| 品質              | テンプレートベース           | 自然な質問文、文脈考慮           |
+| カバレージ測定    | なし                         | セマンティック類似度で測定       |
+| 柔軟性            | 固定                         | モデル選択可、文書タイプ対応     |
+
+特徴
+
+- 段階的処理: ルールベースで候補生成 → LLMで品質向上
+- コスト効率: 必要な部分のみLLMを使用（$0.00014/文書）
+- カバレージ保証: 埋め込みベースで網羅性を定量化
+- モデル選択: 8種類のモデルから選択可能
+- 文書タイプ最適化: news/technical/academicに応じた生成
+
+#### ---------------------------------------------
+
 ## 概要
 
 `a10_qa_optimized.py`は、Q&Aペア生成に特化したキーワード抽出システムです。MeCabと正規表現の両手法を統合し、キーワード間の関係性抽出、難易度分類、文脈情報保持を通じて、高品質なQ&A生成を支援します。文書の特性に応じた最適なQ/A数の自動決定機能も備えています。
@@ -107,51 +164,57 @@ qa_pairs = extractor.generate_qa_pairs(result)
 
 ### メインクラス
 
-| クラス名 | 説明 | 継承元 | 主要属性 |
-| --- | --- | --- | --- |
+
+| クラス名               | 説明                    | 継承元               | 主要属性                                           |
+| ---------------------- | ----------------------- | -------------------- | -------------------------------------------------- |
 | `QAOptimizedExtractor` | Q&A生成最適化抽出クラス | SmartKeywordSelector | qa_stopwords, relation_patterns, category_patterns |
-| `QACountOptimizer` | 最適Q/A数決定クラス | なし | mode_configs, qa_count_limits |
+| `QACountOptimizer`     | 最適Q/A数決定クラス     | なし                 | mode_configs, qa_count_limits                      |
 
 ### コア機能
 
-| 関数名 | 説明 | パラメータ | 戻り値 |
-| --- | --- | --- | --- |
-| `extract_for_qa_generation()` | Q&A生成用のメイン抽出処理 | text, qa_count=None, mode="auto", use_progressive=False, difficulty_distribution, return_details=True | Dict[keywords, relations, difficulty_map, suggested_qa_pairs, metadata] |
-| `filter_for_qa()` | Q&A生成に適したキーワードのフィルタリング | keywords: List[str] | filtered_keywords: List[str] |
-| `remove_redundant_keywords()` | 包含関係・同義語の除去 | keywords: List[str] | unique_keywords: List[str] |
-| `extract_keyword_relations()` | キーワード間の関係抽出 | text: str, keywords: List[str] | relations: List[Dict] |
-| `_progressive_qa_generation()` | 段階的Q/A生成 | text, target_count, mode, batch_size | Dict with progressive_generation metadata |
-| `_calculate_coverage()` | テキストカバレッジ計算 | text: str, keywords: List[str] | coverage: float (0.0-1.0) |
+
+| 関数名                         | 説明                                      | パラメータ                                                                                            | 戻り値                                                                  |
+| ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `extract_for_qa_generation()`  | Q&A生成用のメイン抽出処理                 | text, qa_count=None, mode="auto", use_progressive=False, difficulty_distribution, return_details=True | Dict[keywords, relations, difficulty_map, suggested_qa_pairs, metadata] |
+| `filter_for_qa()`              | Q&A生成に適したキーワードのフィルタリング | keywords: List[str]                                                                                   | filtered_keywords: List[str]                                            |
+| `remove_redundant_keywords()`  | 包含関係・同義語の除去                    | keywords: List[str]                                                                                   | unique_keywords: List[str]                                              |
+| `extract_keyword_relations()`  | キーワード間の関係抽出                    | text: str, keywords: List[str]                                                                        | relations: List[Dict]                                                   |
+| `_progressive_qa_generation()` | 段階的Q/A生成                             | text, target_count, mode, batch_size                                                                  | Dict with progressive_generation metadata                               |
+| `_calculate_coverage()`        | テキストカバレッジ計算                    | text: str, keywords: List[str]                                                                        | coverage: float (0.0-1.0)                                               |
 
 ### 難易度・カテゴリ分類
 
-| 関数名 | 説明 | パラメータ | 戻り値 |
-| --- | --- | --- | --- |
-| `classify_difficulty()` | キーワードの難易度判定 | keyword: str, text: str | "basic"/"intermediate"/"advanced" |
-| `categorize_keyword()` | キーワードのカテゴリ分類 | keyword: str | category: str |
-| `_select_by_difficulty_distribution()` | 難易度分布に基づく選択 | keywords_with_context, target_count, distribution | selected: List[Dict] |
+
+| 関数名                                 | 説明                     | パラメータ                                        | 戻り値                            |
+| -------------------------------------- | ------------------------ | ------------------------------------------------- | --------------------------------- |
+| `classify_difficulty()`                | キーワードの難易度判定   | keyword: str, text: str                           | "basic"/"intermediate"/"advanced" |
+| `categorize_keyword()`                 | キーワードのカテゴリ分類 | keyword: str                                      | category: str                     |
+| `_select_by_difficulty_distribution()` | 難易度分布に基づく選択   | keywords_with_context, target_count, distribution | selected: List[Dict]              |
 
 ### 文脈処理
 
-| 関数名 | 説明 | パラメータ | 戻り値 |
-| --- | --- | --- | --- |
-| `extract_with_context()` | キーワードと周辺文脈を抽出 | text: str, keyword: str | Dict[keyword, contexts, best_context, difficulty, category] |
-| `_calculate_sentence_importance()` | 文の重要度計算 | sentence, keyword, full_text | importance: float (0.0-1.0) |
+
+| 関数名                             | 説明                       | パラメータ                   | 戻り値                                                      |
+| ---------------------------------- | -------------------------- | ---------------------------- | ----------------------------------------------------------- |
+| `extract_with_context()`           | キーワードと周辺文脈を抽出 | text: str, keyword: str      | Dict[keyword, contexts, best_context, difficulty, category] |
+| `_calculate_sentence_importance()` | 文の重要度計算             | sentence, keyword, full_text | importance: float (0.0-1.0)                                 |
 
 ### Q&A生成
 
-| 関数名 | 説明 | パラメータ | 戻り値 |
-| --- | --- | --- | --- |
+
+| 関数名                   | 説明                | パラメータ                        | 戻り値                   |
+| ------------------------ | ------------------- | --------------------------------- | ------------------------ |
 | `suggest_qa_templates()` | Q&Aテンプレート生成 | keywords_with_context: List[Dict] | qa_templates: List[Dict] |
-| `generate_qa_pairs()` | 実際のQ&Aペア生成 | extraction_output: Dict | qa_pairs: List[Dict] |
+| `generate_qa_pairs()`    | 実際のQ&Aペア生成   | extraction_output: Dict           | qa_pairs: List[Dict]     |
 
 ### ユーティリティ
 
-| 関数名 | 説明 | パラメータ | 戻り値 |
-| --- | --- | --- | --- |
-| `_are_synonyms()` | 同義語判定 | word1: str, word2: str | is_synonym: bool |
-| `demonstrate_qa_extraction()` | デモンストレーション実行 | なし | なし |
-| `export_qa_data()` | JSON形式でエクスポート | text: str, output_file: str | export_data: Dict |
+
+| 関数名                        | 説明                     | パラメータ                  | 戻り値            |
+| ----------------------------- | ------------------------ | --------------------------- | ----------------- |
+| `_are_synonyms()`             | 同義語判定               | word1: str, word2: str      | is_synonym: bool  |
+| `demonstrate_qa_extraction()` | デモンストレーション実行 | なし                        | なし              |
+| `export_qa_data()`            | JSON形式でエクスポート   | text: str, output_file: str | export_data: Dict |
 
 ## データ構造
 
@@ -229,42 +292,46 @@ qa_pairs = extractor.generate_qa_pairs(result)
 
 ### 関係性パターン（8種類）
 
-| パターン | 関係タイプ | 例文パターン |
-| --- | --- | --- |
-| is_a | IS-A関係 | 「AはBである」 |
-| uses | 使用関係 | 「AはBを使う」 |
-| enables | 実現関係 | 「AによりBが可能」 |
-| for | 目的関係 | 「AのためBを」 |
-| transforms | 変換関係 | 「AからBへ」 |
-| in_context | 文脈関係 | 「AにおけるB」 |
-| by_means_of | 手段関係 | 「AによるB」 |
-| co_occurs | 共起関係 | パターン不一致時のデフォルト |
+
+| パターン    | 関係タイプ | 例文パターン                 |
+| ----------- | ---------- | ---------------------------- |
+| is_a        | IS-A関係   | 「AはBである」               |
+| uses        | 使用関係   | 「AはBを使う」               |
+| enables     | 実現関係   | 「AによりBが可能」           |
+| for         | 目的関係   | 「AのためBを」               |
+| transforms  | 変換関係   | 「AからBへ」                 |
+| in_context  | 文脈関係   | 「AにおけるB」               |
+| by_means_of | 手段関係   | 「AによるB」                 |
+| co_occurs   | 共起関係   | パターン不一致時のデフォルト |
 
 ### 難易度判定基準
 
-| 難易度 | 判定条件 |
-| --- | --- |
-| basic | 説明あり＋頻度3回以上 or 頻度5回以上 |
-| intermediate | 上記以外の標準的なキーワード |
-| advanced | 英略語＋説明なし or 複雑語(8文字以上) or 頻度1回 |
+
+| 難易度       | 判定条件                                         |
+| ------------ | ------------------------------------------------ |
+| basic        | 説明あり＋頻度3回以上 or 頻度5回以上             |
+| intermediate | 上記以外の標準的なキーワード                     |
+| advanced     | 英略語＋説明なし or 複雑語(8文字以上) or 頻度1回 |
 
 ### カテゴリ分類
 
-| カテゴリ | 判定基準 | 例 |
-| --- | --- | --- |
-| specific_name | 固有名詞リスト | BERT, GPT, CNN |
+
+| カテゴリ       | 判定基準             | 例                      |
+| -------------- | -------------------- | ----------------------- |
+| specific_name  | 固有名詞リスト       | BERT, GPT, CNN          |
 | technical_term | 英略語・長いカタカナ | NLP, トランスフォーマー |
-| core_concept | 中核概念語を含む | 技術、手法、モデル |
-| general_term | 一般用語を含む | データ、システム、処理 |
+| core_concept   | 中核概念語を含む     | 技術、手法、モデル      |
+| general_term   | 一般用語を含む       | データ、システム、処理  |
 
 ### 文の重要度計算
 
-| 評価項目 | 重み | 説明 |
-| --- | --- | --- |
-| キーワード位置 | 20% | 文頭に近いほど高スコア |
-| 他キーワード共起 | 30% | 他の重要語との共起 |
-| 説明的表現 | 30% | 「とは」「である」等の存在 |
-| 文の長さ | 20% | 理想長50文字との差 |
+
+| 評価項目         | 重み | 説明                       |
+| ---------------- | ---- | -------------------------- |
+| キーワード位置   | 20%  | 文頭に近いほど高スコア     |
+| 他キーワード共起 | 30%  | 他の重要語との共起         |
+| 説明的表現       | 30%  | 「とは」「である」等の存在 |
+| 文の長さ         | 20%  | 理想長50文字との差         |
 
 ## 難易度分布制御
 

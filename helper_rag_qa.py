@@ -2248,6 +2248,693 @@ class QAGenerationOptimizer:
         return new_qa
 
 
+class OptimizedHybridQAGenerator:
+    """
+    ハイブリッドアプローチによる最適化されたQ/A生成クラス
+    ルールベース抽出 + LLM品質向上 + 埋め込みベースカバレージ計算
+    """
+
+    def __init__(self, model: str = "gpt-5-mini", embedding_model: str = "text-embedding-3-small"):
+        """
+        Args:
+            model: 使用するLLMモデル（デフォルト: gpt-5-mini）
+            embedding_model: 埋め込みモデル
+        """
+        self.client = OpenAI()
+        self.model = model
+        self.embedding_model = embedding_model
+        self.qa_extractor = QAOptimizedExtractor()
+        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+
+        # サポートモデルリスト
+        self.supported_models = [
+            "gpt-5-mini", "gpt-5", "gpt-4o-mini", "gpt-4o",
+            "gpt-4", "o1-mini", "o1", "o3-mini"
+        ]
+
+        # temperature非対応モデル（デフォルト値1のみ）
+        self.no_temperature_models = ["gpt-5-mini", "gpt-5", "o1-mini", "o1", "o3-mini"]
+
+        if model not in self.supported_models:
+            print(f"警告: {model}は未検証です。利用可能モデル: {', '.join(self.supported_models)}")
+
+    def generate_hybrid_qa(
+        self,
+        text: str,
+        qa_count: int = None,
+        use_llm: bool = True,
+        calculate_coverage: bool = True,
+        document_type: str = "auto"
+    ) -> Dict:
+        """
+        ハイブリッドアプローチでQ/Aペアを生成
+
+        Args:
+            text: 入力テキスト
+            qa_count: 生成するQ/A数（Noneで自動決定）
+            use_llm: LLMによる品質向上を行うか
+            calculate_coverage: カバレージ計算を行うか
+            document_type: 文書タイプ（news/technical/academic/auto）
+
+        Returns:
+            生成結果の辞書
+        """
+        results = {
+            "qa_pairs": [],
+            "metadata": {},
+            "coverage": {},
+            "api_usage": {"calls": 0, "tokens": 0, "cost": 0.0}
+        }
+
+        # Step 1: ルールベースでキーワードとテンプレート生成
+        rule_result = self.qa_extractor.extract_for_qa_generation(
+            text, qa_count=qa_count, mode=document_type
+        )
+
+        # Step 2: LLMによる品質向上（オプション）
+        if use_llm:
+            enhanced_qa = self._enhance_with_llm(
+                text, rule_result, document_type
+            )
+            results["qa_pairs"] = enhanced_qa["qa_pairs"]
+            results["api_usage"]["calls"] += 1
+            results["api_usage"]["tokens"] = enhanced_qa.get("tokens_used", 0)
+            results["api_usage"]["cost"] = self._calculate_cost(
+                enhanced_qa.get("tokens_used", 0)
+            )
+        else:
+            # テンプレートからQ/Aペアを生成
+            results["qa_pairs"] = self._template_to_qa(rule_result)
+
+        # Step 3: セマンティックカバレージ計算（オプション）
+        if calculate_coverage:
+            coverage_result = self._calculate_semantic_coverage(
+                text, results["qa_pairs"]
+            )
+            results["coverage"] = coverage_result
+            results["api_usage"]["calls"] += coverage_result.get("embedding_calls", 0)
+
+        # メタデータ追加
+        results["metadata"] = {
+            "document_type": document_type,
+            "keywords_extracted": len(rule_result.get("keywords", [])),
+            "qa_generated": len(results["qa_pairs"]),
+            "model_used": self.model if use_llm else "rule-based",
+            "hybrid_mode": use_llm
+        }
+
+        return results
+
+    def _enhance_with_llm(self, text: str, rule_result: Dict, doc_type: str) -> Dict:
+        """LLMでQ/A品質を向上"""
+        # 文書タイプ別のプロンプト調整
+        type_instructions = {
+            "news": "Focus on 5W1H questions (Who, What, When, Where, Why, How)",
+            "technical": "Focus on How-to questions and technical details",
+            "academic": "Focus on Why and What-if questions for deeper understanding",
+            "auto": "Generate diverse question types appropriate for the content"
+        }
+
+        prompt = f"""Given the following text and extracted keywords, generate high-quality Q&A pairs.
+
+Text: {text[:2000]}
+
+Keywords and Templates:
+{json.dumps(rule_result.get('suggested_qa_pairs', [])[:10], ensure_ascii=False, indent=2)}
+
+Instructions:
+1. {type_instructions.get(doc_type, type_instructions['auto'])}
+2. Make questions specific and answers comprehensive
+3. Ensure factual accuracy based on the text
+4. Generate {len(rule_result.get('suggested_qa_pairs', [])[:5])} Q&A pairs
+
+Output format:
+Return a JSON with "qa_pairs" array, each containing "question" and "answer".
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a Q&A generation expert."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                response_format={"type": "json_object"}
+            )
+
+            result = json.loads(response.choices[0].message.content)
+            tokens_used = response.usage.total_tokens if response.usage else 0
+
+            return {
+                "qa_pairs": result.get("qa_pairs", []),
+                "tokens_used": tokens_used
+            }
+        except Exception as e:
+            print(f"LLM enhancement failed: {e}")
+            return {"qa_pairs": self._template_to_qa(rule_result), "tokens_used": 0}
+
+    def _template_to_qa(self, rule_result: Dict) -> List[Dict]:
+        """テンプレートからQ/Aペアを生成"""
+        qa_pairs = []
+        for item in rule_result.get("suggested_qa_pairs", [])[:5]:
+            if item.get("question_templates"):
+                # より詳細な回答を生成
+                keyword = item['keyword']
+                context = item.get('answer_hint', '')
+                difficulty = item.get('difficulty', 'intermediate')
+
+                # 難易度に応じた回答を生成
+                if difficulty == 'basic':
+                    answer = f"{keyword}は、{context[:100] if context else '文書内で言及されている重要な概念です。'}"
+                elif difficulty == 'intermediate':
+                    answer = f"{keyword}について、{context[:150] if context else '文書では詳細に説明されており、その特徴や使用方法が示されています。'}"
+                else:  # advanced
+                    answer = f"{keyword}の{context[:200] if context else '技術的な詳細や応用例が文書内で議論されています。'}"
+
+                qa_pairs.append({
+                    "question": item["question_templates"][0],
+                    "answer": answer
+                })
+        return qa_pairs
+
+    def _calculate_semantic_coverage(self, text: str, qa_pairs: List[Dict]) -> Dict:
+        """セマンティックカバレージを計算"""
+        try:
+            # テキストのチャンク化
+            chunks = self._create_semantic_chunks(text, chunk_size=200)
+
+            # 埋め込み生成
+            chunk_embeddings = self._get_embeddings([c["text"] for c in chunks])
+            qa_texts = [f"{qa['question']} {qa['answer']}" for qa in qa_pairs]
+            qa_embeddings = self._get_embeddings(qa_texts)
+
+            # カバレージ計算
+            coverage_scores = []
+            for chunk_emb in chunk_embeddings:
+                max_similarity = 0
+                for qa_emb in qa_embeddings:
+                    similarity = self._cosine_similarity(chunk_emb, qa_emb)
+                    max_similarity = max(max_similarity, similarity)
+                coverage_scores.append(max_similarity)
+
+            # ルールベースQ/Aの場合は閾値を調整（LLM使用時は0.7、ルールベースは0.4）
+            # Q/Aの内容から判定（ルールベースの場合は定型文を含む）
+            is_rule_based = any("文書内で" in qa.get("answer", "") or
+                               "文書では" in qa.get("answer", "") or
+                               "重要な概念" in qa.get("answer", "") for qa in qa_pairs)
+            threshold = 0.4 if is_rule_based else 0.7
+
+            covered_chunks = sum(1 for score in coverage_scores if score >= threshold)
+
+            return {
+                "total_chunks": len(chunks),
+                "covered_chunks": covered_chunks,
+                "coverage_percentage": (covered_chunks / len(chunks)) * 100 if chunks else 0,
+                "average_similarity": np.mean(coverage_scores) if coverage_scores else 0,
+                "embedding_calls": 2  # chunks + qa_pairs
+            }
+        except Exception as e:
+            print(f"Coverage calculation failed: {e}")
+            return {"coverage_percentage": 0, "embedding_calls": 0}
+
+    def _create_semantic_chunks(self, text: str, chunk_size: int = 200) -> List[Dict]:
+        """テキストをセマンティックチャンクに分割"""
+        sentences = re.split(r'[。！？\n]+', text)
+        chunks = []
+        current_chunk = []
+        current_tokens = 0
+
+        for sentence in sentences:
+            sentence_tokens = len(self.tokenizer.encode(sentence))
+            if current_tokens + sentence_tokens > chunk_size and current_chunk:
+                chunks.append({
+                    "text": "".join(current_chunk),
+                    "tokens": current_tokens
+                })
+                current_chunk = [sentence]
+                current_tokens = sentence_tokens
+            else:
+                current_chunk.append(sentence)
+                current_tokens += sentence_tokens
+
+        if current_chunk:
+            chunks.append({
+                "text": "".join(current_chunk),
+                "tokens": current_tokens
+            })
+
+        return chunks
+
+    def _get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """テキストの埋め込みを取得"""
+        try:
+            response = self.client.embeddings.create(
+                model=self.embedding_model,
+                input=texts
+            )
+            return [item.embedding for item in response.data]
+        except Exception as e:
+            print(f"Embedding generation failed: {e}")
+            return []
+
+    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """コサイン類似度を計算"""
+        if not vec1 or not vec2:
+            return 0.0
+
+        vec1 = np.array(vec1)
+        vec2 = np.array(vec2)
+
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
+
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+
+        return dot_product / (norm1 * norm2)
+
+    def _calculate_cost(self, tokens: int) -> float:
+        """API使用コストを計算"""
+        # モデル別の料金（1Mトークンあたり）
+        pricing = {
+            "gpt-5-mini": {"input": 0.15, "output": 0.60},
+            "gpt-5": {"input": 1.50, "output": 6.00},
+            "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+            "gpt-4o": {"input": 2.50, "output": 10.00},
+            "gpt-4": {"input": 30.00, "output": 60.00},
+            "o1-mini": {"input": 3.00, "output": 12.00},
+            "o1": {"input": 15.00, "output": 60.00},
+            "o3-mini": {"input": 3.00, "output": 12.00}
+        }
+
+        model_pricing = pricing.get(self.model, pricing["gpt-5-mini"])
+        # 簡易計算（入力:出力 = 7:3の仮定）
+        input_tokens = int(tokens * 0.7)
+        output_tokens = int(tokens * 0.3)
+
+        cost = (input_tokens * model_pricing["input"] +
+                output_tokens * model_pricing["output"]) / 1_000_000
+
+        return round(cost, 4)
+
+
+class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
+    """
+    バッチ処理に最適化されたハイブリッドQ/A生成クラス
+    API呼び出しを大幅に削減し、処理を高速化
+    """
+
+    def __init__(self,
+                 model: str = "gpt-5-mini",
+                 embedding_model: str = "text-embedding-3-small",
+                 batch_size: int = 10,
+                 embedding_batch_size: int = 100):
+        """
+        Args:
+            model: 使用するLLMモデル
+            embedding_model: 埋め込みモデル
+            batch_size: LLM処理のバッチサイズ
+            embedding_batch_size: 埋め込み処理のバッチサイズ
+        """
+        super().__init__(model, embedding_model)
+        self.batch_size = batch_size
+        self.embedding_batch_size = embedding_batch_size
+
+        # バッチ処理統計
+        self.batch_stats = {
+            "llm_batches": 0,
+            "embedding_batches": 0,
+            "total_llm_calls": 0,
+            "total_embedding_calls": 0
+        }
+
+    def generate_batch_hybrid_qa(
+        self,
+        texts: List[str],
+        qa_count: int = None,
+        use_llm: bool = True,
+        calculate_coverage: bool = True,
+        document_type: str = "auto",
+        show_progress: bool = True
+    ) -> List[Dict]:
+        """
+        複数文書をバッチ処理でQ/A生成
+
+        Args:
+            texts: 入力テキストのリスト
+            qa_count: 各文書のQ/A数
+            use_llm: LLMを使用するか
+            calculate_coverage: カバレージ計算するか
+            document_type: 文書タイプ
+            show_progress: 進捗表示
+
+        Returns:
+            各文書の生成結果リスト
+        """
+        from tqdm import tqdm
+
+        all_results = []
+        total_docs = len(texts)
+
+        # Step 1: ルールベースでバッチ処理（既に高速）
+        if show_progress:
+            print("Step 1: ルールベース抽出...")
+
+        rule_results = []
+        for text in tqdm(texts, desc="ルールベース", disable=not show_progress):
+            rule_result = self.qa_extractor.extract_for_qa_generation(
+                text, qa_count=qa_count, mode=document_type
+            )
+            rule_results.append(rule_result)
+
+        # Step 2: LLMバッチ処理（オプション）
+        if use_llm:
+            if show_progress:
+                print(f"\nStep 2: LLM品質向上（バッチサイズ: {self.batch_size}）...")
+
+            enhanced_qa_results = self._batch_enhance_with_llm(
+                texts, rule_results, document_type, show_progress
+            )
+        else:
+            # テンプレートからQ/A生成
+            enhanced_qa_results = []
+            for rule_result in rule_results:
+                qa_pairs = self._template_to_qa(rule_result)
+                enhanced_qa_results.append({"qa_pairs": qa_pairs, "tokens_used": 0})
+
+        # Step 3: カバレージ計算（バッチ処理）
+        coverage_results = []
+        if calculate_coverage:
+            if show_progress:
+                print(f"\nStep 3: カバレージ計算（埋め込みバッチサイズ: {self.embedding_batch_size}）...")
+
+            coverage_results = self._batch_calculate_coverage(
+                texts, [r["qa_pairs"] for r in enhanced_qa_results], show_progress
+            )
+
+        # 結果の統合
+        for i, text in enumerate(texts):
+            result = {
+                "qa_pairs": enhanced_qa_results[i]["qa_pairs"],
+                "metadata": {
+                    "document_type": document_type,
+                    "keywords_extracted": len(rule_results[i].get("keywords", [])),
+                    "qa_generated": len(enhanced_qa_results[i]["qa_pairs"]),
+                    "model_used": self.model if use_llm else "rule-based",
+                    "hybrid_mode": use_llm
+                },
+                "coverage": coverage_results[i] if calculate_coverage else {},
+                "api_usage": {
+                    "calls": 0,  # バッチ処理後に更新
+                    "tokens": enhanced_qa_results[i].get("tokens_used", 0),
+                    "cost": self._calculate_cost(enhanced_qa_results[i].get("tokens_used", 0))
+                }
+            }
+            all_results.append(result)
+
+        # バッチ処理統計を追加
+        if show_progress:
+            self._print_batch_statistics(total_docs)
+
+        return all_results
+
+    def _batch_enhance_with_llm(
+        self,
+        texts: List[str],
+        rule_results: List[Dict],
+        doc_type: str,
+        show_progress: bool
+    ) -> List[Dict]:
+        """LLMでバッチ処理によるQ/A品質向上"""
+        from tqdm import tqdm
+
+        enhanced_results = []
+        total_batches = (len(texts) + self.batch_size - 1) // self.batch_size
+
+        progress_bar = tqdm(total=len(texts), desc="LLM処理", disable=not show_progress)
+
+        for batch_idx in range(0, len(texts), self.batch_size):
+            batch_end = min(batch_idx + self.batch_size, len(texts))
+            batch_texts = texts[batch_idx:batch_end]
+            batch_rules = rule_results[batch_idx:batch_end]
+
+            # バッチプロンプト作成
+            batch_prompt = self._create_batch_prompt(batch_texts, batch_rules, doc_type)
+
+            try:
+                # 一度のAPI呼び出しで複数文書処理
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a Q&A generation expert. Process multiple documents."},
+                        {"role": "user", "content": batch_prompt}
+                    ],
+                    temperature=0.7,
+                    response_format={"type": "json_object"}
+                )
+
+                self.batch_stats["llm_batches"] += 1
+                self.batch_stats["total_llm_calls"] += 1
+
+                # バッチ応答のパース
+                batch_results = self._parse_batch_response(response)
+
+                # 結果が足りない場合は個別処理にフォールバック
+                while len(batch_results) < len(batch_texts):
+                    batch_results.append({
+                        "qa_pairs": self._template_to_qa(batch_rules[len(batch_results)]),
+                        "tokens_used": 0
+                    })
+
+                enhanced_results.extend(batch_results)
+
+            except Exception as e:
+                print(f"バッチ {batch_idx//self.batch_size + 1}/{total_batches} でエラー: {e}")
+                # エラー時は個別処理にフォールバック
+                for i in range(len(batch_texts)):
+                    qa_pairs = self._template_to_qa(batch_rules[i])
+                    enhanced_results.append({"qa_pairs": qa_pairs, "tokens_used": 0})
+
+            progress_bar.update(len(batch_texts))
+
+        progress_bar.close()
+        return enhanced_results
+
+    def _create_batch_prompt(
+        self,
+        texts: List[str],
+        rule_results: List[Dict],
+        doc_type: str
+    ) -> str:
+        """バッチ処理用のプロンプト作成"""
+        type_instructions = {
+            "news": "Focus on 5W1H questions",
+            "technical": "Focus on How-to questions",
+            "academic": "Focus on Why and What-if questions",
+            "auto": "Generate diverse question types"
+        }
+
+        documents = []
+        for i, (text, rule_result) in enumerate(zip(texts, rule_results)):
+            doc_info = {
+                "document_id": i,
+                "text": text[:1000],  # トークン制限のため切り詰め
+                "keywords": rule_result.get("suggested_qa_pairs", [])[:5]
+            }
+            documents.append(doc_info)
+
+        prompt = f"""Process these {len(documents)} documents and generate Q&A pairs for each.
+
+Documents:
+{json.dumps(documents, ensure_ascii=False, indent=2)}
+
+Instructions:
+1. {type_instructions.get(doc_type, type_instructions['auto'])}
+2. Generate 3-5 Q&A pairs per document
+3. Ensure factual accuracy
+
+Output format:
+{{
+    "results": [
+        {{
+            "document_id": 0,
+            "qa_pairs": [
+                {{"question": "...", "answer": "..."}}
+            ]
+        }},
+        ...
+    ]
+}}"""
+
+        return prompt
+
+    def _parse_batch_response(self, response) -> List[Dict]:
+        """バッチ応答のパース"""
+        try:
+            content = response.choices[0].message.content
+            parsed = json.loads(content)
+
+            results = []
+            tokens_per_doc = response.usage.total_tokens // len(parsed.get("results", [1]))
+
+            for doc_result in parsed.get("results", []):
+                results.append({
+                    "qa_pairs": doc_result.get("qa_pairs", []),
+                    "tokens_used": tokens_per_doc
+                })
+
+            return results
+
+        except Exception as e:
+            print(f"バッチ応答のパースエラー: {e}")
+            return []
+
+    def _batch_calculate_coverage(
+        self,
+        texts: List[str],
+        qa_pairs_list: List[List[Dict]],
+        show_progress: bool
+    ) -> List[Dict]:
+        """バッチ処理でカバレージ計算"""
+        from tqdm import tqdm
+
+        all_coverages = []
+
+        # すべてのチャンクとQ/Aペアを収集
+        all_chunks = []
+        chunk_boundaries = []  # 各文書のチャンク境界を記録
+
+        for text in texts:
+            chunks = self._create_semantic_chunks(text, chunk_size=200)
+            chunk_boundaries.append((len(all_chunks), len(all_chunks) + len(chunks)))
+            all_chunks.extend(chunks)
+
+        all_qa_texts = []
+        qa_boundaries = []  # 各文書のQ/A境界を記録
+
+        for qa_pairs in qa_pairs_list:
+            qa_texts = [f"{qa['question']} {qa['answer']}" for qa in qa_pairs]
+            qa_boundaries.append((len(all_qa_texts), len(all_qa_texts) + len(qa_texts)))
+            all_qa_texts.extend(qa_texts)
+
+        # バッチ処理で埋め込み生成
+        if show_progress:
+            print(f"埋め込み生成中... (チャンク: {len(all_chunks)}, Q/A: {len(all_qa_texts)})")
+
+        chunk_embeddings = self._batch_get_embeddings(
+            [c["text"] for c in all_chunks], "チャンク", show_progress
+        )
+
+        qa_embeddings = self._batch_get_embeddings(
+            all_qa_texts, "Q/A", show_progress
+        )
+
+        # 各文書のカバレージ計算
+        for i, text in enumerate(texts):
+            chunk_start, chunk_end = chunk_boundaries[i]
+            qa_start, qa_end = qa_boundaries[i]
+
+            doc_chunk_embs = chunk_embeddings[chunk_start:chunk_end]
+            doc_qa_embs = qa_embeddings[qa_start:qa_end]
+
+            # カバレージ計算
+            coverage_scores = []
+            for chunk_emb in doc_chunk_embs:
+                max_similarity = 0
+                for qa_emb in doc_qa_embs:
+                    similarity = self._cosine_similarity(chunk_emb, qa_emb)
+                    max_similarity = max(max_similarity, similarity)
+                coverage_scores.append(max_similarity)
+
+            # 閾値判定
+            is_rule_based = any("文書内で" in qa.get("answer", "") or
+                               "文書では" in qa.get("answer", "") or
+                               "重要な概念" in qa.get("answer", "")
+                               for qa in qa_pairs_list[i])
+            threshold = 0.4 if is_rule_based else 0.7
+
+            covered_chunks = sum(1 for score in coverage_scores if score >= threshold)
+
+            all_coverages.append({
+                "total_chunks": len(doc_chunk_embs),
+                "covered_chunks": covered_chunks,
+                "coverage_percentage": (covered_chunks / len(doc_chunk_embs)) * 100 if doc_chunk_embs else 0,
+                "average_similarity": np.mean(coverage_scores) if coverage_scores else 0,
+                "embedding_calls": 0  # バッチ処理のため個別カウントなし
+            })
+
+        return all_coverages
+
+    def _batch_get_embeddings(
+        self,
+        texts: List[str],
+        desc: str,
+        show_progress: bool
+    ) -> List[List[float]]:
+        """バッチ処理で埋め込みを取得"""
+        from tqdm import tqdm
+
+        embeddings = []
+
+        progress_bar = tqdm(
+            total=len(texts),
+            desc=f"{desc}埋め込み",
+            disable=not show_progress
+        )
+
+        for i in range(0, len(texts), self.embedding_batch_size):
+            batch = texts[i:i + self.embedding_batch_size]
+
+            try:
+                response = self.client.embeddings.create(
+                    model=self.embedding_model,
+                    input=batch
+                )
+
+                self.batch_stats["embedding_batches"] += 1
+                self.batch_stats["total_embedding_calls"] += 1
+
+                for item in response.data:
+                    embeddings.append(item.embedding)
+
+            except Exception as e:
+                print(f"埋め込み生成エラー: {e}")
+                # エラー時はゼロベクトル
+                for _ in batch:
+                    embeddings.append([0.0] * 1536)
+
+            progress_bar.update(len(batch))
+
+        progress_bar.close()
+        return embeddings
+
+    def _print_batch_statistics(self, total_docs: int):
+        """バッチ処理統計を表示"""
+        print("\n" + "=" * 80)
+        print("📊 バッチ処理統計")
+        print("=" * 80)
+        print(f"処理文書数: {total_docs}")
+        print(f"\nLLM処理:")
+        print(f"  - バッチ数: {self.batch_stats['llm_batches']}")
+        print(f"  - API呼び出し: {self.batch_stats['total_llm_calls']}回")
+        print(f"  - 削減率: {(1 - self.batch_stats['total_llm_calls']/max(1, total_docs)) * 100:.1f}%")
+
+        print(f"\n埋め込み処理:")
+        print(f"  - バッチ数: {self.batch_stats['embedding_batches']}")
+        print(f"  - API呼び出し: {self.batch_stats['total_embedding_calls']}回")
+
+        total_calls = self.batch_stats['total_llm_calls'] + self.batch_stats['total_embedding_calls']
+        original_calls = total_docs + total_docs * 2  # 個別処理の場合
+
+        print(f"\n総合:")
+        print(f"  - 総API呼び出し: {total_calls}回")
+        print(f"  - 従来方式: {original_calls}回")
+        print(f"  - 削減率: {(1 - total_calls/max(1, original_calls)) * 100:.1f}%")
+        print("=" * 80)
+
+
 # テスト用コード
 if __name__ == "__main__":
     # サンプルテキスト
