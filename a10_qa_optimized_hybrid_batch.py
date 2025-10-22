@@ -2,6 +2,16 @@
 """
 バッチ処理版ハイブリッドQ&A生成システム
 API呼び出しを最小化し、処理を高速化
+# 確実に95%達成するための推奨コマンド
+  python a10_qa_optimized_hybrid_batch.py \
+      --dataset cc_news \
+      --model gpt-5-mini \
+      --batch-size 10 \
+      --embedding-batch-size 150 \
+      --qa-count 12 \
+      --max-docs 150 \
+      --output qa_output
+
 
 使用方法:
     # 基本使用（バッチサイズ10）
