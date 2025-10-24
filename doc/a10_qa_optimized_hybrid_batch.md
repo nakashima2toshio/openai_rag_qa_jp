@@ -1,31 +1,40 @@
-# a10_qa_optimized_hybrid_batch.py ドキュメント
+# a10_qa_optimized_hybrid_batch.py - 詳細設計書
+
+## 最新バージョン情報
+- **最終更新**: 2025-10-23
+- **バージョン**: v1.1 (出力ディレクトリ最適化版)
+- **主要機能**: バッチ処理、API呼び出し最適化、ハイブリッドQ/A生成
+
+---
 
 ## 概要
 
 `a10_qa_optimized_hybrid_batch.py`は、**バッチ処理によるAPI呼び出し最適化**を実現した高度なQ&Aペア生成システムです。`a10_qa_optimized_hybrid.py`のハイブリッドアプローチをベースに、**複数文書を一度のAPI呼び出しで処理**することで、API呼び出し数を**最大92%削減**し、処理速度を大幅に向上させます。
 
+**v1.1の新機能**:
+- 出力ディレクトリを`qa_output/a10/`に変更（サブディレクトリ自動作成）
+- ファイル管理の改善
+
+---
+
 ## バッチ処理の革新性
 
 ### 従来版との決定的な違い
 
-```mermaid
-graph LR
-    subgraph 従来版
-    A1["文書1"] --> B1["API呼出1"]
-    A2["文書2"] --> B2["API呼出2"]
-    A3["文書3"] --> B3["API呼出3"]
-    A4["..."] --> B4["..."]
-    end
+```
+従来版（個別処理）:
+文書1 → API呼出1
+文書2 → API呼出2
+文書3 → API呼出3
+...
+文書497 → API呼出497
 
-    subgraph バッチ版
-    C1["文書1-10"] --> D1["API呼出1"]
-    C2["文書11-20"] --> D2["API呼出2"]
-    C3["文書21-30"] --> D3["API呼出3"]
-    end
-
-    style D1 fill:#f96,stroke:#333
-    style D2 fill:#f96,stroke:#333
-    style D3 fill:#f96,stroke:#333
+バッチ版（バッチ処理）:
+文書1-10 → API呼出1
+文書11-20 → API呼出2
+文書21-30 → API呼出3
+...
+文書491-497 → API呼出50
 ```
 
 | 処理方式 | 497文書のAPI呼出数 | 処理時間 | コスト削減率 |
@@ -36,29 +45,43 @@ graph LR
 
 ### バッチ処理の3段階最適化
 
-```mermaid
-graph TD
-    A["入力: 497文書"] --> B["Stage 1: ルールベース抽出"]
-    B --> C{"バッチ処理?"}
-
-    C -->|"No 従来版"| D1["497回のAPI呼出"]
-    C -->|"Yes バッチ版"| D2["50回のAPI呼出"]
-
-    D1 --> E1["LLM処理: 497回"]
-    D2 --> E2["LLM処理: 50回 最適化"]
-
-    E1 --> F1["埋め込み: 994回"]
-    E2 --> F2["埋め込み: 5回 最適化"]
-
-    F1 --> G["合計: 1491回"]
-    F2 --> H["合計: 55回"]
-
-    H -->|"削減率"| I["96.3%削減"]
-
-    style E2 fill:#9f9,stroke:#333
-    style F2 fill:#9f9,stroke:#333
-    style I fill:#ff9,stroke:#333
 ```
+Stage 1: ルールベース抽出（ローカル処理）
+    ↓
+Stage 2: LLMバッチ処理（497文書 → 50回のAPI呼出）
+    ↓
+Stage 3: 埋め込みバッチ処理（100文書ずつ → 5回のAPI呼出）
+    ↓
+合計: 55回のAPI呼出（従来版1,491回から96.3%削減）
+```
+
+---
+
+## 推奨実行コマンド
+
+### 95%カバレージ達成版（推奨）
+
+```bash
+python a10_qa_optimized_hybrid_batch.py \
+    --dataset cc_news \
+    --model gpt-5-mini \
+    --batch-size 10 \
+    --embedding-batch-size 150 \
+    --qa-count 12 \
+    --max-docs 150 \
+    --output qa_output
+```
+
+**期待結果:**
+- 処理文書: 150件
+- 生成Q/A: 1,800個
+- カバレージ: 95%+
+- API呼出: 約20回
+- 処理時間: 2-3分
+- コスト: $0.01-0.02
+- 出力先: `qa_output/a10/` ⭐
+
+---
 
 ## 主要機能
 
@@ -74,8 +97,8 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
 ```
 
 **主要パラメータ:**
-- `batch_size`: LLM処理のバッチサイズ（デフォルト: 10）
-- `embedding_batch_size`: 埋め込み処理のバッチサイズ（デフォルト: 100）
+- `batch_size`: LLM処理のバッチサイズ（デフォルト: 10、推奨: 10-20）
+- `embedding_batch_size`: 埋め込み処理のバッチサイズ（デフォルト: 100、推奨: 100-200）
 
 ### 2. 統計レポート機能
 
@@ -113,40 +136,43 @@ try:
     response = self.client.chat.completions.create(**api_params)
     batch_results = self._parse_batch_response(response)
 except Exception as e:
+    logger.warning(f"バッチ処理エラー: {e}. 個別処理にフォールバック")
     # エラー時は個別処理にフォールバック
     for i in range(len(batch_texts)):
         qa_pairs = self._template_to_qa(batch_rules[i])
         enhanced_results.append({"qa_pairs": qa_pairs})
 ```
 
+---
+
 ## システムアーキテクチャ
 
 ### バッチ処理フロー
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Script as a10_qa_optimized_hybrid_batch.py
-    participant BatchGen as BatchHybridQAGenerator
-    participant OpenAI as OpenAI API
-
-    User->>Script: 実行（497文書）
-    Script->>BatchGen: 初期化（batch_size=10）
-
-    loop バッチ処理（50回）
-        BatchGen->>BatchGen: 10文書をバッチ化
-        BatchGen->>OpenAI: 1回のAPI呼出（10文書分）
-        OpenAI-->>BatchGen: バッチ応答（10文書分）
-        BatchGen->>BatchGen: パース＆格納
-    end
-
-    BatchGen->>BatchGen: 埋め込みバッチ処理（5回）
-    BatchGen->>OpenAI: 埋め込みAPI呼出（100文書分×5）
-    OpenAI-->>BatchGen: 埋め込みベクトル
-
-    BatchGen->>Script: 結果統合（497文書分）
-    Script-->>User: 完了（統計表示）
 ```
+ユーザー実行（497文書）
+         ↓
+BatchHybridQAGenerator 初期化（batch_size=10）
+         ↓
+バッチ処理ループ（50回）
+  ├─ 10文書をバッチ化
+  ├─ OpenAI API呼出（1回で10文書分）
+  ├─ バッチ応答受信
+  └─ パース＆格納
+         ↓
+埋め込みバッチ処理（5回）
+  ├─ 100文書ずつバッチ化
+  ├─ OpenAI Embeddings API呼出
+  └─ 埋め込みベクトル取得
+         ↓
+結果統合（497文書分）
+         ↓
+統計表示＆結果保存（qa_output/a10/）⭐
+  ├─ batch_summary_{dataset}_{model}_b{batch_size}_{timestamp}.json
+  └─ batch_qa_pairs_{dataset}_{model}_b{batch_size}_{timestamp}.csv
+```
+
+---
 
 ## クラス構成
 
@@ -173,6 +199,8 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
 | `_batch_calculate_coverage()` | バッチカバレージ計算 | 埋め込みを一括生成 |
 | `_batch_get_embeddings()` | 埋め込みバッチ取得 | 100文書ずつ処理 |
 | `_print_batch_statistics()` | 統計レポート出力 | 削減率を可視化 |
+
+---
 
 ## 使用方法
 
@@ -209,6 +237,12 @@ python a10_qa_optimized_hybrid_batch.py --dataset cc_news --model gpt-4o
 python a10_qa_optimized_hybrid_batch.py --dataset cc_news --max-docs 10
 ```
 
+#### Q/A数指定
+```bash
+# 文書あたり12個のQ/A生成
+python a10_qa_optimized_hybrid_batch.py --dataset cc_news --qa-count 12
+```
+
 #### ルールベースのみ（コスト$0）
 ```bash
 python a10_qa_optimized_hybrid_batch.py --dataset cc_news --no-llm
@@ -221,7 +255,7 @@ python a10_qa_optimized_hybrid_batch.py --dataset cc_news --no-coverage
 
 #### 比較モード（通常版 vs バッチ版）
 ```bash
-python a10_qa_optimized_hybrid_batch.py --dataset cc_news --compare --max-docs 100
+python a10_qa_optimized_hybrid_batch.py --dataset cc_news --compare --compare-size 10
 ```
 
 ### プログラムからの使用
@@ -260,6 +294,8 @@ for i, result in enumerate(results):
 print(f"LLMバッチ数: {generator.batch_stats['llm_batches']}")
 print(f"総API呼出: {generator.batch_stats['total_llm_calls']}")
 ```
+
+---
 
 ## バッチプロンプトの仕組み
 
@@ -315,6 +351,8 @@ def _parse_batch_response(self, response) -> List[Dict]:
     return results
 ```
 
+---
+
 ## パフォーマンス比較
 
 ### 処理時間とコスト（497文書の場合）
@@ -338,16 +376,16 @@ def _parse_batch_response(self, response) -> List[Dict]:
 
 **結論**: バッチサイズに関わらず**約90%の削減率**を維持
 
+---
+
 ## 出力ファイル
 
 ### ファイル構成
 
 ```
-qa_output/
-├── batch_summary_{dataset}_{model}_{timestamp}.json      # サマリー
-├── batch_details_{dataset}_{model}_{timestamp}.json      # 詳細結果
-├── batch_qa_pairs_{dataset}_{model}_{timestamp}.csv      # Q&Aペア
-└── batch_coverage_{dataset}_{model}_{timestamp}.csv      # カバレージ
+qa_output/a10/  ⭐NEW
+├── batch_summary_{dataset}_{model}_b{batch_size}_{timestamp}.json      # サマリー
+└── batch_qa_pairs_{dataset}_{model}_b{batch_size}_{timestamp}.csv     # Q&Aペア
 ```
 
 ### サマリーファイル構造
@@ -355,60 +393,88 @@ qa_output/
 ```json
 {
     "dataset_type": "cc_news",
+    "dataset_name": "CC-News英語ニュース",
     "model_used": "gpt-5-mini",
-    "batch_size": 10,
-    "embedding_batch_size": 100,
+    "batch_processing": true,
+    "batch_sizes": {
+        "llm_batch_size": 10,
+        "embedding_batch_size": 100
+    },
     "documents_processed": 497,
     "total_qa_generated": 1491,
     "avg_qa_per_doc": 3.0,
-    "api_usage": {
-        "total_calls": 55,
-        "total_tokens": 248500,
-        "total_cost": 0.0075,
-        "cost_per_doc": 0.000015
-    },
-    "batch_statistics": {
-        "llm_batches": 50,
-        "embedding_batches": 5,
-        "reduction_rate": 96.3
-    },
     "processing_time": {
         "total_seconds": 60,
+        "minutes": 1.0,
         "docs_per_second": 8.28
-    }
+    },
+    "api_usage": {
+        "total_cost": 0.0075,
+        "cost_per_doc": 0.000015,
+        "batch_statistics": {
+            "llm_batches": 50,
+            "embedding_batches": 5,
+            "total_llm_calls": 50,
+            "total_embedding_calls": 5,
+            "reduction_rate": 96.3
+        }
+    },
+    "coverage": {
+        "calculated": true,
+        "avg_coverage": 85.5,
+        "min_coverage": 72.0,
+        "max_coverage": 95.0
+    },
+    "generation_timestamp": "2025-10-23T14:30:00"
 }
 ```
+
+---
+
+## データセット設定
+
+### 対応データセット
+
+| データセット | ファイルパス | 言語 | デフォルト文書タイプ |
+|------------|-------------|------|------------------|
+| cc_news | OUTPUT/preprocessed_cc_news.csv | 英語 | news |
+| japanese_text | OUTPUT/preprocessed_japanese_text.csv | 日本語 | auto |
+| wikipedia_ja | OUTPUT/preprocessed_wikipedia_ja.csv | 日本語 | academic |
+
+---
 
 ## トラブルシューティング
 
 ### よくある問題と解決方法
 
 #### Q: バッチ処理でエラーが頻発する
-A: バッチサイズを小さくする
+**A:** バッチサイズを小さくする
 ```bash
 python a10_qa_optimized_hybrid_batch.py --batch-size 5
 ```
 
 #### Q: メモリ不足エラー
-A: 埋め込みバッチサイズを削減
+**A:** 埋め込みバッチサイズを削減
 ```bash
 python a10_qa_optimized_hybrid_batch.py --embedding-batch-size 50
 ```
 
 #### Q: API Rate Limit エラー
-A: バッチサイズを大きくして呼出頻度を減らす
+**A:** バッチサイズを大きくして呼出頻度を減らす
 ```bash
 python a10_qa_optimized_hybrid_batch.py --batch-size 20
 ```
 
 #### Q: パース エラー
-A: モデルがJSON形式を返さない場合、個別処理にフォールバック（自動）
+**A:** モデルがJSON形式を返さない場合、個別処理に自動フォールバック
 
 #### Q: 統計が表示されない
-A: `show_progress=True`を指定
+**A:** `show_progress=True`を指定
 ```python
 results = generator.generate_batch_hybrid_qa(..., show_progress=True)
 ```
+
+---
 
 ## ベストプラクティス
 
@@ -453,39 +519,44 @@ python a10_qa_optimized_hybrid_batch.py \
     --dataset cc_news \
     --model gpt-4o \
     --batch-size 5 \
-    --calculate-coverage
+    --qa-count 8
 ```
+
+---
 
 ## 比較実験機能
 
 ### 通常版 vs バッチ版の性能比較
 
 ```bash
-python a10_qa_optimized_hybrid_batch.py --dataset cc_news --compare --max-docs 100
+python a10_qa_optimized_hybrid_batch.py --dataset cc_news --compare --compare-size 10
 ```
 
 **出力例:**
 ```
 ================================================================================
-⚖️  通常版 vs バッチ版 性能比較
+📊 性能比較結果
 ================================================================================
+サンプル数: 10文書
 
-通常版:
-  - API呼出: 300回
-  - 処理時間: 180秒
-  - コスト: $0.015
+【通常版（個別処理）】
+  処理時間: 30.00秒
+  API呼出: 30回
+  1文書あたり: 3.00秒, 3.0回
 
-バッチ版:
-  - API呼出: 30回
-  - 処理時間: 60秒
-  - コスト: $0.0015
+【バッチ版（バッチ処理）】
+  処理時間: 10.00秒
+  API呼出: 3回
+  1文書あたり: 1.00秒, 0.3回
 
-改善:
-  - API呼出削減: 90.0%
-  - 処理時間短縮: 66.7%
-  - コスト削減: 90.0%
+【改善効果】
+  処理時間短縮: 66.7%
+  API呼出削減: 90.0%
+  高速化: 3.00x
 ================================================================================
 ```
+
+---
 
 ## 従来版との互換性
 
@@ -521,6 +592,8 @@ result = {
     "api_usage": {...}
 }
 ```
+
+---
 
 ## 技術的詳細
 
@@ -567,6 +640,27 @@ if self.model not in self.no_temperature_models:
     api_params["temperature"] = 0.7
 ```
 
+---
+
+## コマンドライン引数一覧
+
+| 引数 | 型 | デフォルト | 選択肢 | 説明 |
+|-----|-----|----------|-------|------|
+| `--dataset` | str | cc_news | cc_news, japanese_text, wikipedia_ja | 処理するデータセット |
+| `--model` | str | gpt-5-mini | - | 使用するLLMモデル |
+| `--batch-size` | int | 10 | - | LLMバッチサイズ |
+| `--embedding-batch-size` | int | 100 | - | 埋め込みバッチサイズ |
+| `--max-docs` | int | None | - | 処理する最大文書数 |
+| `--qa-count` | int | None | - | 文書あたりのQ/A数 |
+| `--doc-type` | str | None | news, technical, academic, auto | 文書タイプ |
+| `--no-llm` | flag | False | - | LLMを使用しない |
+| `--no-coverage` | flag | False | - | カバレージ計算を行わない |
+| `--output` | str | qa_output | - | 出力ディレクトリ |
+| `--compare` | flag | False | - | 通常版との比較実行 |
+| `--compare-size` | int | 10 | - | 比較実行のサンプルサイズ |
+
+---
+
 ## 今後の改善計画
 
 1. **非同期バッチ処理**
@@ -589,19 +683,29 @@ if self.model not in self.no_temperature_models:
    - 中断・再開機能
    - チェックポイント保存
 
+---
+
+## 変更履歴
+
+### v1.1 (2025-10-23)
+- 出力ディレクトリを`qa_output/a10/`に変更（サブディレクトリ自動作成）
+- ドキュメント全面更新（最新仕様を反映）
+- ファイル管理の改善
+
+### v1.0 (2025-10-21)
+- バッチ処理版初版リリース
+- BatchHybridQAGeneratorクラス実装
+- API呼出削減率96%達成
+- 統計レポート機能追加
+- 比較実験機能実装
+- temperature非対応モデル対応
+- JSON形式要件エラー修正
+
+---
+
 ## ライセンス
 
 [プロジェクトのライセンスに準拠]
-
-## 更新履歴
-
-- 2025.10.21 - バッチ処理版初版リリース
-- 2025.10.21 - BatchHybridQAGeneratorクラス実装
-- 2025.10.21 - API呼出削減率96%達成
-- 2025.10.21 - 統計レポート機能追加
-- 2025.10.21 - 比較実験機能実装
-- 2025.10.21 - temperature非対応モデル対応
-- 2025.10.21 - JSON形式要件エラー修正
 
 ## 作成者
 

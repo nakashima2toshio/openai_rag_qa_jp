@@ -15,8 +15,28 @@ OUTPUTフォルダ内のpreprocessedファイルから自動的にQ/Aペアを�
 
 例:
 本番運用向け：
-  # a02_make_qa.py（100記事、20分、$0.15）
-  python a02_make_qa.py --dataset cc_news --max-docs 100 --batch-chunks 3 --merge-chunks --model gpt-5-mini --analyze-coverage
+
+python a02_make_qa.py \
+      --dataset cc_news \
+      --batch-chunks 5 \
+      --merge-chunks \
+      --min-tokens 150 \
+      --max-tokens 400 \
+      --model gpt-5-mini \
+      --analyze-coverage
+
+
+実行時間の見積もり
+
+| 項目      | 値                     |
+|---------|-----------------------|
+| 処理文書数   | 497件（全件）              |
+| チャンク数   | ~1,825個 → 統合後 ~1,820個 |
+| API呼び出し | 約365回（バッチサイズ5）        |
+| 推定実行時間  | 60-75分                |
+| カバレージ分析 | +3-5分                 |
+| 合計      | 約65-80分               |
+
 
   生成Q/Aペア数: 525
   保存ファイル:
@@ -51,7 +71,7 @@ from dotenv import load_dotenv
 import logging
 
 # ローカルモジュール
-from a03_rag_qa_coverage import SemanticCoverage
+from a03_rag_qa_coverage_improved import SemanticCoverage
 
 # 環境変数読み込み
 load_dotenv()
@@ -738,7 +758,7 @@ def generate_qa_for_dataset(
 
         # API制限対策（最後のバッチ以外で待機）
         if i + chunk_batch_size < total_chunks:
-            time.sleep(0.5)  # 短縮（バッチ処理により呼び出し数が減っているため）
+            time.sleep(0.2)  # 短縮（バッチ処理により呼び出し数が減っているため）
 
     logger.info(f"""
     Q/Aペア生成完了:

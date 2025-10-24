@@ -345,8 +345,9 @@ def save_batch_results(
 ) -> Dict[str, str]:
     """バッチ処理結果を保存"""
 
-    output_path = Path(output_dir)
-    output_path.mkdir(exist_ok=True)
+    # qa_output/a10 ディレクトリに保存
+    output_path = Path(output_dir) / "a10"
+    output_path.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     model_suffix = model.replace("-", "_").replace(".", "_")

@@ -10,7 +10,7 @@ OpenAI API呼び出し回数: 5回
   - Q/A埋め込み: 4回
   - Q/A生成: 0回（ルールベースのため）
 
-主な改善点:
+主な改善点: 実行時間(2分）カバレージ99.7% Q/Aペア2139
 1. チャンクごとに複数の詳細なQ/Aを生成
 2. Q/Aの品質向上（より長く、より具体的な内容）
 3. カバレッジ計算の改善（閾値調整、複数の類似度メトリクス）
@@ -593,8 +593,9 @@ def save_results(
     output_dir: str = "qa_output"
 ) -> Dict[str, str]:
     """結果をファイルに保存"""
-    output_path = Path(output_dir)
-    output_path.mkdir(exist_ok=True)
+    # qa_output/a03 ディレクトリに保存
+    output_path = Path(output_dir) / "a03"
+    output_path.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 

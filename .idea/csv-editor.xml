@@ -10,7 +10,42 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/qa_output/a02/qa_pairs_cc_news_20251023_113852.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a02_qa_pairs_cc_news.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/qa_output/a03/qa_pairs_cc_news_20251020_211635.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a03/qa_pairs_cc_news_20251025_072705.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a03_qa_pairs_cc_news.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b25_20251022_143357.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
@@ -25,6 +60,20 @@
           </value>
         </entry>
         <entry key="/qa_output/a10/qa_templates_cc_news_20251020_212502.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a10_qa_pairs_cc_news.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/qa_pairs_cc_news_20251022_140325.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

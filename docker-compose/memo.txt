@@ -1,19 +1,10 @@
 [docker-compose Stop]
-docker-compose -f docker-compose.mcp-demo.yml down
+docker-compose -f docker-compose.yml down
 
 [docker-compose start]
-docker-compose -f docker-compose.mcp-demo.yml up -d
-
-[New]
-docker-compose -f docker-compose.mcp-simple.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 ------------------
-cd docker-compose
-
-docker-compose -f docker-compose.mcp-demo.yml down
-
-docker-compose -f docker-compose.mcp-demo.yml up -d
-
 cd ..
 
 # MCP環境セットアップスクリプト
