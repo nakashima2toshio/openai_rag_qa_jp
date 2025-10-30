@@ -1,4 +1,4 @@
-# a01_load_non_qa_rag_data.py - 詳細設計書
+# a01_load_non_qa_rag_data.py - 技術仕様書
 
 ## 目次
 
@@ -51,30 +51,30 @@
 ## 1. 概要
 
 ### 1.1 目的
-非Q&A型RAGデータ（Wikipedia、ニュース、学術論文など）を処理し、RAG（Retrieval-Augmented Generation）用の前処理済みテキストデータを生成するStreamlitベースのWebアプリケーション。
+非Q&A型RAGデータ（Wikipedia、ニュース、学術論文など）を処理し、RAG（Retrieval-Augmented Generation）システム用の前処理済みテキストデータを生成するStreamlitベースのWebアプリケーション。
 
 ### 1.2 主要機能
 - ✅ **日本語・英語データセットの処理**
   - Wikipedia日本語版（動作確認済み）
-  - CC100日本語（動作確認済み）
+  - CC100日本語Webテキスト（動作確認済み）
   - CC-News英語ニュース（動作確認済み）
 - ✅ **データ検証・品質チェック**
   - 基本検証（必須フィールド、NULL値、重複）
-  - データセット固有の検証
+  - データセット固有の詳細検証
 - ✅ **RAG用テキスト抽出・前処理**
-  - タイトル・本文の結合
-  - クレンジング処理
+  - タイトル・本文の自動結合
+  - テキストクレンジング処理
   - 短いテキスト・重複の除去
 - ✅ **トークン使用量推定**
 - ✅ **CSV/TXT/JSONフォーマット出力**
-- ✅ **HuggingFace自動ダウンロード**
+- ✅ **HuggingFace Hub自動ダウンロード**
 
 ### 1.3 対応データセット
 
-| データセット | 説明 | HuggingFace | Config | 主要フィールド | サンプル数 |
+| データセット | 説明 | HuggingFace | Config | 主要フィールド | デフォルトサンプル数 |
 |------------|------|------------|--------|--------------|----------|
 | wikipedia_ja | Wikipedia日本語版 | wikimedia/wikipedia | 20231101.ja | title, text | 1000 |
-| japanese_text | CC100日本語 | range3/cc100-ja | - | text | 1000 |
+| japanese_text | CC100日本語Webテキスト | range3/cc100-ja | - | text | 1000 |
 | cc_news | CC-News英語ニュース | cc_news | - | title, text | 500 |
 
 ## 2. アーキテクチャ
@@ -82,85 +82,81 @@
 ### 2.1 システム構成図
 
 ```
-[Streamlit UI]
+[Streamlit Webアプリ]
     ↓
 [データソース選択]
-    ├── CSVアップロード
-    └── HuggingFace自動ダウンロード
+    ├── CSVファイルアップロード
+    └── HuggingFace Hub自動ダウンロード
     ↓
-[データ検証]
-    ├── 基本検証
+[データ検証エンジン]
+    ├── 基本検証（共通）
     └── データセット固有検証
     ↓
-[前処理実行]
+[前処理パイプライン]
     ├── テキスト抽出
-    ├── 結合処理
-    ├── フィルタリング
-    └── クレンジング
+    ├── タイトル・本文結合
+    ├── フィルタリング（長さ、重複）
+    └── クレンジング処理
     ↓
-[出力・保存]
-    ├── CSV/TXT/JSON
-    └── OUTPUTフォルダ保存
+[出力管理]
+    ├── ダウンロード（CSV/TXT/JSON）
+    ├── OUTPUTフォルダ保存
+    └── datasets/フォルダ保存（HuggingFace）
 ```
 
 ### 2.2 UIレイアウト
 
 ```
 ┌─────────────────────────────────────────────┐
-│ Sidebar                  │ Main Content     │
-│                          │                  │
-│ ┌─────────────────┐     │ ┌──────────────┐ │
-│ │データセット選択  │     │ │タブ1:        │ │
-│ │- wikipedia_ja   │     │ │データ        │ │
-│ │- japanese_text  │     │ │アップロード   │ │
-│ │- cc_news        │     │ └──────────────┘ │
-│ └─────────────────┘     │                  │
-│                          │ ┌──────────────┐ │
-│ ┌─────────────────┐     │ │タブ2:        │ │
-│ │モデル選択        │     │ │データ検証     │ │
-│ └─────────────────┘     │ └──────────────┘ │
-│                          │                  │
-│ ┌─────────────────┐     │ ┌──────────────┐ │
-│ │データセット      │     │ │タブ3:        │ │
-│ │固有設定          │     │ │前処理実行     │ │
-│ └─────────────────┘     │ └──────────────┘ │
-│                          │                  │
-│                          │ ┌──────────────┐ │
-│                          │ │タブ4:        │ │
-│                          │ │結果・        │ │
-│                          │ │ダウンロード   │ │
-│                          │ └──────────────┘ │
+│ サイドバー              │ メインコンテンツ   │
+│                        │                   │
+│ ┌─────────────────┐   │ ┌──────────────┐ │
+│ │📊 データセット    │   │ │タブ1:        │ │
+│ │   タイプ選択      │   │ │データ        │ │
+│ │- Wikipedia日本語  │   │ │アップロード   │ │
+│ │- CC100日本語     │   │ └──────────────┘ │
+│ │- CC-News英語     │   │                   │
+│ └─────────────────┘   │ ┌──────────────┐ │
+│                        │ │タブ2:        │ │
+│ ┌─────────────────┐   │ │データ検証     │ │
+│ │🤖 モデル選択      │   │ └──────────────┘ │
+│ └─────────────────┘   │                   │
+│                        │ ┌──────────────┐ │
+│ ┌─────────────────┐   │ │タブ3:        │ │
+│ │⚙️ データセット    │   │ │前処理実行     │ │
+│ │   固有設定        │   │ └──────────────┘ │
+│ └─────────────────┘   │                   │
+│                        │ ┌──────────────┐ │
+│                        │ │タブ4:        │ │
+│                        │ │結果・        │ │
+│                        │ │ダウンロード   │ │
+│                        │ └──────────────┘ │
 └─────────────────────────────────────────────┘
 ```
 
 ### 2.3 主要コンポーネント
 
 #### 2.3.1 設定管理
-- **NonQARAGConfig**: データセット設定の一元管理
+- **NonQARAGConfig**: データセット設定の一元管理クラス
 
 #### 2.3.2 データ検証
-- **validate_wikipedia_data_specific**: Wikipedia固有検証
-- **validate_news_data_specific**: ニュース固有検証
-- **validate_scientific_data_specific**: 学術論文固有検証
-- **validate_code_data_specific**: コード固有検証
-- **validate_stackoverflow_data_specific**: Stack Overflow固有検証
+- **validate_wikipedia_data_specific**: Wikipedia固有検証（L139-165）
+- **validate_news_data_specific**: ニュース固有検証（L168-201）
+- **validate_scientific_data_specific**: 学術論文固有検証（L204-241）
+- **validate_code_data_specific**: コード固有検証（L243-267）
+- **validate_stackoverflow_data_specific**: Stack Overflow固有検証（L270-308）
 
 #### 2.3.3 データ処理
-- **extract_text_content**: テキスト抽出・結合
+- **extract_text_content**: テキスト抽出・結合（L316-361）
 
-#### 2.3.4 helper_rag連携
-- setup_page_config, setup_page_header, setup_sidebar_header
-- select_model, show_model_info
-- validate_data, load_dataset
-- estimate_token_usage
-- create_download_data, display_statistics
-- save_files_to_output
-- show_usage_instructions, clean_text
-- TokenManager, safe_execute
+#### 2.3.4 メイン処理
+- **main**: アプリケーション全体の制御（L367-948）
 
 ## 3. データセット設定
 
 ### 3.1 NonQARAGConfigクラス
+
+**場所**: L62-133
 
 **目的**: 非Q&A型RAGデータセットの設定を一元管理
 
@@ -176,7 +172,7 @@
 ```python
 {
     "name": "データセット名",
-    "icon": "アイコン",
+    "icon": "アイコン絵文字",
     "required_columns": ["必須カラムリスト"],
     "description": "説明",
     "hf_dataset": "HuggingFaceデータセット名",
@@ -185,7 +181,7 @@
     "streaming": True/False,
     "text_field": "テキストフィールド名",
     "title_field": "タイトルフィールド名 or None",
-    "sample_size": サンプル数
+    "sample_size": デフォルトサンプル数
 }
 ```
 
@@ -196,7 +192,7 @@
 
 ### 3.2 データセット別設定
 
-#### 3.2.1 Wikipedia日本語版
+#### 3.2.1 Wikipedia日本語版（L66-79）
 ```python
 {
     "name": "Wikipedia日本語版",
@@ -213,11 +209,11 @@
 }
 ```
 
-**データセット固有設定**:
+**データセット固有設定**（L427-438）:
 - remove_markup: Wikiマークアップ除去（デフォルト: True）
 - min_text_length: 最小テキスト長（デフォルト: 200）
 
-#### 3.2.2 CC100日本語
+#### 3.2.2 CC100日本語（L81-94）
 ```python
 {
     "name": "日本語Webテキスト（CC100）",
@@ -234,11 +230,11 @@
 }
 ```
 
-**データセット固有設定**:
+**データセット固有設定**（L440-451）:
 - remove_urls: URL除去（デフォルト: True）
 - min_text_length: 最小テキスト長（デフォルト: 10）
 
-#### 3.2.3 CC-News英語ニュース
+#### 3.2.3 CC-News英語ニュース（L96-109）
 ```python
 {
     "name": "CC-News（英語ニュース）",
@@ -255,7 +251,7 @@
 }
 ```
 
-**データセット固有設定**:
+**データセット固有設定**（L453-464）:
 - remove_urls: URL除去（デフォルト: True）
 - min_text_length: 最小テキスト長（デフォルト: 100）
 
@@ -264,6 +260,7 @@
 ### 4.1 Wikipedia特有の検証
 
 #### validate_wikipedia_data_specific(df: pd.DataFrame) -> List[str]
+**場所**: L139-165
 
 **検証項目**:
 1. **テキスト長チェック**:
@@ -272,7 +269,7 @@
 
 2. **Wikiマークアップチェック**:
    - `==`, `[[`, `]]` を含む記事を検出
-   - パーセンテージを表示
+   - 検出率をパーセンテージで表示
 
 3. **タイトル重複チェック**:
    - 重複タイトルの件数を警告
@@ -289,6 +286,7 @@
 ### 4.2 ニュースデータ特有の検証
 
 #### validate_news_data_specific(df: pd.DataFrame, dataset_type: str) -> List[str]
+**場所**: L168-201
 
 **検証項目**:
 1. **記事長分析**:
@@ -296,80 +294,53 @@
    - 平均記事長を表示
 
 2. **短い記事検出**:
-   - 100文字未満の記事を検出
+   - 100文字未満の記事を検出・警告
    - パーセンテージを表示
 
-3. **カテゴリ情報分析**（livedoorなど）:
-   - カテゴリ数
+3. **カテゴリ情報分析**（categoryフィールドがある場合）:
+   - カテゴリ総数
    - Top3カテゴリと件数
-
-**返却値例**:
-```python
-[
-    "📊 平均記事長: 1250文字",
-    "⚠️ 短い記事（<100文字）: 15件 (3.0%)",
-    "📂 カテゴリ数: 9種類",
-    "  - sports: 120件",
-    "  - entertainment: 95件",
-    "  - technology: 80件"
-]
-```
 
 ### 4.3 学術論文データ特有の検証
 
 #### validate_scientific_data_specific(df: pd.DataFrame, dataset_type: str) -> List[str]
+**場所**: L204-241
 
 **検証項目**:
 1. **要旨長分析**:
    - 平均要旨長を表示
 
 2. **学術用語検出**:
-   - キーワード: 'research', 'study', 'method', 'result', 'conclusion', '研究', '方法', '結果', '考察'
+   - 日英学術キーワード: 'research', 'study', 'method', '研究', '方法', '結果', '考察'
    - 含有率を表示
 
-3. **PubMed特有**:
-   - 医学用語検出: 'patient', 'treatment', 'disease', 'clinical', '患者', '治療', '疾患', '臨床'
+3. **PubMed特有**（dataset_type == "pubmed"）:
+   - 医学用語検出: 'patient', 'treatment', 'disease', '患者', '治療', '疾患'
 
-4. **arXiv特有**:
+4. **arXiv特有**（dataset_type == "arxiv"）:
    - 本文（article）存在チェック
-
-**返却値例**:
-```python
-[
-    "📄 平均要旨長: 320文字",
-    "📚 学術的キーワード含む: 850件 (85.0%)",
-    "🏥 医学用語含む: 720件 (72.0%)"
-]
-```
 
 ### 4.4 コードデータ特有の検証
 
 #### validate_code_data_specific(df: pd.DataFrame) -> List[str]
+**場所**: L243-267
 
 **検証項目**:
 1. **コード長分析**:
    - 平均コード長を表示
 
 2. **ドキュメント存在確認**:
-   - func_documentation_string フィールド
-   - ドキュメント有無の割合
+   - func_documentation_string フィールドの検証
+   - ドキュメント付きコードの割合
 
-3. **コードキーワード検出**:
+3. **プログラミング言語キーワード検出**:
    - キーワード: 'def ', 'class ', 'import ', 'function', 'return'
    - 含有率を表示
-
-**返却値例**:
-```python
-[
-    "💻 平均コード長: 450文字",
-    "📝 ドキュメントあり: 680件 (68.0%)",
-    "🔧 コードキーワード含む: 920件 (92.0%)"
-]
-```
 
 ### 4.5 Stack Overflow特有の検証
 
 #### validate_stackoverflow_data_specific(df: pd.DataFrame) -> List[str]
+**場所**: L270-308
 
 **検証項目**:
 1. **質問長分析**:
@@ -377,41 +348,28 @@
 
 2. **タグ情報分析**:
    - タグ付き質問の割合
-   - 人気タグTop5
+   - 人気タグTop5の集計と表示
 
 3. **技術キーワード検出**:
    - キーワード: 'python', 'javascript', 'java', 'error', 'function', 'code'
    - 含有率を表示
-
-**返却値例**:
-```python
-[
-    "❓ 平均質問長: 580文字",
-    "🏷️ タグ付き: 950件 (95.0%)",
-    "🔝 人気タグTop5:",
-    "  - python: 320件",
-    "  - javascript: 250件",
-    "  - java: 180件",
-    "  - error: 150件",
-    "  - function: 120件",
-    "💡 技術キーワード含む: 880件 (88.0%)"
-]
-```
 
 ## 5. データ処理
 
 ### 5.1 テキスト抽出
 
 #### extract_text_content(df: pd.DataFrame, dataset_type: str) -> pd.DataFrame
+**場所**: L316-361
+
 **目的**: データセットからテキストコンテンツを抽出し、Combined_Textカラムを作成
 
-**処理ロジック**:
+**処理フロー**:
 ```python
-1. データセット設定取得
+1. データセット設定取得（L318-320）
    ↓
 2. text_field と title_field を特定
    ↓
-3. フィールド存在チェック
+3. フィールド存在チェック（L324-356）
    ├── タイトル + テキスト両方あり
    │   → f"{clean_text(title)} {clean_text(text)}"
    ├── テキストのみ
@@ -422,42 +380,39 @@
        └── 候補も見つからない
            → 全カラムを結合
    ↓
-4. 空テキストを除外
+4. 空テキストを除外（L358）
    ↓
 5. df_processedを返却
 ```
 
 **デコレーター**: @safe_execute（エラーハンドリング自動化）
 
-**例**:
-```python
-# Wikipedia日本語版
-df = extract_text_content(df, "wikipedia_ja")
-# → Combined_Text = "記事タイトル 記事本文..."
-
-# CC100日本語（タイトルなし）
-df = extract_text_content(df, "japanese_text")
-# → Combined_Text = "Webテキスト本文..."
-```
-
 ### 5.2 前処理オプション
 
-#### 短いテキストの除外
+#### 短いテキストの除外（L789-797）
 ```python
 if remove_short_text:
+    before_len = len(df_processed)
     df_processed = df_processed[
         df_processed['Combined_Text'].str.len() >= min_length
     ]
+    removed = before_len - len(df_processed)
+    if removed > 0:
+        st.info(f"📊 {removed}件の短いテキストを除外しました")
 ```
 
 **パラメータ**:
 - remove_short_text: bool（デフォルト: True）
 - min_length: int（デフォルト: 100）
 
-#### 重複除去
+#### 重複除去（L799-805）
 ```python
 if remove_duplicates:
+    before_len = len(df_processed)
     df_processed = df_processed.drop_duplicates(subset=['Combined_Text'])
+    removed = before_len - len(df_processed)
+    if removed > 0:
+        st.info(f"📊 {removed}件の重複テキストを除外しました")
 ```
 
 **パラメータ**:
@@ -467,15 +422,17 @@ if remove_duplicates:
 
 ### 6.1 自動ダウンロード機能
 
+**場所**: L565-675
+
 **処理フロー**:
 ```python
-1. ユーザー入力
+1. ユーザー入力取得（L545-563）
    ├── dataset_name: HuggingFaceデータセット名
    ├── config_name: Config名（オプション）
    ├── split_name: Split名（デフォルト: train）
    └── sample_size: サンプル数
    ↓
-2. データセット別処理
+2. データセット別処理（L581-609）
    ├── wikimedia/wikipedia
    │   → config必須（例: 20231101.ja）
    ├── range3/cc100-ja
@@ -484,45 +441,17 @@ if remove_duplicates:
    │   → configオプション
    └── その他（非推奨）
    ↓
-3. ストリーミングロード
+3. ストリーミングロード（L588-601）
    ↓
-4. サンプリング（プログレスバー表示）
+4. サンプリング（プログレスバー表示）（L612-618）
    ↓
-5. DataFrame変換
+5. DataFrame変換（L619）
    ↓
-6. datasets/フォルダに保存
+6. datasets/フォルダに保存（L623-633）
    ├── CSV: {dataset_name}_{split}_{size}_{timestamp}.csv
    └── JSON: {dataset_name}_{split}_{size}_{timestamp}_metadata.json
    ↓
-7. セッションステートに保存
-```
-
-**実装例**:
-```python
-# Wikipedia日本語版
-dataset = hf_load_dataset(
-    "wikimedia/wikipedia",
-    "20231101.ja",
-    split="train",
-    streaming=True
-)
-
-# CC100日本語
-dataset = hf_load_dataset(
-    "range3/cc100-ja",
-    split="train",
-    streaming=True
-)
-
-# サンプリング
-samples = []
-for i, item in enumerate(dataset):
-    if i >= sample_size:
-        break
-    samples.append(item)
-    progress_bar.progress((i + 1) / sample_size)
-
-df = pd.DataFrame(samples)
+7. セッションステートに保存（L653-655）
 ```
 
 ### 6.2 ストリーミングモード
@@ -532,18 +461,28 @@ df = pd.DataFrame(samples)
 - 大規模データセット対応: GBサイズのデータセットでも処理可能
 - プログレス表示: リアルタイムで進捗確認
 
-**設定**:
+**実装例**（L588-601）:
 ```python
-DATASET_CONFIGS = {
-    "wikipedia_ja": {
-        ...
-        "streaming": True,
-        ...
-    }
-}
+# ストリーミングモードでロード
+dataset = hf_load_dataset(
+    dataset_name,
+    config_name,
+    split=split_name,
+    streaming=True  # メモリ効率的な逐次処理
+)
+
+# サンプリング
+samples = []
+for i, item in enumerate(dataset):
+    if i >= sample_size:
+        break
+    samples.append(item)
+    progress_bar.progress((i + 1) / sample_size)
 ```
 
 ### 6.3 メタデータ管理
+
+**場所**: L636-651
 
 **保存内容**:
 ```json
@@ -554,7 +493,7 @@ DATASET_CONFIGS = {
   "split": "train",
   "sample_size": 1000,
   "actual_size": 1000,
-  "downloaded_at": "2024-10-04T14:30:45.123456",
+  "downloaded_at": "2024-10-29T14:30:45.123456",
   "columns": ["id", "url", "title", "text"]
 }
 ```
@@ -568,87 +507,87 @@ DATASET_CONFIGS = {
 
 ### 7.1 タブ構成
 
-#### タブ1: データアップロード
+#### タブ1: データアップロード（L519-700）
 **機能**:
-1. **CSVファイルアップロード**
+1. **CSVファイルアップロード**（L523-527）
    - file_uploader（type=['csv']）
    - アップロード後、session_stateに保存
 
-2. **HuggingFace自動ロード**
+2. **HuggingFace自動ロード**（L530-675）
    - データセット名入力
    - Config/Split/サンプル数設定
-   - ロードボタン → ストリーミングダウンロード
+   - ストリーミングダウンロード
 
-3. **データプレビュー**
+3. **データプレビュー**（L685-700）
    - 先頭10件表示
    - カラム詳細（データ型、NULL数、ユニーク数）
 
-#### タブ2: データ検証
+#### タブ2: データ検証（L703-747）
 **機能**:
-1. **基本検証**
+1. **基本検証**（L711-713）
    - validate_data()を実行
    - 必須フィールドチェック
 
-2. **データセット固有検証**
+2. **データセット固有検証**（L716-728）
    - validate_*_data_specific()を実行
-   - データセットタイプに応じた検証
+   - データセットタイプに応じた詳細検証
 
-3. **検証結果表示**
+3. **検証結果表示**（L731-738）
    - ⚠️: st.warning()
    - ✅: st.success()
-   - その他: st.info()
+   - 💡: st.info()
 
-4. **テキストサンプル表示**
+4. **テキストサンプル表示**（L741-746）
    - 先頭3件のテキストプレビュー（500文字まで）
 
-#### タブ3: 前処理実行
+#### タブ3: 前処理実行（L749-850）
 **機能**:
-1. **前処理設定**
-   - 短いテキスト除外（チェックボックス + 最小文字数入力）
-   - 重複除去（チェックボックス）
+1. **前処理設定**（L758-780）
+   - 短いテキスト除外設定
+   - 重複除去設定
 
-2. **前処理実行ボタン**
-   - extract_text_content()
+2. **前処理実行**（L783-824）
+   - extract_text_content()実行
    - フィルタリング処理
    - session_stateに保存
 
-3. **処理済みデータプレビュー**
+3. **処理済みデータプレビュー**（L829-831）
    - Combined_Textカラムの先頭10件
 
-4. **トークン使用量推定**
-   - estimate_token_usage()
+4. **トークン使用量推定**（L834-835）
+   - estimate_token_usage()呼び出し
 
-5. **テキスト長分布**
+5. **テキスト長分布表示**（L838-849）
    - 平均、最小、最大、中央値をメトリクス表示
 
-#### タブ4: 結果・ダウンロード
+#### タブ4: 結果・ダウンロード（L852-944）
 **機能**:
-1. **処理サマリー**
+1. **処理サマリー**（L861-872）
    - 処理件数、除外件数、残存率をメトリクス表示
 
-2. **ファイルダウンロード**
-   - CSVファイル: st.download_button()
-   - テキストファイル: Combined_Textを改行区切り
-   - メタデータ(JSON): 処理設定を含む
+2. **ファイルダウンロード**（L876-920）
+   - CSVファイル: 処理済みデータ全体
+   - テキストファイル: Combined_Textのみ
+   - メタデータ(JSON): 処理設定情報
 
-3. **OUTPUTフォルダ保存**
-   - save_files_to_output()
-   - preprocessed_{dataset_type}.csv
-   - {dataset_type}.txt
+3. **OUTPUTフォルダ保存**（L923-937）
+   - save_files_to_output()呼び出し
+   - 保存先パス表示
 
-4. **データサンプル表示**
+4. **データサンプル表示**（L940-944）
    - 先頭3件のテキスト（1000文字まで）
 
 ### 7.2 インタラクティブ設定
 
-#### サイドバー設定
+#### サイドバー設定（L384-420）
 ```python
 with st.sidebar:
     # データセットタイプ選択
     selected_dataset = st.selectbox(
         "処理するデータセットタイプ",
         options=dataset_options,
-        format_func=lambda x: dataset_labels[x]
+        format_func=lambda x: dataset_labels[x],
+        help="処理したいデータセットのタイプを選択してください"
     )
 
     # モデル選択
@@ -656,12 +595,11 @@ with st.sidebar:
     show_model_info(selected_model)
 
     # データセット固有設定
-    if selected_dataset == "wikipedia_ja":
-        dataset_specific_options['remove_markup'] = st.checkbox(...)
-        dataset_specific_options['min_text_length'] = st.number_input(...)
+    dataset_specific_options = {}
+    # （各データセットに応じた設定UI）
 ```
 
-#### データセット別オプション
+#### データセット別オプション（L422-464）
 
 | データセット | オプション | デフォルト | 説明 |
 |------------|----------|----------|------|
@@ -676,7 +614,7 @@ with st.sidebar:
 
 ### 8.1 ダウンロード機能
 
-#### CSVファイル
+#### CSVファイル（L877-904）
 ```python
 csv_buffer = io.StringIO()
 df_processed.to_csv(csv_buffer, index=False)
@@ -685,27 +623,27 @@ csv_data = csv_buffer.getvalue()
 st.download_button(
     label="📄 CSVファイル",
     data=csv_data,
-    file_name=f"preprocessed_{dataset_type}.csv",
+    file_name=f"preprocessed_{config['dataset_type']}.csv",
     mime="text/csv"
 )
 ```
 
-#### テキストファイル
+#### テキストファイル（L883-912）
 ```python
 text_data = '\n'.join(df_processed['Combined_Text'].dropna().astype(str))
 
 st.download_button(
     label="📝 テキストファイル",
     data=text_data,
-    file_name=f"{dataset_type}.txt",
+    file_name=f"{config['dataset_type']}.txt",
     mime="text/plain"
 )
 ```
 
-#### メタデータ(JSON)
+#### メタデータ(JSON)（L885-920）
 ```python
 metadata = {
-    'dataset_type': dataset_type,
+    'dataset_type': config['dataset_type'],
     'dataset_name': dataset_config['name'],
     'processed_at': datetime.now().isoformat(),
     'row_count': len(df_processed),
@@ -717,19 +655,19 @@ metadata = {
 st.download_button(
     label="📋 メタデータ(JSON)",
     data=json.dumps(metadata, ensure_ascii=False, indent=2),
-    file_name=f"metadata_{dataset_type}.json",
+    file_name=f"metadata_{config['dataset_type']}.json",
     mime="application/json"
 )
 ```
 
 ### 8.2 OUTPUTフォルダ保存
 
-#### save_files_to_output()の呼び出し
+#### save_files_to_output()の呼び出し（L924-937）
 ```python
-if st.button("💾 OUTPUTフォルダに保存"):
+if st.button("💾 OUTPUTフォルダに保存", type="primary"):
     saved_files = save_files_to_output(
         df_processed,
-        dataset_type,
+        config['dataset_type'],
         csv_data,
         text_data
     )
@@ -753,25 +691,25 @@ OUTPUT/
 
 ## 9. helper_rag連携
 
-### 9.1 インポート関数一覧
+### 9.1 インポート関数一覧（L35-51）
 
 | 関数名 | 用途 | 使用箇所 |
 |-------|------|---------|
-| setup_page_config | ページ設定 | main() |
-| setup_page_header | ページヘッダー設定 | main() |
-| setup_sidebar_header | サイドバーヘッダー設定 | main() |
-| select_model | モデル選択UI | サイドバー |
-| show_model_info | モデル情報表示 | サイドバー |
-| validate_data | 基本データ検証 | タブ2 |
-| load_dataset | データセットロード | タブ1 |
-| estimate_token_usage | トークン使用量推定 | タブ3 |
-| create_download_data | ダウンロードデータ作成 | タブ4 |
-| display_statistics | 統計情報表示 | タブ4 |
-| save_files_to_output | OUTPUTフォルダ保存 | タブ4 |
-| show_usage_instructions | 使用方法表示 | Expander |
-| clean_text | テキストクレンジング | extract_text_content |
-| TokenManager | トークン管理 | 全体 |
-| safe_execute | エラーハンドリング | デコレーター |
+| setup_page_config | ページ設定 | L375-381 |
+| setup_page_header | ページヘッダー設定 | - |
+| setup_sidebar_header | サイドバーヘッダー設定 | - |
+| select_model | モデル選択UI | L418 |
+| show_model_info | モデル情報表示 | L419 |
+| validate_data | 基本データ検証 | L713 |
+| load_dataset | データセットロード | - |
+| estimate_token_usage | トークン使用量推定 | L835 |
+| create_download_data | ダウンロードデータ作成 | - |
+| display_statistics | 統計情報表示 | - |
+| save_files_to_output | OUTPUTフォルダ保存 | L925-929 |
+| show_usage_instructions | 使用方法表示 | - |
+| clean_text | テキストクレンジング | L328, L333 |
+| TokenManager | トークン管理クラス | - |
+| safe_execute | エラーハンドリング | L315（デコレーター） |
 
 ### 9.2 主要クラス
 
@@ -779,9 +717,9 @@ OUTPUT/
 アプリケーション全体の設定管理
 
 **主な属性**:
-- MODEL_NAMES: モデル名一覧
+- MODEL_NAMES: 利用可能なモデル名一覧
 - DEFAULT_MODEL: デフォルトモデル
-- OUTPUT_DIR: 出力ディレクトリ
+- OUTPUT_DIR: 出力ディレクトリパス
 
 #### RAGConfig
 RAG固有の設定管理
@@ -795,8 +733,8 @@ RAG固有の設定管理
 トークン数のカウント・推定
 
 **主なメソッド**:
-- count_tokens(text: str) -> int
-- estimate_cost(token_count: int, model: str) -> float
+- count_tokens(text: str) -> int: テキストのトークン数カウント
+- estimate_cost(token_count: int, model: str) -> float: コスト推定
 
 ## 10. 使用方法
 
@@ -806,30 +744,38 @@ RAG固有の設定管理
 # 基本起動
 streamlit run a01_load_non_qa_rag_data.py
 
-# ポート指定起動
+# ポート指定起動（デフォルト: 8501）
 streamlit run a01_load_non_qa_rag_data.py --server.port=8502
+
+# ブラウザ自動オープンなし
+streamlit run a01_load_non_qa_rag_data.py --server.headless=true
 ```
 
 ### 10.2 基本ワークフロー
 
 ```
 1. データセットタイプ選択（サイドバー）
+   ├── wikipedia_ja: Wikipedia日本語版
+   ├── japanese_text: CC100日本語
+   └── cc_news: CC-News英語
    ↓
 2. モデル選択（サイドバー）
+   └── GPT-4o、GPT-4o-mini等
    ↓
 3. データセット固有設定（サイドバー）
+   └── 各データセット特有のオプション
    ↓
 4. データアップロード（タブ1）
-   ├── CSVアップロード または
-   └── HuggingFace自動ダウンロード
+   ├── CSVファイルアップロード または
+   └── HuggingFace Hub自動ダウンロード
    ↓
 5. データ検証（タブ2）
-   ├── 基本検証
+   ├── 基本検証（NULL、重複等）
    └── データセット固有検証
    ↓
 6. 前処理実行（タブ3）
-   ├── 前処理設定
-   ├── 前処理実行ボタン
+   ├── 前処理設定（フィルタ条件）
+   ├── 前処理実行ボタンクリック
    └── 結果プレビュー
    ↓
 7. 結果ダウンロード（タブ4）
@@ -886,7 +832,7 @@ Config: なし
 
 ## 11. エラーハンドリング
 
-### 11.1 HuggingFaceエラー
+### 11.1 HuggingFaceエラー（L657-675）
 
 #### スクリプトベース廃止エラー
 ```python
@@ -917,7 +863,7 @@ else:
     st.info("💡 データセット名、config名、split名を確認してください")
 ```
 
-### 11.2 データ処理エラー
+### 11.2 データ処理エラー（L822-824）
 
 #### 前処理エラー
 ```python
@@ -963,22 +909,32 @@ def extract_text_content(df: pd.DataFrame, dataset_type: str) -> pd.DataFrame:
 4. **バッチ処理**
    - 複数ファイル一括処理
    - 自動スケジューリング
+   - 処理キューの管理
 
 ### 12.2 パフォーマンス最適化
 
 1. **並列処理**
    - Daskによる並列データ処理
    - マルチスレッドダウンロード
+   - 非同期処理の活用
 
 2. **キャッシング**
    - @st.cache_dataでデータキャッシュ
    - ダウンロード済みデータの再利用
+   - 処理結果のキャッシュ
 
 3. **メモリ最適化**
-   - チャンク読み込み
+   - チャンク単位での読み込み
    - 不要カラムの早期削除
+   - メモリマップファイルの活用
 
 4. **進捗表示改善**
-   - 詳細な進捗バー
+   - 詳細な進捗バー（残り時間表示）
    - 処理時間推定
-   - キャンセル機能
+   - キャンセル機能の実装
+
+---
+
+**最終更新日**: 2024年10月29日
+**バージョン**: 1.0.0
+**作成者**: OpenAI RAG Q&A JP開発チーム

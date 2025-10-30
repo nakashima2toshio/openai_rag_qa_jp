@@ -5,9 +5,14 @@
 """
 a30_qdrant_registration.py — helper群・config.yml連携版（単一コレクション＋domain、Named Vectors対応、answer同梱切替）
 --------------------------------------------------------------------------------
-- 5つのCSV（customer_support_faq.csv, medical_qa.csv, legal_qa.csv, sciq_qa.csv, trivia_qa.csv）を単一コレクションに統合
-- vector_stores.jsonから入力データパスを取得
-- payloadに domain を付与し、フィルタ検索が可能
+- cc_newsドメインのQ&Aデータを、3つの異なる生成方法で作成したものをQdrantの単一コレクションに統合
+- 入力ファイル（qa_outputフォルダ）：
+  * qa_output/a02_qa_pairs_cc_news.csv（a02_make_qa.pyで生成）
+  * qa_output/a03_qa_pairs_cc_news.csv（a03_rag_qa_coverage_improved.pyで生成）
+  * qa_output/a10_qa_pairs_cc_news.csv（a10_hybrid_qa_generator.pyで生成）
+- payloadに domain="cc_news" と generation_method を付与
+- generation_method: "a02_make_qa", "a03_coverage", "a10_hybrid" で生成方法を区別
+- フィルタ検索でドメインや生成方法による絞り込みが可能
 - config.yml から埋め込みモデル/入出力設定を読み込み（fallbackあり）
 - answer を埋め込みに含める切替フラグ（--include-answer / YAML設定）
 - Named Vectors 対応（YAMLに複数ベクトル定義があれば自動有効）
@@ -17,7 +22,7 @@ a30_qdrant_registration.py — helper群・config.yml連携版（単一コレク
   export OPENAI_API_KEY=sk-...
   docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
   python a30_qdrant_registration.py --recreate
-  python a30_qdrant_registration.py --search "副作用はありますか？" --domain medical --using primary
+  python a30_qdrant_registration.py --search "気候変動" --method a02_make_qa --using primary
 
 初回登録（--recreate推奨）
      python a30_qdrant_registration.py --recreate --include-answer
@@ -27,12 +32,12 @@ a30_qdrant_registration.py — helper群・config.yml連携版（単一コレク
   --recreate           : コレクション削除→新規作成
   --collection         : コレクション名（既定は YAML の rag.collection または 'qa_corpus'）
   --qdrant-url         : 既定は http://localhost:6333
-  --batch-size         : Embeddings/Upsert バッチ（既定 128）
+  --batch-size         : Embeddings/Upsert バッチサイズ（既定 32）
   --limit              : データ件数上限（開発用、0=無制限）
   --include-answer     : 埋め込み入力に answer も結合（question + "\n" + answer）
   --using              : Named Vectors のキー名（検索時にどのベクトルで検索するか）
   --search             : クエリ指定で検索のみ実行
-  --domain             : 検索対象を絞る（customer/medical/legal/sciq/trivia）
+  --method             : 検索対象を生成方法で絞る（a02_make_qa/a03_coverage/a10_hybrid）
   --topk               : 上位件数（既定5）
 """
 import argparse
@@ -265,10 +270,14 @@ def create_or_recreate_collection(client: QdrantClient, name: str, recreate: boo
         client.create_payload_index(name, field_name="domain", field_type="keyword")
     except Exception:
         pass
+    try:
+        client.create_payload_index(name, field_name="generation_method", field_type="keyword")
+    except Exception:
+        pass
 
 # ------------------ ポイント構築（Named Vectors対応） ------------------
-def build_points(df: pd.DataFrame, vectors_by_name: Dict[str, List[List[float]]], domain: str, source_file: str
-                 ) -> List[models.PointStruct]:
+def build_points(df: pd.DataFrame, vectors_by_name: Dict[str, List[List[float]]], domain: str, source_file: str,
+                 generation_method: str = None) -> List[models.PointStruct]:
     # vectors_by_name: name -> list[vec]
     n = len(df)
     for name, vecs in vectors_by_name.items():
@@ -279,6 +288,7 @@ def build_points(df: pd.DataFrame, vectors_by_name: Dict[str, List[List[float]]]
     for i, row in enumerate(df.itertuples(index=False)):
         payload = {
             "domain": domain,
+            "generation_method": generation_method or "unknown",
             "question": getattr(row, "question"),
             "answer": getattr(row, "answer"),
             "source": os.path.basename(source_file),
@@ -286,7 +296,7 @@ def build_points(df: pd.DataFrame, vectors_by_name: Dict[str, List[List[float]]]
             "schema": "qa:v1",
         }
         # Qdrant requires point IDs to be UUID or unsigned integer
-        pid = hash(f"{domain}-{i}") & 0x7FFFFFFF  # Convert to positive 32-bit integer
+        pid = hash(f"{domain}-{generation_method}-{i}") & 0x7FFFFFFF  # Convert to positive 32-bit integer
         if len(vectors_by_name) == 1:
             # 単一ベクトル
             vec = list(vectors_by_name.values())[0][i]
@@ -309,11 +319,16 @@ def embed_one(text: str, model: str) -> List[float]:
     return embed_texts([text], model=model, batch_size=1)[0]
 
 def search(client: QdrantClient, collection: str, query: str, using_vec: str, model_for_using: str,
-           topk: int = 5, domain: Optional[str] = None):
+           topk: int = 5, domain: Optional[str] = None, generation_method: Optional[str] = None):
     qvec = embed_one(query, model=model_for_using)
     qfilter = None
+    filter_conditions = []
     if domain:
-        qfilter = models.Filter(must=[models.FieldCondition(key="domain", match=models.MatchValue(value=domain))])
+        filter_conditions.append(models.FieldCondition(key="domain", match=models.MatchValue(value=domain)))
+    if generation_method:
+        filter_conditions.append(models.FieldCondition(key="generation_method", match=models.MatchValue(value=generation_method)))
+    if filter_conditions:
+        qfilter = models.Filter(must=filter_conditions)
     
     # ベクトル設定を確認して適切な検索方法を選択
     try:
@@ -360,7 +375,8 @@ def main():
                     default=rag_cfg.get("include_answer_in_embedding", False),
                     help="Use 'question\nanswer' as embedding input.")
     ap.add_argument("--search", default=None, help="Run search only.")
-    ap.add_argument("--domain", default=None, choices=[None, "customer", "medical", "legal", "sciq", "trivia"])
+    ap.add_argument("--method", default=None, choices=[None, "a02_make_qa", "a03_coverage", "a10_hybrid"],
+                    help="Filter by generation method.")
     ap.add_argument("--topk", type=int, default=5)
     ap.add_argument("--using", default=None, help="Named Vector name to use for search (e.g., 'primary').")
     args = ap.parse_args()
@@ -383,55 +399,38 @@ def main():
             raise ValueError(f"--using '{using_vec}' is not in embeddings config: {list(embeddings_cfg.keys())}")
         model_for_using = embeddings_cfg[using_vec]["model"]
         hits = search(client, args.collection, args.search, using_vec, model_for_using,
-                      topk=args.topk, domain=args.domain)
-        print(f"[Search] collection={args.collection} using={using_vec} domain={args.domain or 'ALL'} query={args.search!r}")
+                      topk=args.topk, domain="cc_news", generation_method=args.method)
+        print(f"[Search] collection={args.collection} using={using_vec} domain=cc_news method={args.method or 'ALL'} query={args.search!r}")
         for h in hits:
-            print(f"score={h.score:.4f}  domain={h.payload.get('domain')}  Q: {h.payload.get('question')}  A: {h.payload.get('answer')[:80]}...")
+            print(f"score={h.score:.4f}  method={h.payload.get('generation_method')}  Q: {h.payload.get('question')}  A: {h.payload.get('answer')[:80]}...")
         return
 
     # インジェスト
-    # vector_stores.jsonから最新ファイルパスマッピングを動的に取得
-    print("[INFO] Searching for latest data files in OUTPUT folder...")
-    vector_mapping = load_vector_stores_mapping()
-    
-    # 動的に取得したパスを優先、無ければ静的なフォールバックパターンで最新ファイルを検索
-    domain_paths = {}
-    fallback_patterns = {
-        "customer": "preprocessed_customer_support_faq*.csv",
-        "medical": "preprocessed_medical_qa*.csv",
-        "legal": "preprocessed_legal_qa*.csv",
-        "sciq": "preprocessed_sciq_qa*.csv",
-        "trivia": "preprocessed_trivia_qa*.csv"
-    }
-    
-    for domain in ["customer", "medical", "legal", "sciq", "trivia"]:
-        # 動的マッピングから取得
-        if domain in vector_mapping:
-            domain_paths[domain] = vector_mapping[domain]
-        else:
-            # フォールバック: パターンで最新ファイルを検索
-            latest_file = find_latest_file(fallback_patterns[domain])
-            if latest_file:
-                domain_paths[domain] = latest_file
-            else:
-                # それでも無ければconfig.ymlやデフォルトから取得
-                domain_paths[domain] = paths_cfg.get(domain, DEFAULTS["paths"].get(domain, ""))
-    
+    # cc_newsドメインの3つの生成方法によるファイルパスとgeneration_methodのマッピング
+    print("[INFO] Processing cc_news domain with 3 generation methods...")
+
+    # ファイルパスと生成方法のマッピング
+    file_method_mapping = [
+        ("qa_output/a02_qa_pairs_cc_news.csv", "a02_make_qa"),
+        ("qa_output/a03_qa_pairs_cc_news.csv", "a03_coverage"),
+        ("qa_output/a10_qa_pairs_cc_news.csv", "a10_hybrid"),
+    ]
+
     print(f"\n[INFO] Files to be processed:")
-    for domain, path in domain_paths.items():
-        if path and os.path.exists(path):
-            print(f"  - {domain}: {os.path.basename(path)}")
+    for path, method in file_method_mapping:
+        if os.path.exists(path):
+            print(f"  - {method}: {os.path.basename(path)}")
         else:
-            print(f"  - {domain}: NOT FOUND")
+            print(f"  - {method}: NOT FOUND ({path})")
     print()
-    
+
     total = 0
-    for domain, path in domain_paths.items():
-        if not path or not os.path.exists(path):
-            print(f"[WARN] File not found for domain '{domain}': {path or 'No path specified'} (skipping)")
+    for path, method in file_method_mapping:
+        if not os.path.exists(path):
+            print(f"[WARN] File not found for method '{method}': {path} (skipping)")
             continue
-        
-        print(f"\n[INFO] Processing {domain}: {os.path.basename(path)}")
+
+        print(f"\n[INFO] Processing {method}: {os.path.basename(path)}")
         df = load_csv(path, limit=args.limit)
         texts = build_inputs(df, include_answer=args.include_answer)
 
@@ -440,23 +439,24 @@ def main():
         for name, vcfg in embeddings_cfg.items():
             vectors_by_name[name] = embed_texts(texts, model=vcfg["model"], batch_size=args.batch_size)
 
-        points = build_points(df, vectors_by_name, domain=domain, source_file=path)
+        points = build_points(df, vectors_by_name, domain="cc_news", source_file=path, generation_method=method)
         n = upsert_points(client, args.collection, points, batch_size=args.batch_size)
-        print(f"[{domain}] Successfully upserted {n} points from {os.path.basename(path)}")
+        print(f"[{method}] Successfully upserted {n} points from {os.path.basename(path)}")
         total += n
 
     print(f"Done. Total upserted: {total}")
 
     # 動作確認のミニ検索（エラーを回避しながら実行）
     print(f"\n[INFO] Running verification searches...")
-    sample = [("返金は可能ですか？", "customer"), ("副作用はありますか？", "medical")]
+    sample = [("気候変動", "a02_make_qa"), ("温暖化", "a03_coverage"), ("環境問題", "a10_hybrid")]
     model_for_using = embeddings_cfg[using_vec]["model"]
-    
-    for q, d in sample:
+
+    for q, method in sample:
         try:
-            hits = search(client, args.collection, q, using_vec, model_for_using, topk=3, domain=d)
+            hits = search(client, args.collection, q, using_vec, model_for_using, topk=3,
+                         domain="cc_news", generation_method=method)
             if hits:
-                print(f"\n[Search] domain={d} query={q}")
+                print(f"\n[Search] method={method} query={q}")
                 for h in hits[:2]:  # 最初の2件のみ表示
                     print(f"  score={h.score:.4f}  Q: {h.payload.get('question')[:60]}...")
         except Exception as e:

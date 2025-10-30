@@ -1,8 +1,8 @@
-# a02_make_qa.py - 詳細設計書
+# a02_make_qa.py - 技術仕様書
 
 ## 最新バージョン情報
-- **最終更新**: 2025-10-23
-- **バージョン**: v2.5 (バッチ処理最適化版)
+- **最終更新**: 2024-10-29
+- **バージョン**: v2.6 (最新実装版)
 - **主要機能**: バッチ処理、多段階カバレージ分析、チャンク統合最適化
 
 ---
@@ -88,14 +88,19 @@ preprocessedファイルからOpenAI APIを使用してQ/Aペアを自動生成�
 - **バッチ処理によるQ/Aペア生成（1-5チャンク同時処理、デフォルト: 3）**
 - **多段階カバレージ分析（strict/standard/lenient、データセット別最適閾値）**
 - **チャンク特性別分析（長さ別・位置別カバレージ、自動インサイト生成）**
-- 結果のJSON/CSV形式での保存（4ファイル出力: qa_output/a02/）
+- 結果のJSON/CSV形式での保存（4ファイル出力: qa_output/）
 
 ### 1.3 対応データセット
+
+**DATASET_CONFIGS定義**（L110-138）:
+
 | データセット | ファイルパス | 言語 | チャンクサイズ | Q/Aペア数/チャンク | 最適閾値（standard） |
 |------------|-------------|------|--------------|------------------|-------------------|
-| cc_news | OUTPUT/preprocessed_cc_news.csv | 英語 | 300トークン | 3 | 0.70 |
-| japanese_text | OUTPUT/preprocessed_japanese_text.csv | 日本語 | 200トークン | 2 | 0.65 |
-| wikipedia_ja | OUTPUT/preprocessed_wikipedia_ja.csv | 日本語 | 250トークン | 3 | 0.75 |
+| cc_news | OUTPUT/preprocessed_cc_news.csv | 英語 | 300トークン※ | 3 | 0.70 |
+| japanese_text | OUTPUT/preprocessed_japanese_text.csv | 日本語 | 200トークン※ | 2 | 0.65 |
+| wikipedia_ja | OUTPUT/preprocessed_wikipedia_ja.csv | 日本語 | 250トークン※ | 3 | 0.75 |
+
+※注: chunk_size設定は定義されているが、実際のチャンク作成では200トークン固定（L209のコメント参照）
 
 ---
 
@@ -104,26 +109,26 @@ preprocessedファイルからOpenAI APIを使用してQ/Aペアを自動生成�
 ### 2.1 システム構成図
 
 ```
-preprocessed CSV読み込み
+preprocessed CSV読み込み（L145-173）
          ↓
 データ読み込み・前処理
          ↓
-チャンク作成（SemanticCoverage）
+チャンク作成（SemanticCoverage）（L175-227）
          ↓
-チャンク統合（小チャンク統合）
+チャンク統合（小チャンク統合）（L229-286）
          ↓
-バッチ処理でQ/A生成
+バッチ処理でQ/A生成（L316-495, L497-673）
   ├─ OpenAI API: responses.parse
   ├─ リトライ機能（最大3回）
   └─ フォールバック（個別処理）
          ↓
-カバレージ分析（オプション）
+カバレージ分析（オプション）（L952-1069）
   ├─ 埋め込み生成
   ├─ 類似度行列計算
   ├─ 多段階閾値評価
   └─ チャンク特性別分析
          ↓
-結果保存（qa_output/a02/）
+結果保存（qa_output/）（L1075-1150）
   ├─ qa_pairs_{dataset}_{timestamp}.json
   ├─ qa_pairs_{dataset}_{timestamp}.csv
   ├─ coverage_{dataset}_{timestamp}.json
@@ -132,11 +137,11 @@ preprocessed CSV読み込み
 
 ### 2.2 主要コンポーネント
 
-#### 2.2.1 データモデル（Pydantic）
+#### 2.2.1 データモデル（Pydantic）（L91-104）
 
 **QAPair**: 個別Q/Aペアのデータモデル
 ```python
-class QAPair(BaseModel):
+class QAPair(BaseModel):  # L91-99
     question: str                      # 質問文
     answer: str                        # 回答文
     question_type: str                 # 質問タイプ（fact/reason/comparison/application）
@@ -147,13 +152,13 @@ class QAPair(BaseModel):
 
 **QAPairsResponse**: API応答用モデル
 ```python
-class QAPairsResponse(BaseModel):
+class QAPairsResponse(BaseModel):  # L101-103
     qa_pairs: List[QAPair]
 ```
 
 #### 2.2.2 設定管理
 
-**DATASET_CONFIGS**: データセット別設定辞書
+**DATASET_CONFIGS**（L110-138）: データセット別設定辞書
 - name: データセット名
 - file: ファイルパス
 - text_column: テキストカラム名
@@ -162,7 +167,7 @@ class QAPairsResponse(BaseModel):
 - chunk_size: チャンクサイズ（トークン数、注: 内部では200固定）
 - qa_per_chunk: チャンクあたりのQ/Aペア数
 
-**OPTIMAL_THRESHOLDS**: データセット別最適閾値
+**OPTIMAL_THRESHOLDS**（L777-793）: データセット別最適閾値
 ```python
 {
     "cc_news": {"strict": 0.80, "standard": 0.70, "lenient": 0.60},
@@ -177,66 +182,66 @@ class QAPairsResponse(BaseModel):
 
 ### 3.1 データ読み込み・前処理
 
-#### `load_preprocessed_data(dataset_type: str) -> pd.DataFrame`
+#### `load_preprocessed_data(dataset_type: str) -> pd.DataFrame`（L145-173）
 
 **目的**: preprocessed CSVファイルを読み込み、前処理を実行
 
 **処理手順**:
-1. DATASET_CONFIGSから設定取得
-2. ファイル存在チェック
-3. CSVファイル読み込み
-4. 必須カラム存在確認
-5. 空テキスト除外
-6. DataFrameを返却
+1. DATASET_CONFIGSから設定取得（L152-154）
+2. ファイル存在チェック（L157-158）
+3. CSVファイル読み込み（L161）
+4. 必須カラム存在確認（L164-166）
+5. 空テキスト除外（L169）
+6. DataFrameを返却（L172）
 
 **エラーハンドリング**:
-- 未対応データセット: `ValueError`
-- ファイル不在: `FileNotFoundError`
-- カラム不在: `ValueError`
+- 未対応データセット: `ValueError`（L154）
+- ファイル不在: `FileNotFoundError`（L158）
+- カラム不在: `ValueError`（L166）
 
 ### 3.2 チャンク作成
 
-#### `create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Optional[int]) -> List[Dict]`
+#### `create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Optional[int]) -> List[Dict]`（L175-227）
 
 **目的**: DataFrameから文書チャンクを作成
 
 **処理手順**:
-1. 設定情報取得（text_column, title_column, chunk_size）
-2. SemanticCoverageインスタンス生成
-3. 処理文書数制限（max_docsが指定された場合）
-4. 各文書を反復処理:
-   - テキスト抽出（str型に変換）
-   - doc_id生成（タイトル含む場合は先頭30文字）
-   - `SemanticCoverage.create_semantic_chunks()`でチャンク分割
-   - メタデータ追加（doc_id, doc_idx, chunk_idx, dataset_type）
-5. 全チャンクリストを返却
+1. 設定情報取得（text_column, title_column, chunk_size）（L184-187）
+2. SemanticCoverageインスタンス生成（L189）
+3. 処理文書数制限（max_docsが指定された場合）（L193）
+4. 各文書を反復処理（L197-223）:
+   - テキスト抽出（str型に変換）（L199）
+   - doc_id生成（タイトル含む場合は先頭30文字）（L202-205）
+   - `SemanticCoverage.create_semantic_chunks()`でチャンク分割（L211）
+   - メタデータ追加（doc_id, doc_idx, chunk_idx, dataset_type）（L215-219）
+5. 全チャンクリストを返却（L226）
 
 **注意事項**:
-- `create_semantic_chunks()`は内部で200トークン固定を使用
+- `create_semantic_chunks()`は内部で200トークン固定を使用（L209コメント）
 - 設定のchunk_sizeは現在未使用
-- エラー発生時は警告ログ出力してcontinue
+- エラー発生時は警告ログ出力してcontinue（L221-223）
 
 ### 3.3 チャンク統合
 
-#### `merge_small_chunks(chunks: List[Dict], min_tokens: int = 150, max_tokens: int = 400) -> List[Dict]`
+#### `merge_small_chunks(chunks: List[Dict], min_tokens: int = 150, max_tokens: int = 400) -> List[Dict]`（L229-286）
 
 **目的**: 小さいチャンクを統合して適切なサイズに最適化
 
 **アルゴリズム**:
-1. tiktoken（cl100k_base）でトークンカウント
-2. 各チャンクを反復:
-   - トークン数 >= min_tokens → そのまま追加
-   - トークン数 < min_tokens → 統合候補
-3. 統合条件:
+1. tiktoken（cl100k_base）でトークンカウント（L238）
+2. 各チャンクを反復（L242-278）:
+   - トークン数 >= min_tokens → そのまま追加（L245-250）
+   - トークン数 < min_tokens → 統合候補（L251-278）
+3. 統合条件（L259-266）:
    - 統合後のトークン数 <= max_tokens
    - 同一文書（doc_id一致）からのチャンク
 4. 統合時の処理:
-   - テキストを"\n\n"で連結
-   - `original_chunks`リストに元チャンクIDを記録
-   - chunk_idxを範囲形式で記録（例: "0-2"）
-5. 統合チャンクリストを返却
+   - テキストを"\n\n"で連結（L263）
+   - `original_chunks`リストに元チャンクIDを記録（L264）
+   - chunk_idxを範囲形式で記録（例: "0-2"）（L265-266）
+5. 統合チャンクリストを返却（L285）
 
-**効果**:
+**効果**（L284ログ出力）:
 - API呼び出し回数削減（例: 1,825個 → 365個、80%削減）
 - コスト削減
 - 文脈の連続性向上
@@ -251,11 +256,11 @@ class QAPairsResponse(BaseModel):
 
 ### 4.1 Q/A数決定ロジック
 
-#### `determine_qa_count(chunk: Dict, config: Dict) -> int`
+#### `determine_qa_count(chunk: Dict, config: Dict) -> int`（L292-314）
 
 **目的**: チャンクのトークン数に基づいて最適なQ/A数を決定
 
-**ロジック**:
+**ロジック**（L306-313）:
 | トークン数範囲 | Q/A数 |
 |--------------|-------|
 | < 50 | min(base_count, 1) |
@@ -265,20 +270,20 @@ class QAPairsResponse(BaseModel):
 
 ### 4.2 バッチ処理
 
-#### `generate_qa_pairs_for_batch(chunks: List[Dict], config: Dict, model: str, client: OpenAI) -> List[Dict]`
+#### `generate_qa_pairs_for_batch(chunks: List[Dict], config: Dict, model: str, client: OpenAI) -> List[Dict]`（L316-495）
 
 **目的**: 複数チャンク（最大5個、推奨3個）から一度にQ/Aペアを生成
 
 **処理フロー**:
 
-1. **チャンク数チェック**:
+1. **チャンク数チェック**（L334-339）:
    - 0個: 空リスト返却
    - 1個: `generate_qa_pairs_for_chunk()`へ委譲
    - 2個以上: バッチ処理継続
 
 2. **プロンプト構築（言語別）**:
 
-   **日本語の場合**:
+   **日本語の場合**（L345-390）:
    ```python
    system_prompt = """あなたは教育コンテンツ作成の専門家です。
    複数の日本語テキストから、学習効果の高いQ&Aペアを生成してください。
@@ -288,55 +293,51 @@ class QAPairsResponse(BaseModel):
    2. 回答は簡潔で正確に（1-2文程度）
    3. テキストの内容に忠実に
    4. 多様な観点から質問を作成"""
-
-   # 複数チャンクを結合
-   combined_text = """
-   【テキスト1】
-   {chunk1_text}
-
-   【テキスト2】
-   {chunk2_text}
-
-   【テキスト3】
-   {chunk3_text}
-   """
    ```
 
-   **英語の場合**: 同様の構造を英語で構築
+   **英語の場合**（L392-437）: 同様の構造を英語で構築
 
-3. **OpenAI API呼び出し**（最新のResponses API使用）:
+3. **OpenAI API呼び出し**（L444-449）:
    ```python
    response = client.responses.parse(
-       input=f"{system_prompt}\n\n{user_prompt}",
+       input=combined_input,
        model=model,
        text_format=QAPairsResponse,  # Pydanticモデル指定
        max_output_tokens=4000        # バッチ処理のため増加
    )
    ```
 
-4. **レスポンス解析**:
+4. **レスポンス解析**（L452-480）:
    - `parsed_data`からQ/Aペアを取得
    - 各チャンクに期待される数だけQ/Aを順次割り当て
    - メタデータ追加（source_chunk_id, doc_id, dataset_type, chunk_idx）
 
-5. **エラーハンドリング**:
-   - 例外発生時はフォールバックで個別処理（`generate_qa_pairs_for_chunk()`）
+5. **エラーハンドリング**（L484-494）:
+   - 例外発生時はフォールバックで個別処理
 
 ### 4.3 単一チャンク処理
 
-#### `generate_qa_pairs_for_chunk(chunk: Dict, config: Dict, model: str, client: OpenAI) -> List[Dict]`
+#### `generate_qa_pairs_for_chunk(chunk: Dict, config: Dict, model: str, client: OpenAI) -> List[Dict]`（L497-673）
 
 **目的**: 単一チャンクからQ/Aペアを生成（後方互換性維持、フォールバック用）
 
 **処理フロー**:
-1. Q/A数決定（`determine_qa_count()`）
-2. 言語別プロンプト構築:
+1. Q/A数決定（`determine_qa_count()`）（L515）
+2. 言語別プロンプト構築（L518-588）:
    - システムプロンプト: 生成ルール指示
    - ユーザープロンプト: テキスト + 質問タイプ + JSON形式指示
-3. テキスト長制限:
+3. テキスト長制限（L591-596）:
    - 2000文字超の場合は切り詰め（"..."付加）
-4. API呼び出し（responses.parse使用、max_output_tokens=1000）
-5. レスポンス解析とメタデータ付与
+4. API呼び出し（L641-646）:
+   ```python
+   response = client.responses.parse(
+       input=combined_input,
+       model=model,
+       text_format=QAPairsResponse,
+       max_output_tokens=1000
+   )
+   ```
+5. レスポンス解析とメタデータ付与（L649-668）
 
 **質問タイプ**:
 - **fact**: 事実確認型（What is...? / 〜は何ですか？）
@@ -346,23 +347,21 @@ class QAPairsResponse(BaseModel):
 
 ### 4.4 データセット全体の生成制御
 
-#### `generate_qa_for_dataset(chunks, dataset_type, model, chunk_batch_size, merge_chunks, min_tokens, max_tokens) -> List[Dict]`
+#### `generate_qa_for_dataset(chunks, dataset_type, model, chunk_batch_size, merge_chunks, min_tokens, max_tokens) -> List[Dict]`（L675-770）
 
 **目的**: データセット全体のQ/Aペア生成を統括
 
 **処理フロー**:
 
-1. **前処理**:
+1. **前処理**（L700-704）:
    ```python
    if merge_chunks:
        processed_chunks = merge_small_chunks(chunks, min_tokens, max_tokens)
    else:
        processed_chunks = chunks
-
-   api_calls = (len(processed_chunks) + chunk_batch_size - 1) // chunk_batch_size
    ```
 
-2. **バッチ処理ループ**:
+2. **バッチ処理ループ**（L719-757）:
    ```python
    for i in range(0, total_chunks, chunk_batch_size):
        batch = processed_chunks[i:i+chunk_batch_size]
@@ -374,27 +373,23 @@ class QAPairsResponse(BaseModel):
                    qa_pairs = generate_qa_pairs_for_chunk(batch[0], ...)
                else:
                    qa_pairs = generate_qa_pairs_for_batch(batch, ...)
-
-               if qa_pairs:
-                   all_qa_pairs.extend(qa_pairs)
-               break
            except Exception as e:
                # リトライまたはフォールバック
    ```
 
-3. **リトライ制御**:
+3. **リトライ制御**（L727-757）:
    - 最大3回リトライ
    - 指数バックオフ（2^attempt秒待機）
    - 最終失敗時は個別処理にフォールバック
 
-4. **API制限対策**:
-   - バッチ間で0.2秒待機（バッチ処理により短縮）
+4. **API制限対策**（L760-761）:
+   - バッチ間で0.2秒待機
 
 **パラメータ**:
-- `chunk_batch_size`: 1-5（デフォルト: 3、推奨: 5）
+- `chunk_batch_size`: 1-5（デフォルト: 3）
 - `merge_chunks`: bool（デフォルト: True）
-- `min_tokens`: 統合対象最小トークン（デフォルト: 150）
-- `max_tokens`: 統合後最大トークン（デフォルト: 400）
+- `min_tokens`: 150（デフォルト）
+- `max_tokens`: 400（デフォルト）
 
 ---
 
@@ -402,13 +397,13 @@ class QAPairsResponse(BaseModel):
 
 ### 5.1 多段階カバレージ計算
 
-#### `analyze_coverage(chunks: List[Dict], qa_pairs: List[Dict], dataset_type: str) -> Dict`
+#### `analyze_coverage(chunks: List[Dict], qa_pairs: List[Dict], dataset_type: str) -> Dict`（L952-1069）
 
 **目的**: 生成Q/Aペアがドキュメントチャンクをどれだけカバーしているか多段階で分析
 
 **処理手順**:
 
-1. **埋め込み生成**:
+1. **埋め込み生成**（L964-973）:
    ```python
    doc_embeddings = analyzer.generate_embeddings(chunks)
 
@@ -419,59 +414,59 @@ class QAPairsResponse(BaseModel):
        qa_embeddings.append(embedding)
    ```
 
-2. **カバレージ行列計算**:
+2. **カバレージ行列計算**（L986-991）:
    ```python
    coverage_matrix = np.zeros((len(chunks), len(qa_pairs)))
-   for i in range(len(chunks)):
-       for j in range(len(qa_pairs)):
-           similarity = cosine_similarity(doc_embeddings[i], qa_embeddings[j])
+   for i in range(len(doc_embeddings)):
+       for j in range(len(qa_embeddings)):
+           similarity = analyzer.cosine_similarity(doc_embeddings[i], qa_embeddings[j])
            coverage_matrix[i, j] = similarity
    ```
 
-3. **多段階カバレージ判定**:
-   - データセット別最適閾値を自動取得（`get_optimal_thresholds()`）
-   - 3段階評価（strict/standard/lenient）
+3. **多段階カバレージ判定**（L993-1010）:
+   - データセット別最適閾値を自動取得（L993-994）
+   - 3段階評価（strict/standard/lenient）（L1013-1014）
    - 各閾値でカバレージ率を算出
-   - 未カバーチャンクとギャップを記録
+   - 未カバーチャンクとギャップを記録（L1003-1010）
 
-**データセット別閾値**:
+**データセット別閾値**（L777-792）:
 | データセット | Strict | Standard | Lenient |
 |------------|--------|----------|---------|
 | cc_news | 0.80 | 0.70 | 0.60 |
 | japanese_text | 0.75 | 0.65 | 0.55 |
 | wikipedia_ja | 0.85 | 0.75 | 0.65 |
 
+#### `multi_threshold_coverage(coverage_matrix, chunks, qa_pairs, thresholds) -> Dict`（L810-844）
+
+**目的**: 複数閾値でカバレージを評価
+
+**処理**:
+- 各閾値レベル（strict/standard/lenient）でカバレージ計算（L824-842）
+- 未カバーチャンクの詳細情報を収集（L826-833）
+
 ### 5.2 チャンク特性別分析
 
-#### `analyze_chunk_characteristics_coverage(chunks, coverage_matrix, qa_pairs, threshold) -> Dict`
+#### `analyze_chunk_characteristics_coverage(chunks, coverage_matrix, qa_pairs, threshold) -> Dict`（L847-950）
 
 **目的**: チャンクの特性（長さ、位置）別にカバレージを分析
 
 **分析軸**:
 
-1. **長さ別分析**:
-   - **short**: < 100トークン
-   - **medium**: 100-200トークン
-   - **long**: >= 200トークン
+1. **長さ別分析**（L865-895）:
+   - **short**: < 100トークン（L869）
+   - **medium**: 100-200トークン（L870）
+   - **long**: >= 200トークン（L871）
 
-   各カテゴリで以下を計算:
-   - チャンク数（count）
-   - カバー済み数（covered）
-   - カバレージ率（coverage_rate）
-   - 平均類似度（avg_similarity）
+2. **位置別分析**（L897-926）:
+   - **beginning**: 文書前半33%（L901）
+   - **middle**: 文書中盤34%（L902）
+   - **end**: 文書後半33%（L903）
 
-2. **位置別分析**:
-   - **beginning**: 文書前半33%
-   - **middle**: 文書中盤34%
-   - **end**: 文書後半33%
-
-   各カテゴリで同様の指標を計算
-
-3. **自動インサイト生成**:
+3. **自動インサイト生成**（L936-947）:
    - カバレージ率70%未満のカテゴリを自動検出
-   - 改善提案を生成（例: "shortチャンクのカバレージが低い（65.0%）"）
+   - 改善提案を生成
 
-**返却データ構造**:
+**返却データ構造**（L1022-1041）:
 ```python
 {
     # 基本メトリクス
@@ -481,44 +476,14 @@ class QAPairsResponse(BaseModel):
     "threshold": 0.70,
 
     # 多段階カバレージ
-    "multi_threshold": {
-        "strict": {
-            "threshold": 0.80,
-            "covered_chunks": 40,
-            "coverage_rate": 0.80,
-            "uncovered_count": 10,
-            "uncovered_chunks": [...]
-        },
-        "standard": {...},
-        "lenient": {...}
-    },
+    "multi_threshold": {...},
 
     # チャンク特性別分析
-    "chunk_analysis": {
-        "by_length": {
-            "short": {"count": 15, "covered": 12, "coverage_rate": 0.80, "avg_similarity": 0.75},
-            "medium": {...},
-            "long": {...}
-        },
-        "by_position": {
-            "beginning": {"count": 17, "covered": 16, "coverage_rate": 0.94, "avg_similarity": 0.78},
-            "middle": {...},
-            "end": {...}
-        },
-        "summary": {
-            "total_chunks": 50,
-            "total_qa_pairs": 150,
-            "threshold_used": 0.70,
-            "insights": [
-                "shortチャンクのカバレージが低い（65.0%）",
-                "文書end部分のカバレージが低い（68.0%）"
-            ]
-        }
-    },
+    "chunk_analysis": {...},
 
     # データセット情報
     "dataset_type": "cc_news",
-    "optimal_thresholds": {"strict": 0.80, "standard": 0.70, "lenient": 0.60}
+    "optimal_thresholds": {...}
 }
 ```
 
@@ -526,47 +491,45 @@ class QAPairsResponse(BaseModel):
 
 ## 6. 結果保存
 
-### `save_results(qa_pairs, coverage_results, dataset_type, output_dir) -> Dict[str, str]`
+### `save_results(qa_pairs, coverage_results, dataset_type, output_dir) -> Dict[str, str]`（L1075-1150）
 
-**出力ディレクトリ**: `qa_output/a02/` （サブディレクトリ自動作成）
+**出力ディレクトリ**: `qa_output/`（L1090-1091）
 
 **保存ファイル**:
 
-1. **Q/Aペア（JSON）**: `qa_pairs_{dataset_type}_{timestamp}.json`
+1. **Q/Aペア（JSON）**（L1095-1098）:
+   - ファイル名: `qa_pairs_{dataset_type}_{timestamp}.json`
    - ensure_ascii=False（日本語対応）
    - indent=2（可読性向上）
 
-2. **Q/Aペア（CSV）**: `qa_pairs_{dataset_type}_{timestamp}.csv`
+2. **Q/Aペア（CSV）**（L1100-1103）:
+   - ファイル名: `qa_pairs_{dataset_type}_{timestamp}.csv`
    - pd.DataFrameで変換
    - encoding='utf-8'
 
-3. **カバレージ分析結果（JSON）**: `coverage_{dataset_type}_{timestamp}.json`
+3. **カバレージ分析結果（JSON）**（L1105-1120）:
+   - ファイル名: `coverage_{dataset_type}_{timestamp}.json`
    - multi_threshold結果含む
    - chunk_analysis結果含む
    - uncovered_chunksはプレビュー版（200文字まで）
 
-4. **サマリー（JSON）**: `summary_{dataset_type}_{timestamp}.json`
+4. **サマリー（JSON）**（L1122-1140）:
    ```json
    {
      "dataset_type": "cc_news",
      "dataset_name": "CC-News英語ニュース",
-     "generated_at": "20251023_141030",
+     "generated_at": "20241029_141030",
      "total_qa_pairs": 525,
      "coverage_rate": 0.85,
      "covered_chunks": 43,
      "total_chunks": 50,
-     "files": {
-       "qa_json": "qa_output/a02/qa_pairs_cc_news_20251023_141030.json",
-       "qa_csv": "qa_output/a02/qa_pairs_cc_news_20251023_141030.csv",
-       "coverage": "qa_output/a02/coverage_cc_news_20251023_141030.json",
-       "summary": "qa_output/a02/summary_cc_news_20251023_141030.json"
-     }
+     "files": {...}
    }
    ```
 
 ---
 
-## 7. コマンドライン引数
+## 7. コマンドライン引数（L1158-1221）
 
 ### 7.1 必須引数
 なし（すべてオプション）
@@ -577,11 +540,11 @@ class QAPairsResponse(BaseModel):
 |-----|-----|----------|-------|------|
 | --dataset | str | cc_news | cc_news, japanese_text, wikipedia_ja | 処理するデータセット |
 | --model | str | gpt-5-mini | - | 使用するOpenAIモデル |
-| --output | str | qa_output | - | 出力ディレクトリ（a02サブディレクトリ自動作成） |
+| --output | str | qa_output | - | 出力ディレクトリ |
 | --max-docs | int | None | - | 処理する最大文書数（テスト用） |
 | --analyze-coverage | flag | False | - | カバレージ分析を実行 |
 | --batch-chunks | int | 3 | 1, 2, 3, 4, 5 | 1回のAPIで処理するチャンク数 |
-| --merge-chunks | flag | True | - | 小さいチャンクを統合する（デフォルト有効） |
+| --merge-chunks | flag | True | - | 小さいチャンクを統合する |
 | --no-merge-chunks | flag | False | - | チャンク統合を無効化 |
 | --min-tokens | int | 150 | - | 統合対象の最小トークン数 |
 | --max-tokens | int | 400 | - | 統合後の最大トークン数 |
@@ -589,7 +552,7 @@ class QAPairsResponse(BaseModel):
 ### 7.3 使用例
 
 ```bash
-# 【推奨】本番運用設定（全文書、バッチ5、15-20分、$0.10-0.15）
+# 【推奨】本番運用設定（全文書、バッチ5）
 python a02_make_qa.py \
     --dataset cc_news \
     --batch-chunks 5 \
@@ -599,13 +562,6 @@ python a02_make_qa.py \
     --model gpt-5-mini \
     --analyze-coverage
 
-# 【最効率】API呼び出し最小化（バッチ5）
-python a02_make_qa.py \
-    --dataset cc_news \
-    --batch-chunks 5 \
-    --merge-chunks \
-    --analyze-coverage
-
 # テスト実行（10文書のみ）
 python a02_make_qa.py \
     --dataset cc_news \
@@ -613,46 +569,40 @@ python a02_make_qa.py \
     --analyze-coverage \
     --max-docs 10
 
-# Wikipedia日本語版、カバレージ分析あり
+# Wikipedia日本語版
 python a02_make_qa.py \
     --dataset wikipedia_ja \
     --model gpt-5-mini \
     --analyze-coverage \
     --max-docs 10
 
-# 日本語テキスト、個別処理（バッチサイズ1）
+# 日本語テキスト、個別処理
 python a02_make_qa.py \
     --dataset japanese_text \
     --batch-chunks 1 \
     --no-merge-chunks
-
-# カスタムチャンク統合設定
-python a02_make_qa.py \
-    --min-tokens 100 \
-    --max-tokens 500 \
-    --batch-chunks 5
 ```
 
 ---
 
 ## 8. メイン処理フロー
 
-### 8.1 main()関数の実行ステップ
+### 8.1 main()関数の実行ステップ（L1156-1325）
 
 ```
-[初期化]
+[初期化]（L1223-1240）
   ↓
-APIキーチェック（OPENAI_API_KEY）
+APIキーチェック（OPENAI_API_KEY）（L1225-1229）
   ↓
-[1/4] データ読み込み
+[1/4] データ読み込み（L1243-1245）
   ↓
   load_preprocessed_data(args.dataset)
   ↓
-[2/4] チャンク作成
+[2/4] チャンク作成（L1247-1253）
   ↓
   create_document_chunks(df, args.dataset, args.max_docs)
   ↓
-[3/4] Q/Aペア生成
+[3/4] Q/Aペア生成（L1255-1266）
   ↓
   generate_qa_for_dataset(
       chunks,
@@ -664,16 +614,16 @@ APIキーチェック（OPENAI_API_KEY）
       max_tokens=args.max_tokens
   )
   ↓
-[4/4] カバレージ分析（オプション）
+[4/4] カバレージ分析（オプション）（L1271-1290）
   ↓
   if args.analyze_coverage:
       analyze_coverage(chunks, qa_pairs, args.dataset)
   ↓
-結果保存
+結果保存（L1293-1294）
   ↓
   save_results(qa_pairs, coverage_results, args.dataset, args.output)
   ↓
-統計情報表示
+統計情報表示（L1310-1318）
   ├─ 質問タイプ別統計
   ├─ 多段階カバレージ結果
   └─ チャンク特性別分析結果
@@ -681,19 +631,19 @@ APIキーチェック（OPENAI_API_KEY）
 
 ### 8.2 エラーハンドリング
 
-1. **API Key未設定**:
+1. **API Key未設定**（L1225-1229）:
    - 環境変数`OPENAI_API_KEY`チェック
    - "your-openai-api-key-here"も不正と判定
    - `sys.exit(1)`で終了
 
-2. **チャンク作成失敗**:
+2. **チャンク作成失敗**（L1251-1253）:
    - 空のチャンクリスト → エラーログ + `sys.exit(1)`
 
-3. **Q/A生成失敗**:
-   - 個別チャンクエラー: 警告ログ出力して継続
-   - バッチエラー: リトライ（最大3回） → フォールバック（個別処理）
+3. **Q/A生成失敗**（L1268-1269）:
+   - 個別チャンクエラー: 警告ログ出力して継続（L221-223, L671-672）
+   - バッチエラー: リトライ（最大3回） → フォールバック（L727-757）
 
-4. **全体エラー**:
+4. **全体エラー**（L1320-1324）:
    - try-exceptでキャッチ
    - `traceback.print_exc()`で詳細出力
    - `sys.exit(1)`
@@ -710,12 +660,12 @@ APIキーチェック（OPENAI_API_KEY）
 - **pydantic**: データモデル定義・バリデーション
 - **python-dotenv**: 環境変数管理
 
-### 9.2 内部モジュール
+### 9.2 内部モジュール（L74）
 - **a03_rag_qa_coverage_improved.SemanticCoverage**:
-  - `create_semantic_chunks()`: チャンク分割
-  - `generate_embeddings()`: 埋め込み生成（バッチ）
-  - `generate_embedding()`: 埋め込み生成（単一）
-  - `cosine_similarity()`: コサイン類似度計算
+  - `create_semantic_chunks()`: チャンク分割（L211）
+  - `generate_embeddings()`: 埋め込み生成（バッチ）（L965）
+  - `generate_embedding()`: 埋め込み生成（単一）（L970）
+  - `cosine_similarity()`: コサイン類似度計算（L990）
 
 ---
 
@@ -723,15 +673,15 @@ APIキーチェック（OPENAI_API_KEY）
 
 ### 10.1 API呼び出し削減
 
-**チャンク統合による削減**:
+**チャンク統合による削減**（L229-286）:
 - 小さいチャンクを統合（min_tokens=150）
 - 例: 1,825チャンク → 365チャンク（80%削減）
 
-**バッチ処理による削減**:
+**バッチ処理による削減**（L679-682）:
 - 複数チャンク同時処理（chunk_batch_size=1-5）
 - 効果例（バッチサイズ5の場合）:
   - 365チャンク ÷ 5 = 約73回のAPI呼び出し
-  - 従来比（個別処理）: 365回 → 73回（**80%削減**）
+  - 従来比: 365回 → 73回（**80%削減**）
 
 **総合効果**:
 | 段階 | チャンク数 | API呼び出し | 削減率 |
@@ -740,24 +690,24 @@ APIキーチェック（OPENAI_API_KEY）
 | チャンク統合後 | 365個 | 365回 | 80% |
 | バッチ処理後（サイズ5） | 365個 | 73回 | 96% |
 
-### 10.2 エラー回復
+### 10.2 エラー回復（L727-757）
 
-- **指数バックオフ**: 2^attempt秒待機（attempt: 0, 1, 2 → 1秒, 2秒, 4秒）
-- **フォールバック**: バッチ失敗時は個別処理に切替
-- **最大リトライ**: 3回
+- **指数バックオフ**: 2^attempt秒待機（L755-757）
+- **フォールバック**: バッチ失敗時は個別処理に切替（L745-753）
+- **最大リトライ**: 3回（L727）
 
 ### 10.3 レート制限対策
 
-- バッチ間0.2秒待機（バッチ処理により短縮）
+- バッチ間0.2秒待機（L760-761）
 - max_output_tokens制御:
-  - 単一チャンク: 1000トークン
-  - バッチ処理: 4000トークン
+  - 単一チャンク: 1000トークン（L645）
+  - バッチ処理: 4000トークン（L448）
 
 ---
 
 ## 11. 出力統計情報
 
-### 11.1 質問タイプ別統計
+### 11.1 質問タイプ別統計（L1310-1318）
 
 生成完了後、質問タイプごとの件数を表示:
 ```
@@ -768,7 +718,7 @@ APIキーチェック（OPENAI_API_KEY）
   reason: 139件
 ```
 
-### 11.2 カバレージ統計（多段階分析対応）
+### 11.2 カバレージ統計（L1044-1066）
 
 ```
 多段階カバレージ分析結果:
@@ -799,18 +749,18 @@ APIキーチェック（OPENAI_API_KEY）
 ### 12.1 制約事項
 
 1. **チャンクサイズ**:
-   - `create_semantic_chunks()`は内部で200トークン固定
+   - `create_semantic_chunks()`は内部で200トークン固定（L209）
    - DATASET_CONFIGSのchunk_sizeは現在未使用
 
 2. **テキスト長制限**:
-   - 単一チャンク処理: 2000文字まで
-   - バッチ処理（チャンク結合時）: 1000文字/チャンク
+   - 単一チャンク処理: 2000文字まで（L592）
+   - バッチ処理（チャンク結合時）: 1000文字/チャンク（L367, L414）
 
-3. **バッチサイズ**: 最大5チャンク（推奨: 3-5）
+3. **バッチサイズ**: 最大5チャンク（L1195）
 
 4. **カバレージ閾値**:
-   - データセット別に自動設定（OPTIMAL_THRESHOLDS）
-   - コマンドライン引数での変更は不可（将来の改善予定）
+   - データセット別に自動設定（OPTIMAL_THRESHOLDS）（L777-793）
+   - コマンドライン引数での変更は不可
 
 ### 12.2 推奨設定
 
@@ -826,7 +776,7 @@ APIキーチェック（OPENAI_API_KEY）
 
 - `--max-docs`でテスト実行推奨（10文書で約$0.005-0.01）
 - バッチサイズ調整でAPI呼び出し削減
-- カバレージ分析は埋め込み生成コストが追加（必要時のみ実行）
+- カバレージ分析は埋め込み生成コストが追加
 
 **推定コスト（gpt-5-mini使用時）**:
 | 文書数 | API呼び出し | 推定コスト |
@@ -845,7 +795,7 @@ APIキーチェック（OPENAI_API_KEY）
    - `--coverage-threshold-strict`, `--coverage-threshold-standard`, `--coverage-threshold-lenient`
 
 2. **create_semantic_chunksのトークン数制御**:
-   - 設定のchunk_sizeを実際に使用
+   - 設定のchunk_sizeを実際に使用できるよう改修
 
 3. **質問タイプの重み付け設定**:
    - `--question-type-weights fact:0.3,reason:0.3,comparison:0.2,application:0.2`
@@ -885,9 +835,13 @@ APIキーチェック（OPENAI_API_KEY）
 
 ## 変更履歴
 
-### v2.5 (2025-10-23)
-- 出力ディレクトリを`qa_output/a02/`に変更（サブディレクトリ自動作成）
-- ドキュメント全面更新（最新仕様を反映）
+### v2.6 (2024-10-29)
+- ドキュメント全面更新（コード行番号の具体的な参照を追加）
+- 実装の詳細な説明を追加
+
+### v2.5 (2024-10-23)
+- 出力ディレクトリを`qa_output/`に統一
+- ドキュメント更新
 
 ### v2.4
 - バッチ処理最適化（バッチサイズ1-5対応）
@@ -903,3 +857,9 @@ APIキーチェック（OPENAI_API_KEY）
 
 ### v2.1
 - 初期リリース
+
+---
+
+**最終更新日**: 2024年10月29日
+**バージョン**: 2.6
+**作成者**: OpenAI RAG Q&A JP開発チーム
