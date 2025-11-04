@@ -1493,6 +1493,20 @@ class SemanticCoverage:
             self.has_api_key = False
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
 
+        # MeCab利用可否チェック
+        self.mecab_available = self._check_mecab_availability()
+
+    def _check_mecab_availability(self) -> bool:
+        """MeCabの利用可能性をチェック"""
+        try:
+            import MeCab
+            # 実際にインスタンス化して動作確認
+            tagger = MeCab.Tagger()
+            tagger.parse("テスト")
+            return True
+        except (ImportError, RuntimeError):
+            return False
+
     def create_semantic_chunks(self, document: str, verbose: bool = True) -> List[Dict]:
         """
         文書を意味的に区切られたチャンクに分割
@@ -1550,12 +1564,58 @@ class SemanticCoverage:
         return chunks
 
     def _split_into_sentences(self, text: str) -> List[str]:
-        """文単位で分割（日本語対応）"""
-        # 日本語と英語の文末記号で分割
+        """文単位で分割（言語自動判定・MeCab対応）"""
+
+        # 日本語判定（最初の100文字で判定）
+        is_japanese = bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', text[:100]))
+
+        if is_japanese and self.mecab_available:
+            # 日本語の場合、MeCab利用を試みる
+            try:
+                sentences = self._split_sentences_mecab(text)
+                if sentences:
+                    return sentences
+            except Exception:
+                pass  # フォールバック
+
+        # 英語 or MeCab失敗時: 正規表現
         sentences = re.split(r'(?<=[。．.!?])\s*', text)
-        # 空文字列を除去
         sentences = [s.strip() for s in sentences if s.strip()]
         return sentences
+
+    def _split_sentences_mecab(self, text: str) -> List[str]:
+        """MeCabを使った文分割（日本語用）"""
+        import MeCab
+
+        tagger = MeCab.Tagger()
+        node = tagger.parseToNode(text)
+
+        sentences = []
+        current_sentence = []
+
+        while node:
+            surface = node.surface
+            features = node.feature.split(',')
+
+            if surface:
+                current_sentence.append(surface)
+
+                # 文末判定：句点（。）、疑問符（？）、感嘆符（！）
+                if surface in ['。', '．', '？', '！', '?', '!']:
+                    sentence = ''.join(current_sentence).strip()
+                    if sentence:
+                        sentences.append(sentence)
+                    current_sentence = []
+
+            node = node.next
+
+        # 最後の文を追加
+        if current_sentence:
+            sentence = ''.join(current_sentence).strip()
+            if sentence:
+                sentences.append(sentence)
+
+        return sentences if sentences else []
 
     def _adjust_chunks_for_topic_continuity(self, chunks: List[Dict]) -> List[Dict]:
         """トピックの連続性を考慮してチャンクを調整"""
@@ -2583,7 +2643,8 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
         use_llm: bool = True,
         calculate_coverage: bool = True,
         document_type: str = "auto",
-        show_progress: bool = True
+        show_progress: bool = True,
+        lang: str = "en"
     ) -> List[Dict]:
         """
         複数文書をバッチ処理でQ/A生成
@@ -2595,6 +2656,7 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
             calculate_coverage: カバレージ計算するか
             document_type: 文書タイプ
             show_progress: 進捗表示
+            lang: 言語コード（"en" または "ja"）
 
         Returns:
             各文書の生成結果リスト
@@ -2621,7 +2683,7 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
                 print(f"\nStep 2: LLM品質向上（バッチサイズ: {self.batch_size}）...")
 
             enhanced_qa_results = self._batch_enhance_with_llm(
-                texts, rule_results, document_type, show_progress
+                texts, rule_results, document_type, show_progress, lang
             )
         else:
             # テンプレートからQ/A生成
@@ -2671,7 +2733,8 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
         texts: List[str],
         rule_results: List[Dict],
         doc_type: str,
-        show_progress: bool
+        show_progress: bool,
+        lang: str = "en"
     ) -> List[Dict]:
         """LLMでバッチ処理によるQ/A品質向上"""
         from tqdm import tqdm
@@ -2686,8 +2749,8 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
             batch_texts = texts[batch_idx:batch_end]
             batch_rules = rule_results[batch_idx:batch_end]
 
-            # バッチプロンプト作成
-            batch_prompt = self._create_batch_prompt(batch_texts, batch_rules, doc_type)
+            # バッチプロンプト作成（言語情報を渡す）
+            batch_prompt = self._create_batch_prompt(batch_texts, batch_rules, doc_type, lang)
 
             try:
                 # temperature非対応モデルの処理
@@ -2738,15 +2801,33 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
         self,
         texts: List[str],
         rule_results: List[Dict],
-        doc_type: str
+        doc_type: str,
+        lang: str = "en"
     ) -> str:
         """バッチ処理用のプロンプト作成"""
-        type_instructions = {
-            "news": "Focus on 5W1H questions",
-            "technical": "Focus on How-to questions",
-            "academic": "Focus on Why and What-if questions",
-            "auto": "Generate diverse question types"
-        }
+        # 言語別の指示文
+        if lang == "ja":
+            type_instructions = {
+                "news": "5W1H（いつ、どこで、誰が、何を、なぜ、どのように）に焦点を当てた質問を生成してください",
+                "technical": "How-to（やり方・方法）に焦点を当てた質問を生成してください",
+                "academic": "Why（理由・原因）とWhat-if（仮定）に焦点を当てた質問を生成してください",
+                "auto": "多様な種類の質問を生成してください"
+            }
+            language_instruction = "**重要**: 質問と回答は必ず日本語で生成してください。"
+            process_text = f"以下の{len(texts)}件の文書を処理し、それぞれについてQ&Aペアを生成してください。"
+            instruction_text = "指示"
+            output_format_text = "出力形式（JSON）"
+        else:
+            type_instructions = {
+                "news": "Focus on 5W1H questions",
+                "technical": "Focus on How-to questions",
+                "academic": "Focus on Why and What-if questions",
+                "auto": "Generate diverse question types"
+            }
+            language_instruction = "**IMPORTANT**: Generate questions and answers in English."
+            process_text = f"Process these {len(texts)} documents and generate Q&A pairs for each."
+            instruction_text = "Instructions"
+            output_format_text = "Output format (JSON)"
 
         documents = []
         for i, (text, rule_result) in enumerate(zip(texts, rule_results)):
@@ -2757,19 +2838,20 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
             }
             documents.append(doc_info)
 
-        prompt = f"""Process these {len(documents)} documents and generate Q&A pairs for each.
+        prompt = f"""{process_text}
 
 Documents:
 {json.dumps(documents, ensure_ascii=False, indent=2)}
 
-Instructions:
+{instruction_text}:
 1. {type_instructions.get(doc_type, type_instructions['auto'])}
 2. Generate 3-5 Q&A pairs per document
 3. Ensure factual accuracy
+4. {language_instruction}
 
 IMPORTANT: Return your response in JSON format.
 
-Output format (JSON):
+{output_format_text}:
 {{
     "results": [
         {{

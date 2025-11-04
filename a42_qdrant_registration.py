@@ -25,8 +25,10 @@ cc_newsドメインのQ&Aデータを、生成方法ごとに別々のコレク�
   export OPENAI_API_KEY=sk-...
   docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
+  # -------------------------------------------------------------
   # 3. 3つのコレクションにデータを登録
   python a42_qdrant_registration.py --recreate --include-answer
+  # -------------------------------------------------------------
 
   # 4. 特定のコレクションのみ登録
   python a42_qdrant_registration.py --collection qa_cc_news_a02_llm --recreate

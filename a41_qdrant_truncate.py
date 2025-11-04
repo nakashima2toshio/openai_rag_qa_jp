@@ -8,6 +8,10 @@ Qdrantに登録されたRAGデータを安全に削除するためのユーテ�
 
 使い方：
 # 実行コマンド
+
+  # 全コレクションを削除（危険！）
+  python a41_qdrant_truncate.py --all-collections --force
+
   python a41_qdrant_truncate.py --collection product_embeddings --drop-collection --force
 
   # 統計情報を表示（削除なし）
@@ -24,9 +28,7 @@ Qdrantに登録されたRAGデータを安全に削除するためのユーテ�
   
   # コレクション自体を削除
   python a41_qdrant_truncate.py --drop-collection --force
-  
-  # 全コレクションを削除（危険！）
-  python a41_qdrant_truncate.py --all-collections --force
+
 
 主要引数：
   --collection         : コレクション名（既定: config.yml または 'qa_corpus'）
@@ -649,25 +651,35 @@ def main():
                 if not confirm_action(f"ドメイン '{args.domain}' のデータを削除します"):
                     print_colored("削除をキャンセルしました。", Colors.OKGREEN)
                     return
-            
-            deleted = delete_by_domain(client, args.collection, args.domain, 
+
+            deleted = delete_by_domain(client, args.collection, args.domain,
                                       args.batch_size, args.dry_run)
             if not args.dry_run and deleted > 0:
                 print_colored(f"✅ {deleted:,} 件のデータを削除しました。", Colors.OKGREEN)
-        
+
         elif args.all:
             # 全データ削除
             if not args.force and not args.dry_run:
                 if not confirm_action("全データを削除します"):
                     print_colored("削除をキャンセルしました。", Colors.OKGREEN)
                     return
-            
-            deleted = delete_all_data(client, args.collection, 
+
+            deleted = delete_all_data(client, args.collection,
                                     args.batch_size, args.dry_run)
             if not args.dry_run and deleted > 0:
                 print_colored(f"✅ {deleted:,} 件のデータを削除しました。", Colors.OKGREEN)
-        
+
         elif args.drop_collection:
+            # 全コレクション一覧を表示
+            all_collections = get_all_collections(client)
+            if all_collections:
+                display_all_collections_stats(all_collections)
+                print()
+
+            # 削除対象コレクションの確認
+            if args.collection not in [c["name"] for c in all_collections]:
+                print_colored(f"❌ コレクション '{args.collection}' が存在しません。", Colors.FAIL)
+                return
             # コレクション削除
             if not args.force and not args.dry_run:
                 if not confirm_action(f"コレクション '{args.collection}' を完全に削除します"):

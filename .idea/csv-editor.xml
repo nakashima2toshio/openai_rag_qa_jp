@@ -38,6 +38,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/qa_output/a03/qa_pairs_cc_news_20251104_214433.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/qa_output/a03_qa_pairs_cc_news.csv">
           <value>
             <Attribute>
@@ -45,7 +52,21 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b10_20251105_022234.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b25_20251022_143357.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a10/batch_qa_pairs_japanese_text_gpt_5_mini_b10_20251104_220450.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

@@ -4,7 +4,7 @@
 a50_rag_search_local_qdrant.py — Qdrant RAG検索用Streamlit UI
 ------------------------------------------------------------------------------
 機能概要:
-  - 複数コレクション対応（product_embeddings, qa_corpus等）
+  - 複数コレクション対応（product_embeddings, qa_corpus, qa_cc_news_*等）
   - ドメイン別検索（customer, medical, sciq, legal, trivia）
   - Named Vectors切替（ada-002, 3-small等）
   - 動的な埋め込み次元対応（384次元、1536次元）
@@ -17,6 +17,7 @@ a50_rag_search_local_qdrant.py — Qdrant RAG検索用Streamlit UI
   - 科学・技術QA (sciq)
   - 法律・判例QA (legal)
   - TriviaQA（トリビアQA） (trivia)
+  - CC News Q&A (qa_cc_news_a02_llm, qa_cc_news_a03_rule, qa_cc_news_a10_hybrid)
 
 起動: streamlit run a50_rag_search_local_qdrant.py --server.port=8504
 """
@@ -50,7 +51,9 @@ DEFAULTS = {
 COLLECTION_EMBEDDINGS = {
     "product_embeddings": {"model": "text-embedding-3-small", "dims": 384},  # 製品情報用：384次元で高速処理
     "qa_corpus": {"model": "text-embedding-3-small", "dims": 1536},  # Q&Aコーパス用：1536次元で高精度
-    # 必要に応じて他のコレクションを追加
+    "qa_cc_news_a02_llm": {"model": "text-embedding-3-small", "dims": 1536},  # CC News LLM生成方式
+    "qa_cc_news_a03_rule": {"model": "text-embedding-3-small", "dims": 1536},  # CC News ルールベース生成方式
+    "qa_cc_news_a10_hybrid": {"model": "text-embedding-3-small", "dims": 1536},  # CC News ハイブリッド生成方式
 }
 
 def load_config(path="config.yml") -> Dict[str, Any]:
@@ -144,6 +147,13 @@ SAMPLE_QUESTIONS = {
         "太陽系で最も大きな惑星は何ですか？",
         "東京オリンピックは何年に開催されましたか？",
         "世界で最も長い川は何ですか？"
+    ],
+    "cc_news": [
+        "What are the main topics covered in recent news?",
+        "Tell me about technology advancements",
+        "What political events are being discussed?",
+        "Are there any major scientific discoveries?",
+        "What business trends are emerging?"
     ]
 }
 
@@ -183,7 +193,26 @@ with st.sidebar:
     # Sample questions section
     st.markdown("---")
     st.subheader("💡 質問例")
-    if domain != "ALL":
+
+    # Check if this is a CC News collection
+    is_cc_news = collection.startswith("qa_cc_news_")
+
+    if is_cc_news:
+        # Show CC News sample questions
+        st.write("**CC News サンプル検索:**")
+        collection_label = ""
+        if "a02" in collection:
+            collection_label = " (LLM生成)"
+        elif "a03" in collection:
+            collection_label = " (ルールベース)"
+        elif "a10" in collection:
+            collection_label = " (ハイブリッド)"
+        st.caption(f"Collection: {collection}{collection_label}")
+
+        for i, q in enumerate(SAMPLE_QUESTIONS.get("cc_news", []), 1):
+            if st.button(f"{i}. {q[:40]}...", key=f"sample_cc_news_{i}"):
+                st.session_state['selected_query'] = q
+    elif domain != "ALL":
         st.write(f"**{domain.upper()}ドメインの質問例:**")
         for i, question in enumerate(SAMPLE_QUESTIONS.get(domain, []), 1):
             if st.button(f"{i}. {question[:30]}...", key=f"sample_{domain}_{i}"):
@@ -220,11 +249,15 @@ st.code("""
   - collection「qa_corpus」は5種類のデータセット（customer, medical, legal, sciq, trivia）に対応
   - ここでドメインを選択するとそのドメインに特化した情報が取り出せます。
   - collection「qa_corpus」のDomain=ALLは5つのデータセットの統合版です。
+  - CC News collections: 3つの生成手法で比較可能
+    - qa_cc_news_a02_llm: LLM生成方式（a02_qa_pairs_cc_news.csv）
+    - qa_cc_news_a03_rule: ルールベース生成方式（a03_qa_pairs_cc_news.csv）
+    - qa_cc_news_a10_hybrid: ハイブリッド生成方式（a10_qa_pairs_cc_news.csv）
   - OpenAIのembeddingモデルが多言語対応のため、日本語質問と英語データが同じベクトル空間で比較可能
   - 例ば、日本語「返金は可能ですか？」と英語「Can I get a refund?」の類似度が0.4957と高い値を示している
   - この多言語embedding機能により、翻訳なしで日英間の意味的検索が実現されている。
   - 左ペインで、個別domainを選択すると質問・候補が表示されます。
-  - 5. 実用的な閾値の目安（Score:）
+  - 実用的な閾値の目安（Score:）
   - 0.8以上: 非常に関連性が高い（ほぼ一致）
   - 0.6-0.8: 関連性がある（有用な結果）
   - 0.4-0.6: 部分的に関連（参考程度）

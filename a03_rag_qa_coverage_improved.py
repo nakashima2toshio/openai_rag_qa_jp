@@ -14,17 +14,25 @@ OpenAI API呼び出し回数: 5回
 1. チャンクごとに複数の詳細なQ/Aを生成
 2. Q/Aの品質向上（より長く、より具体的な内容）
 3. カバレッジ計算の改善（閾値調整、複数の類似度メトリクス）
-4. チャンク全体をカバーする戦略的Q/A生成
+4. チャンク全体をカバーする戦略的Q/A生成？
 
+[実行コマンド]
 python a03_rag_qa_coverage_improved.py \
-  --input OUTPUT/preprocessed_cc_news.csv \
-  --dataset cc_news \
-  --analyze-coverage \
-  --coverage-threshold 0.52 \
-  --qa-per-chunk 12 \
-  --max-chunks 609 \
-  --max-docs 150 \
-  --output qa_output
+--input OUTPUT/preprocessed_cc_news.csv \
+--dataset cc_news \
+--analyze-coverage \
+--coverage-threshold 0.60 \
+--qa-per-chunk 10 \
+--max-chunks 2000 \
+--output qa_output
+
+
+| 設定  | 文書数   | チャンク数  | Q/A数    | 実行時間   | カバレージ予想      | コスト    |
+|-----|-------|--------|---------|--------|--------------|--------|
+| 現状  | 150   | 609    | 7,308   | 2分     | 99.7% (0.52) | $0.001 |
+| 推奨  | 自動    | 2,000  | 20,000  | 8-10分  | 95%+ (0.60)  | $0.005 |
+| 中規模 | 1,000 | 2,400  | 24,000  | 10-12分 | 95%+ (0.60)  | $0.006 |
+| 全文書 | 7,499 | 18,000 | 144,000 | 60-90分 | 95%+ (0.60)  | $0.025 |
 
 """
 
@@ -262,7 +270,7 @@ def load_input_data(input_file: str, dataset_type: Optional[str] = None, max_doc
     return combined_text
 
 
-def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_chunk: int = 5) -> List[Dict]:
+def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_chunk: int = 5, lang: str = "auto") -> List[Dict]:
     """
     単一チャンクに対して包括的なQ/Aを生成（改良版）
 
@@ -270,14 +278,25 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
         chunk_text: チャンクのテキスト
         chunk_idx: チャンクのインデックス
         qa_per_chunk: チャンクあたりのQ/A数
+        lang: 言語コード ("en", "ja", "auto")
 
     Returns:
         生成されたQ/Aペアのリスト
     """
     qas = []
 
-    # 英語/日本語の判定
-    is_english = any(word in chunk_text[:100] for word in ['the', 'The', 'is', 'are', 'was'])
+    # 英語/日本語の判定（langパラメータが指定されていれば優先）
+    if lang == "auto":
+        # 自動判定: 英語キーワードの出現頻度で判定
+        english_indicators = ['the ', 'The ', ' is ', ' are ', ' was ', ' were ', ' have ', ' has ', 'and ', 'for ']
+        japanese_indicators = ['。', 'は', 'が', 'を', 'に', 'で', 'と', 'の']
+
+        english_count = sum(1 for word in english_indicators if word in chunk_text[:200])
+        japanese_count = sum(1 for char in japanese_indicators if char in chunk_text[:200])
+
+        is_english = english_count > japanese_count
+    else:
+        is_english = (lang == "en")
 
     # チャンクから重要な情報を抽出
     sentences = chunk_text.split('. ' if is_english else '。')
@@ -290,7 +309,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
     if len(chunk_text) > 50:
         # チャンク全体の要約的な質問
         qa = {
-            'question': f"What information is contained in passage {chunk_idx + 1}?" if is_english else f"パッセージ{chunk_idx + 1}にはどのような情報が含まれていますか？",
+            'question': f"What information is discussed in this section?" if is_english else f"このセクションにはどのような情報が含まれていますか？",
             'answer': chunk_text[:500],  # より長い回答
             'type': 'comprehensive',
             'chunk_idx': chunk_idx,
@@ -306,22 +325,45 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
         if is_english:
             # 英語用の詳細なQ/A
             # 1. What型の質問（事実確認）
-            qa = {
-                'question': f"In passage {chunk_idx + 1}, what specific information is provided about the following: {sent[:50]}?",
-                'answer': sent + (" " + sentences[i + 1] if i + 1 < len(sentences) else ""),  # 次の文も含めて回答
-                'type': 'factual_detailed',
-                'chunk_idx': chunk_idx
-            }
+            # 固有名詞や主要概念を抽出
+            main_concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', sent[:50])
+            if main_concepts:
+                concept = main_concepts[0]
+                qa = {
+                    'question': f"What specific information is provided about {concept}?",
+                    'answer': sent + (" " + sentences[i + 1] if i + 1 < len(sentences) else ""),
+                    'type': 'factual_detailed',
+                    'chunk_idx': chunk_idx
+                }
+            else:
+                qa = {
+                    'question': f"What information is provided in the following context: {sent[:50]}?",
+                    'answer': sent + (" " + sentences[i + 1] if i + 1 < len(sentences) else ""),
+                    'type': 'factual_detailed',
+                    'chunk_idx': chunk_idx
+                }
             qas.append(qa)
 
             # 2. 文脈を含む質問
             if i > 0:
-                qa = {
-                    'question': f"How does the information '{sent[:30]}...' relate to the previous context in passage {chunk_idx + 1}?",
-                    'answer': sentences[i - 1] + " " + sent,  # 前の文も含めて回答
-                    'type': 'contextual',
-                    'chunk_idx': chunk_idx
-                }
+                # 前の文と現在の文の主要概念を抽出
+                prev_concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', sentences[i-1][:30])
+                curr_concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', sent[:30])
+
+                if prev_concepts and curr_concepts:
+                    qa = {
+                        'question': f"How does {curr_concepts[0]} relate to {prev_concepts[0]}?",
+                        'answer': sentences[i - 1] + " " + sent,
+                        'type': 'contextual',
+                        'chunk_idx': chunk_idx
+                    }
+                else:
+                    qa = {
+                        'question': f"How does the information '{sent[:30]}...' connect to the previous context?",
+                        'answer': sentences[i - 1] + " " + sent,
+                        'type': 'contextual',
+                        'chunk_idx': chunk_idx
+                    }
                 qas.append(qa)
 
             # 3. キーワード抽出型
@@ -330,7 +372,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
             if important_words:
                 keyword = important_words[0]
                 qa = {
-                    'question': f"What does passage {chunk_idx + 1} say about {keyword}?",
+                    'question': f"What is mentioned about {keyword}?",
                     'answer': sent,
                     'type': 'keyword_based',
                     'chunk_idx': chunk_idx
@@ -340,7 +382,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
         else:
             # 日本語用の詳細なQ/A
             qa = {
-                'question': f"パッセージ{chunk_idx + 1}において、「{sent[:30]}」について詳しく説明してください。",
+                'question': f"「{sent[:30]}」について詳しく説明してください。",
                 'answer': sent + ("。" + sentences[i + 1] if i + 1 < len(sentences) else ""),
                 'type': 'factual_detailed',
                 'chunk_idx': chunk_idx
@@ -353,7 +395,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
             for keyword in keywords:
                 if len(keyword) > 1:  # 1文字のキーワードは除外
                     qa = {
-                        'question': f"パッセージ{chunk_idx + 1}において、「{keyword}」について何が述べられていますか？",
+                        'question': f"「{keyword}」について何が述べられていますか？",
                         'answer': sent,
                         'type': 'keyword_based',
                         'chunk_idx': chunk_idx,
@@ -367,12 +409,41 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
         first_sent = sentences[0] if sentences else chunk_text[:100]
         last_sent = sentences[-1] if sentences else chunk_text[-100:]
 
-        qa = {
-            'question': f"What is the main theme discussed from '{first_sent[:30]}' to '{last_sent[:30]}' in passage {chunk_idx + 1}?" if is_english else f"パッセージ{chunk_idx + 1}の主要テーマは何ですか？",
-            'answer': chunk_text[:400],  # チャンクの主要部分
-            'type': 'thematic',
-            'chunk_idx': chunk_idx
-        }
+        if is_english:
+            # 英語: 主要概念を抽出してテーマ質問を作成
+            theme_concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', first_sent[:50])
+            if theme_concepts:
+                qa = {
+                    'question': f"What is the main theme related to {theme_concepts[0]}?",
+                    'answer': chunk_text[:400],
+                    'type': 'thematic',
+                    'chunk_idx': chunk_idx
+                }
+            else:
+                qa = {
+                    'question': f"What is the main theme discussed in this content?",
+                    'answer': chunk_text[:400],
+                    'type': 'thematic',
+                    'chunk_idx': chunk_idx
+                }
+        else:
+            # 日本語: 主要キーワードを使ったテーマ質問
+            extractor = get_keyword_extractor()
+            theme_keywords = extractor.extract(chunk_text[:200], top_n=1)
+            if theme_keywords:
+                qa = {
+                    'question': f"「{theme_keywords[0]}」に関する主要テーマは何ですか？",
+                    'answer': chunk_text[:400],
+                    'type': 'thematic',
+                    'chunk_idx': chunk_idx
+                }
+            else:
+                qa = {
+                    'question': f"この内容の主要テーマは何ですか？",
+                    'answer': chunk_text[:400],
+                    'type': 'thematic',
+                    'chunk_idx': chunk_idx
+                }
         qas.append(qa)
 
     return qas[:qa_per_chunk]
@@ -492,7 +563,8 @@ def process_with_improved_methods(
     methods: List[str],
     model: str = "gpt-4o-mini",
     qa_per_chunk: int = 4,
-    max_chunks: int = 300
+    max_chunks: int = 300,
+    lang: str = "auto"
 ) -> Tuple[List[Dict], SemanticCoverage, List[Dict]]:
     """
     改良版：80%カバレッジを達成するためのQ/A生成
@@ -503,6 +575,7 @@ def process_with_improved_methods(
         model: 使用するモデル
         qa_per_chunk: チャンクあたりのQ/A数（デフォルト: 4）
         max_chunks: 処理する最大チャンク数（デフォルト: 300）
+        lang: 言語コード ("en", "ja", "auto")
     """
     all_qas = []
 
@@ -538,7 +611,8 @@ def process_with_improved_methods(
             chunk_qas = generate_comprehensive_qa_for_chunk(
                 chunk['text'],
                 i,
-                qa_per_chunk=qa_per_chunk
+                qa_per_chunk=qa_per_chunk,
+                lang=lang
             )
             all_qas.extend(chunk_qas)
 
@@ -577,7 +651,8 @@ def process_with_improved_methods(
                 chunk_qas = generate_comprehensive_qa_for_chunk(
                     chunks[i]['text'],
                     i,
-                    qa_per_chunk=2  # 追加は2個ずつ
+                    qa_per_chunk=2,  # 追加は2個ずつ
+                    lang=lang
                 )
                 unique_qas.extend(chunk_qas)
 
@@ -701,13 +776,20 @@ def main():
     print("=" * 80)
 
     try:
+        # データセットから言語情報を取得
+        lang = "auto"
+        if dataset_type in DATASET_CONFIGS:
+            lang = DATASET_CONFIGS[dataset_type].get("lang", "auto")
+            logger.info(f"データセット言語: {lang}")
+
         # Q/A生成処理（改良版）
         qa_pairs, analyzer, chunks = process_with_improved_methods(
             document_text,
             args.methods,
             args.model,
             qa_per_chunk=args.qa_per_chunk,
-            max_chunks=args.max_chunks
+            max_chunks=args.max_chunks,
+            lang=lang
         )
 
         # カバレッジ分析（改良版）

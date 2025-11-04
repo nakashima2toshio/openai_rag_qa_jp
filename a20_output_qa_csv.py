@@ -1,5 +1,5 @@
 """
-a20_output_qa_csv.py
+python a20_output_qa_csv.py
 
 各Q&A生成プログラムの最新出力CSVファイルからquestionとanswerの列のみを抽出し、
 統一フォーマットのCSVファイルを作成する。
@@ -7,7 +7,7 @@ a20_output_qa_csv.py
 入力ファイルパターン（最新のファイルを自動選択）:
 - qa_output/a02/qa_pairs_cc_news_*.csv
 - qa_output/a03/qa_pairs_cc_news_*.csv
-- qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b25_*.csv
+- qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b10_*.csv
 
 出力ファイル:
 - qa_output/a02_qa_pairs_cc_news.csv
@@ -100,7 +100,7 @@ def main():
             'output': 'qa_output/a03_qa_pairs_cc_news.csv'
         },
         {
-            'pattern': 'qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b25_*.csv',
+            'pattern': 'qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b10_*.csv',
             'output': 'qa_output/a10_qa_pairs_cc_news.csv'
         }
     ]

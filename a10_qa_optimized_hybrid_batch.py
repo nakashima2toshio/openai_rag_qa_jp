@@ -2,6 +2,14 @@
 """
 バッチ処理版ハイブリッドQ&A生成システム
 API呼び出しを最小化し、処理を高速化
+
+【MeCab対応】
+- 日本語データセット（japanese_text, wikipedia_ja）では、
+  チャンク作成時にMeCabによる高精度な文境界検出を自動的に使用
+- 英語データセット（cc_news）では、正規表現ベースの文分割を使用
+- MeCab利用可否は自動判定され、未インストール環境では自動的に
+  正規表現にフォールバック
+
 # 確実に95%達成するための推奨コマンド
   python a10_qa_optimized_hybrid_batch.py \
       --dataset cc_news \
@@ -9,7 +17,6 @@ API呼び出しを最小化し、処理を高速化
       --batch-size 10 \
       --embedding-batch-size 150 \
       --qa-count 12 \
-      --max-docs 150 \
       --output qa_output
 
 
@@ -22,6 +29,10 @@ API呼び出しを最小化し、処理を高速化
 
     # モデル指定
     python a10_qa_optimized_hybrid_batch.py --dataset cc_news --model gpt-5-mini
+
+    # 日本語データセット（MeCab自動利用）
+    python a10_qa_optimized_hybrid_batch.py --dataset japanese_text
+    python a10_qa_optimized_hybrid_batch.py --dataset wikipedia_ja
 
     # 比較実行（通常版 vs バッチ版）
     python a10_qa_optimized_hybrid_batch.py --dataset cc_news --compare
@@ -141,6 +152,14 @@ def generate_batch_qa_from_dataset(
     logger.info(f"バッチ処理Q/A生成開始: {len(df)}件の文書")
     logger.info(f"バッチサイズ: LLM={batch_size}, 埋め込み={embedding_batch_size}")
 
+    # 言語情報をログ出力
+    lang = config.get("lang", "en")
+    logger.info(f"データセット言語: {lang}")
+    if lang == "ja":
+        logger.info("  → 日本語データセット: チャンク作成時にMeCabによる高精度文境界検出を使用（利用可能な場合）")
+    else:
+        logger.info("  → 英語データセット: 正規表現ベースの文分割を使用")
+
     # テキストリストの準備
     texts = df[text_col].tolist()
 
@@ -151,17 +170,23 @@ def generate_batch_qa_from_dataset(
         embedding_batch_size=embedding_batch_size
     )
 
+    # MeCab利用状況を確認（SemanticCoverageインスタンス経由）
+    if hasattr(generator, 'semantic_coverage') and hasattr(generator.semantic_coverage, 'mecab_available'):
+        mecab_status = "利用可能" if generator.semantic_coverage.mecab_available else "利用不可（正規表現にフォールバック）"
+        logger.info(f"  MeCab状態: {mecab_status}")
+
     # 処理時間の計測開始
     start_time = time.time()
 
-    # バッチ処理でQ/A生成
+    # バッチ処理でQ/A生成（言語パラメータを渡す）
     batch_results = generator.generate_batch_hybrid_qa(
         texts=texts,
         qa_count=qa_count,
         use_llm=use_llm,
         calculate_coverage=calculate_coverage,
         document_type=doc_type,
-        show_progress=True
+        show_progress=True,
+        lang=lang
     )
 
     # 処理時間の計算
@@ -352,8 +377,14 @@ def save_batch_results(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     model_suffix = model.replace("-", "_").replace(".", "_")
 
+    # 入力ファイル名から dataset_name を抽出
+    config = DATASET_CONFIGS[dataset_type]
+    input_file = config["file"]
+    # 例: "OUTPUT/preprocessed_cc_news.csv" → "cc_news"
+    dataset_name = Path(input_file).stem.replace("preprocessed_", "")
+
     # 1. サマリーファイル
-    summary_file = output_path / f"batch_summary_{dataset_type}_{model_suffix}_b{batch_size}_{timestamp}.json"
+    summary_file = output_path / f"batch_summary_{dataset_name}_{model_suffix}_b{batch_size}_{timestamp}.json"
     with open(summary_file, 'w', encoding='utf-8') as f:
         json.dump(generation_results['summary'], f, ensure_ascii=False, indent=2)
 
@@ -372,7 +403,7 @@ def save_batch_results(
 
     if qa_data:
         qa_df = pd.DataFrame(qa_data)
-        qa_csv = output_path / f"batch_qa_pairs_{dataset_type}_{model_suffix}_b{batch_size}_{timestamp}.csv"
+        qa_csv = output_path / f"batch_qa_pairs_{dataset_name}_{model_suffix}_b{batch_size}_{timestamp}.csv"
         qa_df.to_csv(qa_csv, index=False, encoding='utf-8')
     else:
         qa_csv = None

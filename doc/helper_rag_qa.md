@@ -1,17 +1,18 @@
 # helper_rag_qa.py 技術仕様書
 
-最終更新日: 2024-10-29
+最終更新日: 2025-11-05
 
 ## 概要
 
-RAG Q&A生成のための包括的ユーティリティモジュール。キーワード抽出、Q/A生成、セマンティックカバレッジ分析など、17個の専門クラスを提供。
+RAG Q&A生成のための包括的ユーティリティモジュール。キーワード抽出、Q/A生成、セマンティックカバレッジ分析など、17個の専門クラスを提供。多言語対応（英語・日本語）により、入力言語に応じた適切なQ&A生成が可能。
 
 ## ファイル情報
 
 - **ファイル名**: helper_rag_qa.py
 - **行数**: 2976行
-- **主要機能**: キーワード抽出、Q/A生成、カバレッジ分析
+- **主要機能**: キーワード抽出、Q/A生成、カバレッジ分析、多言語対応
 - **クラス数**: 17クラス
+- **対応言語**: 英語（en）、日本語（ja）
 
 ## クラス一覧
 
@@ -197,15 +198,48 @@ def extract_for_qa_generation(
 
 意味的な網羅性を測定。
 
-#### 初期化 (L1488-1498)
+#### 初期化 (L1488-1508)
 ```python
 def __init__(self, embedding_model: str = "text-embedding-3-small"):
-    self.client = OpenAI()
     self.embedding_model = embedding_model
+    # APIキーの確認
+    api_key = os.getenv('OPENAI_API_KEY')
+    if api_key and api_key != 'your-openai-api-key-here':
+        self.client = OpenAI()
+        self.has_api_key = True
+    else:
+        self.client = None
+        self.has_api_key = False
     self.tokenizer = tiktoken.get_encoding("cl100k_base")
+
+    # MeCab利用可否チェック
+    self.mecab_available = self._check_mecab_availability()
 ```
 
-#### create_semantic_chunks() (L1500-1570)
+**更新情報 (2025-11-04)**:
+- OpenAI APIキーの有無を確認し、`has_api_key`フラグを設定
+- MeCabの利用可能性を自動チェックする`mecab_available`フラグを追加
+- MeCab未インストール環境でも正常動作する柔軟な設計
+
+#### _check_mecab_availability() (L1510-1520)
+```python
+def _check_mecab_availability(self) -> bool:
+    """MeCabの利用可能性をチェック"""
+    try:
+        import MeCab
+        # 実際にインスタンス化して動作確認
+        tagger = MeCab.Tagger()
+        tagger.parse("テスト")
+        return True
+    except (ImportError, RuntimeError):
+        return False
+```
+
+MeCabライブラリのインポートと動作確認を実施:
+- インポート成功時: Taggerインスタンス化して動作テスト
+- 失敗時: 自動的にFalseを返し、正規表現ベース処理にフォールバック
+
+#### create_semantic_chunks() (L1522-1592)
 ```python
 def create_semantic_chunks(
     self,
@@ -214,7 +248,80 @@ def create_semantic_chunks(
 ) -> List[Dict]:
 ```
 - テキストをセマンティックチャンクに分割
-- 日本語の句読点で境界を保持
+- 言語自動判定により、日本語/英語に適した文分割を実行
+- 各チャンクが max_tokens を超えないよう調整
+
+#### _split_into_sentences() (L1533-1556)
+```python
+def _split_into_sentences(self, text: str) -> List[str]:
+    """文単位で分割（言語自動判定・MeCab対応）"""
+
+    # 日本語判定（最初の100文字で判定）
+    is_japanese = bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', text[:100]))
+
+    if is_japanese and self.mecab_available:
+        # 日本語の場合、MeCab利用を試みる
+        try:
+            sentences = self._split_sentences_mecab(text)
+            if sentences:
+                return sentences
+        except Exception:
+            pass  # フォールバック
+
+    # 英語 or MeCab失敗時: 正規表現
+    sentences = re.split(r'(?<=[。．.!?])\s*', text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    return sentences
+```
+
+**新機能 (2025-11-04)**: 言語自動判定とMeCab統合
+- **日本語判定**: Unicode範囲 (ひらがな・カタカナ・漢字) で判定
+- **MeCab優先**: 日本語テキストかつMeCab利用可能な場合は MeCab による高精度な文境界検出を実施
+- **自動フォールバック**: MeCab失敗時や英語テキストの場合、正規表現ベースの文分割を実行
+- **ロバスト性**: 言語やMeCab環境に依存せず、常に適切な文分割を提供
+
+#### _split_sentences_mecab() (L1558-1591)
+```python
+def _split_sentences_mecab(self, text: str) -> List[str]:
+    """MeCabを使った文分割（日本語用）"""
+    import MeCab
+
+    tagger = MeCab.Tagger()
+    node = tagger.parseToNode(text)
+
+    sentences = []
+    current_sentence = []
+
+    while node:
+        surface = node.surface
+        features = node.feature.split(',')
+
+        if surface:
+            current_sentence.append(surface)
+
+            # 文末判定：句点（。）、疑問符（？）、感嘆符（！）
+            if surface in ['。', '．', '？', '！', '?', '!']:
+                sentence = ''.join(current_sentence).strip()
+                if sentence:
+                    sentences.append(sentence)
+                current_sentence = []
+
+        node = node.next
+
+    # 最後の文を追加
+    if current_sentence:
+        sentence = ''.join(current_sentence).strip()
+        if sentence:
+            sentences.append(sentence)
+
+    return sentences if sentences else []
+```
+
+**新機能 (2025-11-04)**: MeCabによる日本語文分割
+- **形態素解析**: MeCabで単語単位に分解し、文末記号を検出
+- **文境界マーカー**: 。．？！?! を文末として認識
+- **高精度**: 正規表現では困難な複雑な日本語文構造も正確に分割
+- **エラー安全**: 空文を自動除外し、確実な結果を返す
 
 #### generate_embeddings() (L1572-1593)
 チャンクの埋め込みベクトルを生成
@@ -402,7 +509,7 @@ def __init__(
 ):
 ```
 
-#### generate_batch_hybrid_qa() (L2579-2667)
+#### generate_batch_hybrid_qa() (L2639-2729)
 ```python
 def generate_batch_hybrid_qa(
     self,
@@ -411,20 +518,82 @@ def generate_batch_hybrid_qa(
     use_llm: bool = True,
     calculate_coverage: bool = True,
     document_type: str = "auto",
-    show_progress: bool = True
+    show_progress: bool = True,
+    lang: str = "en"
 ) -> List[Dict]:
 ```
 
+**新機能 (2025-11-05)**: 多言語対応パラメータ追加
+- **langパラメータ**: Q/A生成言語を明示的に指定
+  - `"en"`: 英語でQ&A生成
+  - `"ja"`: 日本語でQ&A生成
+- **言語別プロンプト**: 言語に応じた最適なプロンプトを自動適用
+- **データセット連携**: DATASET_CONFIGSの`lang`フィールドから自動取得可能
+
 処理ステップ:
 1. ルールベース抽出（各文書を順次処理）
-2. LLMバッチ処理（batch_size=10）
+2. LLMバッチ処理（batch_size=10、言語指定対応）
 3. カバレッジ計算（embedding_batch_size=100）
 4. 結果統合
 
-#### _batch_enhance_with_llm() (L2669-2735)
+#### _batch_enhance_with_llm() (L2731-2798)
+```python
+def _batch_enhance_with_llm(
+    self,
+    texts: List[str],
+    rule_results: List[Dict],
+    doc_type: str,
+    show_progress: bool,
+    lang: str = "en"
+) -> List[Dict]:
+```
+
+**新機能 (2025-11-05)**: 言語パラメータ対応
 - LLMでバッチ処理
 - API呼び出し削減90-96%
 - エラー時は個別処理にフォールバック
+- 言語パラメータを `_create_batch_prompt()` に伝播
+
+#### _create_batch_prompt() (L2800-2867)
+```python
+def _create_batch_prompt(
+    self,
+    texts: List[str],
+    rule_results: List[Dict],
+    doc_type: str,
+    lang: str = "en"
+) -> str:
+```
+
+**新機能 (2025-11-05)**: 多言語プロンプト生成
+- **言語別指示文**: 日本語/英語それぞれに最適化された指示文を生成
+- **文書タイプ別指示**:
+  - `news`: 5W1H質問（英語）、5W1H質問（日本語）
+  - `technical`: How-to質問（英語）、やり方・方法質問（日本語）
+  - `academic`: Why/What-if質問（英語）、理由・仮定質問（日本語）
+  - `auto`: 多様な質問タイプ
+
+言語別プロンプト例:
+
+**英語版 (lang="en")**:
+```
+Process these N documents and generate Q&A pairs for each.
+Instructions:
+1. Focus on 5W1H questions
+2. Generate 3-5 Q&A pairs per document
+3. Ensure factual accuracy
+4. **IMPORTANT**: Generate questions and answers in English.
+```
+
+**日本語版 (lang="ja")**:
+```
+以下のN件の文書を処理し、それぞれについてQ&Aペアを生成してください。
+指示:
+1. 5W1H（いつ、どこで、誰が、何を、なぜ、どのように）に焦点を当てた質問を生成してください
+2. 各文書について3-5個のQ&Aペアを生成
+3. 事実の正確性を確保
+4. **重要**: 質問と回答は必ず日本語で生成してください。
+```
 
 #### _batch_calculate_coverage() (L2808-2891)
 - バッチ埋め込み処理
@@ -539,7 +708,7 @@ print(f"生成数: {len(result['qa_pairs'])}")
 print(f"カバレージ: {result['coverage']['coverage_rate']:.1%}")
 ```
 
-### 例4: バッチQ/A生成
+### 例4: バッチQ/A生成（英語）
 
 ```python
 from helper_rag_qa import BatchHybridQAGenerator
@@ -550,12 +719,39 @@ batch_generator = BatchHybridQAGenerator(
     embedding_batch_size=100
 )
 
+# 英語データセットの場合
 results = batch_generator.generate_batch_hybrid_qa(
-    texts=text_list,
+    texts=english_text_list,
     qa_count=12,
     use_llm=True,
     calculate_coverage=True,
-    show_progress=True
+    show_progress=True,
+    lang="en"  # 英語指定
+)
+
+for i, result in enumerate(results):
+    print(f"文書{i+1}: {len(result['qa_pairs'])}個のQ/A生成")
+```
+
+### 例5: バッチQ/A生成（日本語）
+
+```python
+from helper_rag_qa import BatchHybridQAGenerator
+
+batch_generator = BatchHybridQAGenerator(
+    model="gpt-5-mini",
+    batch_size=10,
+    embedding_batch_size=100
+)
+
+# 日本語データセットの場合
+results = batch_generator.generate_batch_hybrid_qa(
+    texts=japanese_text_list,
+    qa_count=12,
+    use_llm=True,
+    calculate_coverage=True,
+    show_progress=True,
+    lang="ja"  # 日本語指定
 )
 
 for i, result in enumerate(results):
@@ -653,6 +849,7 @@ helper_rag_qa.pyは、RAG Q/A生成のための包括的なユーティリティ
 2. **柔軟なQ/A生成**: ルール、テンプレート、LLM、ハイブリッド
 3. **バッチ処理最適化**: API呼び出し削減90-96%
 4. **カバレッジ分析**: セマンティック類似度計算、品質評価
+5. **多言語対応 (2025-11-05追加)**: 英語・日本語の自動判定と言語別Q/A生成
 
 ### 推奨用途
 
@@ -660,7 +857,23 @@ helper_rag_qa.pyは、RAG Q/A生成のための包括的なユーティリティ
 - カバレッジ重視の分析
 - コスト最適化が必要な環境
 - バッチ処理による高速化
+- 多言語データセットの処理（英語・日本語）
+
+### 更新履歴
+
+**2025-11-05**:
+- `BatchHybridQAGenerator.generate_batch_hybrid_qa()` に `lang` パラメータを追加
+- `_batch_enhance_with_llm()` に言語パラメータ対応を追加
+- `_create_batch_prompt()` に多言語プロンプト生成機能を実装
+- 英語・日本語それぞれに最適化されたプロンプトテンプレートを追加
+- 文書タイプ別（news/technical/academic）の言語別指示文を実装
+
+**2025-11-04**:
+- `SemanticCoverage` にMeCab利用可能性チェック機能を追加
+- `_split_into_sentences()` に言語自動判定とMeCab統合を実装
+- `_split_sentences_mecab()` による高精度な日本語文分割を追加
+- MeCab未インストール環境でも正常動作する自動フォールバック機能を実装
 
 ---
-最終更新: 2024-10-29
+最終更新: 2025-11-05
 作成者: OpenAI RAG Q/A JP Development Team
