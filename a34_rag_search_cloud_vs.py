@@ -80,7 +80,7 @@ class VectorStoreManager:
     # デフォルトのVector Store設定（フォールバック用）
     # 注: CC News関連を上位に配置（Pythonの辞書は3.7+で挿入順序を保持）
     DEFAULT_VECTOR_STORES = {
-        "CC News Q&A (Basic)"     : "vs_cc_news_basic_placeholder",  # CC News基本生成方式
+        "CC News Q&A (LLM)"       : "vs_cc_news_basic_placeholder",  # CC News LLM生成方式
         "CC News Q&A (Coverage)"  : "vs_cc_news_coverage_placeholder",  # CC Newsカバレッジ改良方式
         "CC News Q&A (Hybrid)"    : "vs_cc_news_hybrid_placeholder",  # CC Newsハイブリッド生成方式
         "Customer Support FAQ"    : "vs_68c94da49c80819189dd42d6e941c4b5",
@@ -110,7 +110,7 @@ class VectorStoreManager:
         "Trivia Q&A Knowledge Base"                        : "Trivia Q&A",
         "Unified Knowledge Base - All Domains"             : "Unified Knowledge Base",
         # CC News Q&A関連のマッピング
-        "CC News Q&A - Basic Generation (a02_make_qa)"     : "CC News Q&A (Basic)",
+        "CC News Q&A - Basic Generation (a02_make_qa)"     : "CC News Q&A (LLM)",
         "CC News Q&A - Coverage Improved (a03_coverage)"   : "CC News Q&A (Coverage)",
         "CC News Q&A - Hybrid Method (a10_hybrid)"         : "CC News Q&A (Hybrid)"
     }
@@ -241,10 +241,22 @@ class VectorStoreManager:
                         }
                         logger.info(f"ℹ️ 新規店舗: '{store_name}' ({store_id})")
 
-            # 最終的なapi_storesを構築
+            # 最終的なapi_storesを構築（DEFAULT_VECTOR_STORESの順序を維持）
+            # まずDEFAULT_VECTOR_STORESの順序でソート
+            default_order = list(self.DEFAULT_VECTOR_STORES.keys())
+
+            # DEFAULT_VECTOR_STORESに含まれるものを先に追加
+            for display_name in default_order:
+                if display_name in store_candidates:
+                    candidate = store_candidates[display_name]
+                    api_stores[display_name] = candidate['id']
+                    logger.info(f"🎯 最終選択: '{display_name}' -> {candidate['id']} (作成日時: {candidate['created_at']})")
+
+            # DEFAULT_VECTOR_STORESに含まれない新規Storeを後に追加
             for display_name, candidate in store_candidates.items():
-                api_stores[display_name] = candidate['id']
-                logger.info(f"🎯 最終選択: '{display_name}' -> {candidate['id']} (作成日時: {candidate['created_at']})")
+                if display_name not in api_stores:
+                    api_stores[display_name] = candidate['id']
+                    logger.info(f"🎯 最終選択（新規）: '{display_name}' -> {candidate['id']} (作成日時: {candidate['created_at']})")
 
             if api_stores:
                 logger.info(f"✅ OpenAI APIから{len(api_stores)}個のVector Storeを取得完了")
@@ -755,7 +767,7 @@ def get_test_questions_by_store(store_name: str) -> List[str]:
         "Medical Q&A"             : test_questions_3_en,
         "Legal Q&A"               : test_questions_4_en,
         "Unified Knowledge Base"  : test_questions_unified_en,  # 統合ナレッジベース
-        "CC News Q&A (Basic)"     : test_questions_cc_news_en,  # CC News基本生成
+        "CC News Q&A (LLM)"       : test_questions_cc_news_en,  # CC News LLM生成
         "CC News Q&A (Coverage)"  : test_questions_cc_news_en,  # CC Newsカバレッジ改良
         "CC News Q&A (Hybrid)"    : test_questions_cc_news_en,  # CC Newsハイブリッド
     }

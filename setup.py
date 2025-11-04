@@ -174,7 +174,7 @@ def setup_qdrant_data():
     try:
         # a50_qdrant_registration.pyが存在するか確認
         if Path("a50_qdrant_registration.py").exists():
-            subprocess.run([sys.executable, "a30_qdrant_registration.py", "--recreate", "--limit", "100"], check=True)
+            subprocess.run([sys.executable, "a42_qdrant_registration.py", "--recreate", "--limit", "100"], check=True)
             print("✅ Qdrantへのデータ登録完了")
             return True
         else:
@@ -233,7 +233,7 @@ def main():
     print("\n次のステップ:")
     print("1. .env ファイルで OPENAI_API_KEY を設定")
     print("2. Qdrantサーバー起動: docker-compose -f docker-compose/docker-compose.yml up -d")
-    print("3. データ登録: python a30_qdrant_registration.py --recreate")
+    print("3. データ登録: python a42_qdrant_registration.py --recreate")
     print("4. サーバー起動: python server.py")
     print("5. 検索UI起動: streamlit run a50_rag_search_local_qdrant.py")
 

@@ -1,9 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-a50_rag_search_local_qdrant.py — Streamlit UI（ドメイン絞り・横断・TopK・score表示、Named Vectors切替）
+a50_rag_search_local_qdrant.py — Qdrant RAG検索用Streamlit UI
 ------------------------------------------------------------------------------
-5種類のデータセットタイプの統合処理:
+機能概要:
+  - 複数コレクション対応（product_embeddings, qa_corpus等）
+  - ドメイン別検索（customer, medical, sciq, legal, trivia）
+  - Named Vectors切替（ada-002, 3-small等）
+  - 動的な埋め込み次元対応（384次元、1536次元）
+  - リアルタイム類似度スコア表示
+  - OpenAI GPT-4o-miniによる日本語回答生成
+
+対応データセット:
   - カスタマーサポート・FAQ (customer)
   - 医療QAデータ (medical)
   - 科学・技術QA (sciq)
@@ -27,31 +35,40 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from openai import OpenAI
 
-# 設定ロード（a30_qdrant_registration.py と同等の最小版）
+# デフォルト設定の定義（config.ymlが存在しない場合のフォールバック）
 DEFAULTS = {
-    "rag": {"collection": "product_embeddings"},  # Changed default to product_embeddings
+    "rag": {"collection": "product_embeddings"},  # デフォルトコレクション
     "embeddings": {
         "primary": {"provider": "openai", "model": "text-embedding-3-small", "dims": 1536},
         "ada-002": {"provider": "openai", "model": "text-embedding-ada-002", "dims": 1536},
         "3-small": {"provider": "openai", "model": "text-embedding-3-small", "dims": 1536},
     },
-    "qdrant": {"url": "http://localhost:6333"},
+    "qdrant": {"url": "http://localhost:6333"},  # Qdrantサーバーのデフォルトアドレス
 }
 
-# Collection-specific embedding configurations
+# コレクション固有の埋め込み設定（モデルと次元数を指定）
 COLLECTION_EMBEDDINGS = {
-    "product_embeddings": {"model": "text-embedding-3-small", "dims": 384},  # 384 dims for product_embeddings
-    "qa_corpus": {"model": "text-embedding-3-small", "dims": 1536},
-    # Add other collections as needed
+    "product_embeddings": {"model": "text-embedding-3-small", "dims": 384},  # 製品情報用：384次元で高速処理
+    "qa_corpus": {"model": "text-embedding-3-small", "dims": 1536},  # Q&Aコーパス用：1536次元で高精度
+    # 必要に応じて他のコレクションを追加
 }
 
 def load_config(path="config.yml") -> Dict[str, Any]:
+    """
+    設定ファイルを読み込み、DEFAULTSとマージする
+
+    Args:
+        path: 設定ファイルのパス（デフォルトはconfig.yml）
+
+    Returns:
+        マージされた設定辞書
+    """
     cfg = {}
     if yaml and os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     full = DEFAULTS.copy()
-    # 浅いマージ
+    # 浅いマージ（第1階層の辞書は更新、それ以外は上書き）
     for k, v in (cfg or {}).items():
         if isinstance(v, dict) and isinstance(full.get(k), dict):
             full[k].update(v)
@@ -60,8 +77,19 @@ def load_config(path="config.yml") -> Dict[str, Any]:
     return full
 
 def embed_query(text: str, model: str, dims: Optional[int] = None) -> List[float]:
+    """
+    クエリテキストを埋め込みベクトルに変換
+
+    Args:
+        text: 埋め込むテキスト
+        model: 使用する埋め込みモデル（例：text-embedding-3-small）
+        dims: ベクトルの次元数（text-embedding-3系モデルでのみ有効）
+
+    Returns:
+        埋め込みベクトル（float配列）
+    """
     client = OpenAI()
-    # Use dimensions parameter if model supports it (text-embedding-3-* models)
+    # text-embedding-3系モデルは次元数の指定をサポート（384次元で高速化、1536次元で高精度）
     if dims and "text-embedding-3" in model:
         return client.embeddings.create(model=model, input=[text], dimensions=dims).data[0].embedding
     else:
@@ -221,16 +249,16 @@ if do_search and query.strip():
             st.error(f"エラー詳細: {str(conn_err)}")
             st.stop()
         
-        # Get the correct embedding configuration for the selected collection
+        # コレクションに対応した埋め込み設定を取得（各コレクションは異なる次元数を持つ可能性がある）
         collection_config = COLLECTION_EMBEDDINGS.get(collection, {"model": model_for_using, "dims": None})
         embedding_model = collection_config["model"]
         embedding_dims = collection_config.get("dims")
-        
-        # Debug: Show embedding configuration
+
+        # デバッグモード：使用する埋め込み設定を表示
         if debug_mode:
             st.info(f"🔍 Using model: {embedding_model} with dims: {embedding_dims}")
         
-        # Generate embeddings with the correct dimensions
+        # クエリテキストを埋め込みベクトルに変換（コレクションごとの次元数に対応）
         try:
             qvec = embed_query(query, embedding_model, embedding_dims)
             if debug_mode:
@@ -239,12 +267,13 @@ if do_search and query.strip():
             st.error(f"❌ Embedding generation failed: {str(embed_err)}")
             st.error(f"Model: {embedding_model}, Requested dims: {embedding_dims}")
             st.stop()
-        
+
+        # ドメインフィルタの設定（qa_corpusコレクションのみ対応）
         qfilter = None
         if domain != "ALL":
             qfilter = models.Filter(must=[models.FieldCondition(key="domain", match=models.MatchValue(value=domain))])
-        
-        # Use search method (it works despite deprecation warning)
+
+        # Qdrantでベクトル類似検索を実行（deprecation警告を抑制）
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
@@ -336,8 +365,8 @@ if do_search and query.strip():
             st.code("cd docker-compose && docker-compose up -d", language="bash")
         elif "collection" in str(e).lower() and "not found" in str(e).lower():
             st.error(f"❌ コレクション '{collection}' が見つかりません")
-            st.error("先に a30_qdrant_registration.py を実行してデータを登録してください:")
-            st.code("python a30_qdrant_registration.py", language="bash")
+            st.error("先に a42_qdrant_registration.py を実行してデータを登録してください:")
+            st.code("python a42_qdrant_registration.py", language="bash")
         else:
             st.error(f"❌ エラーが発生しました: {str(e)}")
             st.error("エラーの詳細:")

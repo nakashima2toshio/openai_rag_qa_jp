@@ -15,7 +15,17 @@ OUTPUTフォルダ内のpreprocessedファイルから自動的にQ/Aペアを�
 
 例:
 本番運用向け：
+実行コマンド：
+  python a02_make_qa.py \
+        --dataset cc_news \
+        --batch-chunks 3 \     # 5→3: より丁寧な処理
+        --merge-chunks \
+        --min-tokens 100 \     # 150→100: 小チャンク削減
+        --max-tokens 300 \     # 400→300: 過度な統合防止
+        --model gpt-5-mini \
+        --analyze-coverage
 
+[OLD_Command]
 python a02_make_qa.py \
       --dataset cc_news \
       --batch-chunks 5 \
@@ -49,7 +59,7 @@ python a02_make_qa.py \
  ----------------------------------------------------------
     python a02_make_qa.py --dataset cc_news --batch-chunks 5 --merge-chunks --analyze-coverage
 
-    python a02_make_qa.py --dataset cc_news --model gpt-5-mini  --analyze-coverage --max-docs 10
+    python a02_make_qa.py --dataset cc_news --model gpt-5-mini --batch-chunks 5  --analyze-coverage --max-docs 10
     python a02_make_qa.py --dataset wikipedia_ja --model gpt-5-mini  --analyze-coverage --max-docs 10
     python a02_make_qa.py --dataset japanese_text --model gpt-5-mini  --analyze-coverage --max-docs 10
 """
@@ -69,6 +79,8 @@ from openai import OpenAI
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import logging
+import re
+from collections import Counter
 
 # ローカルモジュール
 from a03_rag_qa_coverage_improved import SemanticCoverage
@@ -115,7 +127,7 @@ DATASET_CONFIGS = {
         "title_column": "title",
         "lang": "en",
         "chunk_size": 300,  # トークン数
-        "qa_per_chunk": 3,  # チャンクあたりのQ/A数
+        "qa_per_chunk": 5,  # チャンクあたりのQ/A数（改善: 3→5）
     },
     "japanese_text": {
         "name": "日本語Webテキスト",
@@ -136,6 +148,249 @@ DATASET_CONFIGS = {
         "qa_per_chunk": 3,
     }
 }
+
+
+# ==========================================
+# MeCab キーワード抽出クラス (regex_mecab.py から移植)
+# ==========================================
+
+class KeywordExtractor:
+    """
+    MeCabと正規表現を統合したキーワード抽出クラス
+    MeCabが利用可能な場合は複合名詞抽出を優先し、
+    利用不可の場合は正規表現版に自動フォールバック
+    """
+
+    def __init__(self, prefer_mecab: bool = True):
+        """
+        Args:
+            prefer_mecab: MeCabを優先的に使用するか（デフォルト: True）
+        """
+        self.prefer_mecab = prefer_mecab
+        self.mecab_available = self._check_mecab_availability()
+
+        # ストップワード定義
+        self.stopwords = {
+            'こと', 'もの', 'これ', 'それ', 'ため', 'よう', 'さん',
+            'ます', 'です', 'ある', 'いる', 'する', 'なる', 'できる',
+            'いう', '的', 'な', 'に', 'を', 'は', 'が', 'で', 'と',
+            'の', 'から', 'まで', '等', 'など', 'よる', 'おく', 'くる'
+        }
+
+        if self.mecab_available:
+            logger.info("✅ MeCabが利用可能です（複合名詞抽出モード）")
+        else:
+            logger.info("⚠️ MeCabが利用できません（正規表現モード）")
+
+    def _check_mecab_availability(self) -> bool:
+        """MeCabの利用可能性をチェック"""
+        try:
+            import MeCab
+            # 実際にインスタンス化して動作確認
+            tagger = MeCab.Tagger()
+            tagger.parse("テスト")
+            return True
+        except (ImportError, RuntimeError) as e:
+            return False
+
+    def extract(self, text: str, top_n: int = 5) -> List[str]:
+        """
+        テキストからキーワードを抽出（自動フォールバック対応）
+
+        Args:
+            text: 分析対象テキスト
+            top_n: 抽出するキーワード数
+
+        Returns:
+            キーワードリスト
+        """
+        if self.mecab_available and self.prefer_mecab:
+            try:
+                keywords = self._extract_with_mecab(text, top_n)
+                if keywords:  # 空でなければ成功
+                    return keywords
+            except Exception as e:
+                logger.warning(f"⚠️ MeCab抽出エラー: {e}")
+
+        # フォールバック: 正規表現版
+        return self._extract_with_regex(text, top_n)
+
+    def _extract_with_mecab(self, text: str, top_n: int) -> List[str]:
+        """MeCabを使用した複合名詞抽出"""
+        import MeCab
+
+        tagger = MeCab.Tagger()
+        node = tagger.parseToNode(text)
+
+        # 複合名詞の抽出
+        compound_buffer = []
+        compound_nouns = []
+
+        while node:
+            features = node.feature.split(',')
+            pos = features[0]  # 品詞
+
+            if pos == '名詞':
+                compound_buffer.append(node.surface)
+            else:
+                # 名詞以外が来たらバッファをフラッシュ
+                if compound_buffer:
+                    compound_noun = ''.join(compound_buffer)
+                    if len(compound_noun) > 0:
+                        compound_nouns.append(compound_noun)
+                    compound_buffer = []
+
+            node = node.next
+
+        # 最後のバッファをフラッシュ
+        if compound_buffer:
+            compound_noun = ''.join(compound_buffer)
+            if len(compound_noun) > 0:
+                compound_nouns.append(compound_noun)
+
+        # フィルタリングと頻度カウント
+        return self._filter_and_count(compound_nouns, top_n)
+
+    def _extract_with_regex(self, text: str, top_n: int) -> List[str]:
+        """正規表現を使用したキーワード抽出"""
+        # カタカナ語、漢字複合語、英数字を抽出
+        pattern = r'[ァ-ヴー]{2,}|[一-龥]{2,}|[A-Za-z]{2,}[A-Za-z0-9]*'
+        words = re.findall(pattern, text)
+
+        # フィルタリングと頻度カウント
+        return self._filter_and_count(words, top_n)
+
+    def _filter_and_count(self, words: List[str], top_n: int) -> List[str]:
+        """頻度ベースのフィルタリング"""
+        # ストップワード除外
+        filtered = [w for w in words if w not in self.stopwords and len(w) > 1]
+
+        # 頻度カウント
+        word_freq = Counter(filtered)
+
+        # 上位N件を返す
+        return [word for word, freq in word_freq.most_common(top_n)]
+
+
+# グローバルなKeywordExtractorインスタンス（一度だけ初期化）
+_keyword_extractor = None
+
+def get_keyword_extractor() -> KeywordExtractor:
+    """KeywordExtractorのシングルトンインスタンスを取得"""
+    global _keyword_extractor
+    if _keyword_extractor is None:
+        _keyword_extractor = KeywordExtractor()
+    return _keyword_extractor
+
+
+# ==========================================
+# MeCab ベースのチャンク作成関数
+# ==========================================
+
+def create_mecab_chunks(text: str, lang: str = "ja", max_tokens: int = 200, chunk_id_prefix: str = "chunk") -> List[Dict]:
+    """
+    MeCabを使った文境界検出によるチャンク作成
+
+    Args:
+        text: 分割対象テキスト
+        lang: 言語（"ja" or "en"）
+        max_tokens: チャンクの最大トークン数
+        chunk_id_prefix: チャンクIDのプレフィックス
+
+    Returns:
+        チャンクのリスト
+    """
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+    chunks = []
+
+    # 日本語の場合はMeCabによる文分割を試行、英語の場合は正規表現
+    if lang == "ja":
+        # 日本語文分割パターン（正規表現ベース）
+        # MeCabでの分割は重いため、正規表現で句点・疑問符・感嘆符で分割
+        sentence_pattern = r'([^。！？\n]+[。！？]|[^。！？\n]+(?:\n|$))'
+        sentences = re.findall(sentence_pattern, text)
+    else:
+        # 英語の文分割
+        sentence_pattern = r'([^.!?\n]+[.!?]|[^.!?\n]+(?:\n|$))'
+        sentences = re.findall(sentence_pattern, text)
+
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    current_chunk = ""
+    current_tokens = 0
+    chunk_idx = 0
+
+    for sentence in sentences:
+        sentence_tokens = len(tokenizer.encode(sentence))
+
+        # 文が長すぎる場合は単独でチャンクとして扱う
+        if sentence_tokens > max_tokens:
+            # 現在のチャンクがあれば保存
+            if current_chunk:
+                chunks.append({
+                    'id': f"{chunk_id_prefix}_{chunk_idx}",
+                    'text': current_chunk.strip(),
+                    'tokens': current_tokens
+                })
+                chunk_idx += 1
+                current_chunk = ""
+                current_tokens = 0
+
+            # 長い文を分割
+            words = sentence.split()
+            temp_chunk = ""
+            temp_tokens = 0
+
+            for word in words:
+                word_tokens = len(tokenizer.encode(word + " "))
+                if temp_tokens + word_tokens <= max_tokens:
+                    temp_chunk += word + " "
+                    temp_tokens += word_tokens
+                else:
+                    if temp_chunk:
+                        chunks.append({
+                            'id': f"{chunk_id_prefix}_{chunk_idx}",
+                            'text': temp_chunk.strip(),
+                            'tokens': temp_tokens
+                        })
+                        chunk_idx += 1
+                    temp_chunk = word + " "
+                    temp_tokens = word_tokens
+
+            if temp_chunk:
+                chunks.append({
+                    'id': f"{chunk_id_prefix}_{chunk_idx}",
+                    'text': temp_chunk.strip(),
+                    'tokens': temp_tokens
+                })
+                chunk_idx += 1
+
+        # 追加可能な場合は現在のチャンクに追加
+        elif current_tokens + sentence_tokens <= max_tokens:
+            current_chunk += sentence + " "
+            current_tokens += sentence_tokens
+        else:
+            # 現在のチャンクを保存して新規開始
+            if current_chunk:
+                chunks.append({
+                    'id': f"{chunk_id_prefix}_{chunk_idx}",
+                    'text': current_chunk.strip(),
+                    'tokens': current_tokens
+                })
+                chunk_idx += 1
+
+            current_chunk = sentence + " "
+            current_tokens = sentence_tokens
+
+    # 最後のチャンクを保存
+    if current_chunk:
+        chunks.append({
+            'id': f"{chunk_id_prefix}_{chunk_idx}",
+            'text': current_chunk.strip(),
+            'tokens': current_tokens
+        })
+
+    return chunks
 
 
 # ==========================================
@@ -173,7 +428,7 @@ def load_preprocessed_data(dataset_type: str) -> pd.DataFrame:
 
 
 def create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Optional[int] = None) -> List[Dict]:
-    """DataFrameから文書チャンクを作成
+    """DataFrameから文書チャンクを作成（MeCabベース）
     Args:
         df: データフレーム
         dataset_type: データセットタイプ
@@ -185,14 +440,14 @@ def create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Option
     text_col = config["text_column"]
     title_col = config.get("title_column")
     chunk_size = config["chunk_size"]
+    lang = config["lang"]
 
-    analyzer = SemanticCoverage()
     all_chunks = []
 
     # 処理する文書数を制限
     docs_to_process = df.head(max_docs) if max_docs else df
 
-    logger.info(f"チャンク作成開始: {len(docs_to_process)}件の文書")
+    logger.info(f"チャンク作成開始: {len(docs_to_process)}件の文書（MeCabベース）")
 
     for idx, row in docs_to_process.iterrows():
         # row[text_col]はSeriesやオブジェクトの可能性があるため、明示的にstrに変換
@@ -204,11 +459,15 @@ def create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Option
         else:
             doc_id = f"{dataset_type}_{idx}"
 
-        # SemanticCoverageを使用してチャンク作成
-        # 注: create_semantic_chunksはmax_tokensパラメータを持たないため、
-        # 内部のハードコード値(200トークン)が使用される
+        # MeCabベースのチャンク作成を使用
         try:
-            chunks = analyzer.create_semantic_chunks(text, verbose=False)
+            chunk_id_prefix = f"{doc_id}_chunk"
+            chunks = create_mecab_chunks(
+                text=text,
+                lang=lang,
+                max_tokens=chunk_size,
+                chunk_id_prefix=chunk_id_prefix
+            )
 
             # 各チャンクにメタデータを追加
             for i, chunk in enumerate(chunks):
@@ -222,7 +481,7 @@ def create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Option
             logger.warning(f"チャンク作成エラー (doc {idx}): {e}")
             continue
 
-    logger.info(f"チャンク作成完了: {len(all_chunks)}個のチャンク")
+    logger.info(f"チャンク作成完了: {len(all_chunks)}個のチャンク（MeCabベース）")
     return all_chunks
 
 
@@ -290,7 +549,7 @@ def merge_small_chunks(chunks: List[Dict], min_tokens: int = 150, max_tokens: in
 # ==========================================
 
 def determine_qa_count(chunk: Dict, config: Dict) -> int:
-    """チャンクに最適なQ/A数を決定
+    """チャンクに最適なQ/A数を決定（改善版：動的調整）
     Args:
         chunk: チャンクデータ
         config: データセット設定
@@ -298,19 +557,29 @@ def determine_qa_count(chunk: Dict, config: Dict) -> int:
         Q/Aペア数
     """
     base_count = config["qa_per_chunk"]
-
-    # トークン数に基づく調整
     tokenizer = tiktoken.get_encoding("cl100k_base")
     token_count = len(tokenizer.encode(chunk['text']))
 
+    # チャンク位置を考慮（文書後半の補正）
+    chunk_position = chunk.get('chunk_idx', 0)
+
+    # トークン数に基づく基本Q&A数決定（改善版）
     if token_count < 50:
-        return min(base_count, 1)
+        qa_count = 2  # 旧: 1 → 新: 2（短いチャンクでも最低2個）
     elif token_count < 100:
-        return min(base_count, 2)
+        qa_count = 3  # 旧: 2 → 新: 3（Shortチャンク強化）
     elif token_count < 200:
-        return base_count
+        qa_count = base_count + 1  # Mediumは+1
+    elif token_count < 300:
+        qa_count = base_count + 2  # Longチャンクは+2
     else:
-        return min(base_count + 1, 5)
+        qa_count = base_count + 3  # 超長文は+3
+
+    # 文書後半の位置バイアス補正（6番目以降のチャンクは+1）
+    if isinstance(chunk_position, int) and chunk_position >= 5:
+        qa_count += 1
+
+    return min(qa_count, 8)  # 上限を8に設定
 
 
 def generate_qa_pairs_for_batch(
@@ -1076,7 +1345,7 @@ def save_results(
     qa_pairs: List[Dict],
     coverage_results: Dict,
     dataset_type: str,
-    output_dir: str = "qa_output"
+    output_dir: str = "qa_output/a02"
 ) -> Dict[str, str]:
     """結果をファイルに保存
     Args:
@@ -1088,7 +1357,7 @@ def save_results(
         保存したファイルパス
     """
     output_path = Path(output_dir)
-    output_path.mkdir(exist_ok=True)
+    output_path.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -1174,7 +1443,7 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default="qa_output",
+        default="qa_output/a02",
         help="出力ディレクトリ"
     )
     parser.add_argument(

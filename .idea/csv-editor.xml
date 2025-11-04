@@ -17,14 +17,14 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/qa_output/a02_qa_pairs_cc_news.csv">
+        <entry key="/qa_output/a02/qa_pairs_cc_news_20251104_023724.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
             </Attribute>
           </value>
         </entry>
-        <entry key="/qa_output/a03/qa_pairs_cc_news_20251020_211635.csv">
+        <entry key="/qa_output/a02_qa_pairs_cc_news.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
@@ -52,20 +52,6 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/qa_output/a10/keywords_cc_news_20251020_212502.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/qa_output/a10/qa_templates_cc_news_20251020_212502.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="/qa_output/a10_qa_pairs_cc_news.csv">
           <value>
             <Attribute>
@@ -73,7 +59,7 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/qa_output/qa_pairs_cc_news_20251022_140325.csv">
+        <entry key="/qa_output/qa_pairs_cc_news_20251104_015532.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

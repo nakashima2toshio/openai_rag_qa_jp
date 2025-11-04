@@ -238,7 +238,7 @@ def main():
     print("\n🎉 サーバー起動完了!")
     print("\n📚 利用可能なコマンド:")
     print("  データ登録: python qdrant_data_loader.py --recreate")
-    print("  詳細登録: python a30_qdrant_registration.py --recreate")
+    print("  詳細登録: python a42_qdrant_registration.py --recreate")
     if ui_process:
         print("  検索UI: http://localhost:8504")
     print("\n⏸️ サーバーを停止するには Ctrl+C を押してください...")

@@ -9,7 +9,16 @@ a40_show_qdrant_data.py - Qdrantデータ表示ツール
 ✅ Qdrantサーバーの接続状態チェック
 ✅ コレクション一覧の表示
 ✅ コレクション詳細情報の表示
+✅ データソース情報の表示（qa_output/ディレクトリーとの対応）
 ✅ ポイントデータの表示とエクスポート（CSV, JSON）
+
+【データソース機能】
+各コレクションがqa_output/ディレクトリーのどのCSVファイルから
+構成されているかを自動的に分析して表示します：
+- ソースファイル名
+- 推定データ件数と割合
+- 生成方法（a02_make_qa, a03_coverage, a10_hybridなど）
+- ドメイン情報
 """
 
 import streamlit as st
@@ -184,10 +193,10 @@ class QdrantDataFetcher:
         """コレクションの詳細情報を取得"""
         try:
             collection_info = self.client.get_collection(collection_name)
-            
+
             # configの構造を安全にアクセス
             vector_config = collection_info.config.params.vectors
-            
+
             # vector_configの型を判定して適切に処理
             if hasattr(vector_config, 'size'):
                 # 単一ベクトル設定
@@ -205,7 +214,7 @@ class QdrantDataFetcher:
             else:
                 vector_size = 'N/A'
                 distance = 'N/A'
-            
+
             return {
                 "vectors_count": collection_info.vectors_count,
                 "points_count": collection_info.points_count,
@@ -218,6 +227,107 @@ class QdrantDataFetcher:
             }
         except Exception as e:
             return {"error": str(e)}
+
+    def fetch_collection_source_info(self, collection_name: str, sample_size: int = 200) -> Dict[str, Any]:
+        """コレクションのデータソース情報を取得"""
+        try:
+            collection_info = self.client.get_collection(collection_name)
+            total_points = collection_info.points_count
+
+            # サンプルポイントを取得
+            points_result = self.client.scroll(
+                collection_name=collection_name,
+                limit=min(sample_size, total_points),
+                with_payload=True,
+                with_vectors=False
+            )
+
+            points = points_result[0]
+
+            if not points:
+                return {
+                    "total_points": total_points,
+                    "sources": {},
+                    "sample_size": 0
+                }
+
+            # sourceとgeneration_methodを集計
+            source_stats = {}
+            for point in points:
+                if point.payload:
+                    source = point.payload.get('source', 'unknown')
+                    method = point.payload.get('generation_method', 'unknown')
+                    domain = point.payload.get('domain', 'unknown')
+
+                    if source not in source_stats:
+                        source_stats[source] = {
+                            'sample_count': 0,
+                            'method': method,
+                            'domain': domain
+                        }
+                    source_stats[source]['sample_count'] += 1
+
+            # 全体のデータ数を推定
+            sample_total = len(points)
+            for source, stats in source_stats.items():
+                ratio = stats['sample_count'] / sample_total
+                stats['estimated_total'] = int(total_points * ratio)
+                stats['percentage'] = ratio * 100
+
+            return {
+                "total_points": total_points,
+                "sources": source_stats,
+                "sample_size": sample_total
+            }
+
+        except Exception as e:
+            return {"error": str(e)}
+
+# ===================================================================
+# ヘルパー関数
+# ===================================================================
+def display_source_info(source_info: Dict[str, Any]) -> None:
+    """データソース情報を表示"""
+    if "error" in source_info:
+        st.error(f"ソース情報取得エラー: {source_info['error']}")
+        return
+
+    total_points = source_info.get("total_points", 0)
+    sources = source_info.get("sources", {})
+    sample_size = source_info.get("sample_size", 0)
+
+    if not sources:
+        st.info("📂 データソース情報が見つかりません")
+        return
+
+    # ソース情報を表示
+    st.markdown("### 📂 データソース構成 (qa_output/ディレクトリー)")
+    st.caption(f"サンプル{sample_size}件から推定 | 総ポイント数: {total_points:,}件")
+
+    # テーブル形式で表示
+    source_data = []
+    for source, stats in sorted(sources.items()):
+        source_data.append({
+            "ソースファイル": source,
+            "推定件数": f"{stats['estimated_total']:,}件",
+            "割合": f"{stats['percentage']:.1f}%",
+            "生成方法": stats['method'],
+            "ドメイン": stats['domain']
+        })
+
+    df_sources = pd.DataFrame(source_data)
+    st.dataframe(df_sources, use_container_width=True, hide_index=True)
+
+    # 詳細情報（折りたたみ可能）
+    with st.expander("📊 詳細情報", expanded=False):
+        for source, stats in sorted(sources.items()):
+            st.markdown(f"**{source}**")
+            st.markdown(f"- パス: `qa_output/{source}`")
+            st.markdown(f"- 推定データ数: {stats['estimated_total']:,}件 ({stats['percentage']:.1f}%)")
+            st.markdown(f"- 生成方法: `{stats['method']}`")
+            st.markdown(f"- ドメイン: `{stats['domain']}`")
+            st.markdown(f"- サンプル内カウント: {stats['sample_count']}件")
+            st.divider()
 
 # ===================================================================
 # Streamlit UI
@@ -322,9 +432,21 @@ def main():
         
         if not df_collections.empty and "Collection" in df_collections.columns:
             st.dataframe(df_collections, use_container_width=True)
-            
+
             # コレクション名のリストを作成
             collection_names = df_collections["Collection"].tolist()
+
+            # ===== データソース情報の表示（メインエリア先頭） =====
+            st.divider()
+            st.subheader("📂 コレクションのデータソース情報")
+            st.caption("各コレクションがqa_output/ディレクトリーのどのファイルから構成されているかを表示します")
+
+            # 各コレクションのソース情報を表示
+            for collection_name in collection_names:
+                with st.expander(f"📦 {collection_name}", expanded=(collection_name == "qa_corpus")):
+                    with st.spinner(f"{collection_name} のソース情報を取得中..."):
+                        source_info = data_fetcher.fetch_collection_source_info(collection_name)
+                        display_source_info(source_info)
             
             # エクスポート機能
             col1, col2 = st.columns(2)

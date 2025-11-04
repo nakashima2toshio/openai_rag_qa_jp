@@ -1,6 +1,6 @@
 # a34_rag_search_cloud_vs.py 技術仕様書
 
-最終更新日: 2024-10-29
+最終更新日: 2025-10-31
 
 ## 概要
 
@@ -9,9 +9,59 @@ OpenAI Vector StoreとResponses APIを使用した最新RAG検索Streamlitアプ
 ## ファイル情報
 
 - **ファイル名**: a34_rag_search_cloud_vs.py
-- **行数**: 1458行
+- **行数**: 1470行
 - **実行方法**: `streamlit run a34_rag_search_cloud_vs.py --server.port=8503`
 - **主要機能**: OpenAI Vector Store検索、動的ID管理、日本語回答生成
+
+## 最新改修内容（2025-10-31）
+
+### 1. Vector Store表示順序の修正
+
+**問題点**:
+- 左ペインのVector Store選択で、`CC News Q&A (LLM)`が先頭に表示されない
+- `fetch_latest_vector_stores()`メソッドがAPI取得順で辞書を構築していた
+
+**修正内容** (L244-259):
+```python
+# 最終的なapi_storesを構築（DEFAULT_VECTOR_STORESの順序を維持）
+# まずDEFAULT_VECTOR_STORESの順序でソート
+default_order = list(self.DEFAULT_VECTOR_STORES.keys())
+
+# DEFAULT_VECTOR_STORESに含まれるものを先に追加
+for display_name in default_order:
+    if display_name in store_candidates:
+        candidate = store_candidates[display_name]
+        api_stores[display_name] = candidate['id']
+
+# DEFAULT_VECTOR_STORESに含まれない新規Storeを後に追加
+for display_name, candidate in store_candidates.items():
+    if display_name not in api_stores:
+        api_stores[display_name] = candidate['id']
+```
+
+**効果**:
+- `DEFAULT_VECTOR_STORES`の定義順序を維持
+- `CC News Q&A (LLM)`が必ず先頭に表示される
+- 新規Vector Storeは後続に追加
+
+### 2. Vector Store名称の変更
+
+**変更箇所**:
+1. **DEFAULT_VECTOR_STORES** (L83)
+   - 変更前: `"CC News Q&A (Basic)"`
+   - 変更後: `"CC News Q&A (LLM)"`
+
+2. **DISPLAY_NAME_MAPPING** (L113)
+   - 変更前: `"CC News Q&A - Basic Generation (a02_make_qa)": "CC News Q&A (Basic)"`
+   - 変更後: `"CC News Q&A - Basic Generation (a02_make_qa)": "CC News Q&A (LLM)"`
+
+3. **store_question_mapping** (L770)
+   - 変更前: `"CC News Q&A (Basic)": test_questions_cc_news_en`
+   - 変更後: `"CC News Q&A (LLM)": test_questions_cc_news_en`
+
+**理由**:
+- "Basic"より"LLM"の方が、LLMを使用した生成方式であることが明確
+- 他の生成方式（Coverage, Hybrid）との対比が分かりやすい
 
 ## 主要機能
 
@@ -281,11 +331,11 @@ graph TD
 }
 ```
 
-### デフォルトVector Store設定 (L82-92)
+### デフォルトVector Store設定 (L82-92) - 2025-10-31更新
 
 ```python
 DEFAULT_VECTOR_STORES = {
-    "CC News Q&A (Basic)": "vs_cc_news_basic_placeholder",
+    "CC News Q&A (LLM)": "vs_cc_news_basic_placeholder",  # 変更: Basic → LLM
     "CC News Q&A (Coverage)": "vs_cc_news_coverage_placeholder",
     "CC News Q&A (Hybrid)": "vs_cc_news_hybrid_placeholder",
     "Customer Support FAQ": "vs_68c94da49c80819189dd42d6e941c4b5",
@@ -296,6 +346,10 @@ DEFAULT_VECTOR_STORES = {
     "Unified Knowledge Base": "vs_unified_placeholder"
 }
 ```
+
+**注意**:
+- `CC News Q&A (LLM)`が**先頭**に配置されており、左ペインでも先頭に表示される
+- 順序は`fetch_latest_vector_stores()`メソッドで維持される
 
 ## テスト質問 (L385-433)
 
@@ -671,5 +725,21 @@ a34_rag_search_cloud_vs.pyは、OpenAI Vector StoreとResponses APIを活用し�
 - 研究・開発環境でのRAGテスト
 
 ---
-最終更新: 2024-10-29
+最終更新: 2025-10-31
 作成者: OpenAI RAG Q/A JP Development Team
+
+## 改修履歴
+
+### 2025-10-31
+1. **Vector Store表示順序の修正**
+   - `fetch_latest_vector_stores()`メソッドで`DEFAULT_VECTOR_STORES`の順序を維持するように改修
+   - `CC News Q&A (LLM)`が左ペインの先頭に表示されるように修正
+
+2. **Vector Store名称の変更**
+   - `CC News Q&A (Basic)` → `CC News Q&A (LLM)`に名称変更
+   - 3箇所（DEFAULT_VECTOR_STORES、DISPLAY_NAME_MAPPING、store_question_mapping）を更新
+
+### 2024-10-29
+- 初版作成
+- 重複ID問題の解決機能実装
+- 動的Vector Store管理機能実装
