@@ -1,35 +1,151 @@
-# a03_rag_qa_coverage_improved.py - Q&Aペア生成方式の詳細解説
-
-### 主要なポイント:
-
-1. 5つのQ&A生成タイプ
-- Comprehensive（包括的）
-- Factual Detailed（事実詳細）
-- Contextual（文脈的）
-- Keyword-Based（キーワードベース）
-- Thematic（テーマ的）
-2. ゼロLLMアプローチ
-- LLM API呼び出し0回
-- ルールベース・テンプレート駆動
-- 埋め込み生成のみAPIを使用
-3. 特徴的な技術
-- MeCab統合による日本語処理
-- 自動言語検出
-- バッチ処理最適化（最大2048埋め込み/バッチ）
-4. 実績
-- カバレージ92.8%達成
-- コスト$0.001未満
-- 4,478 Q&Aペア生成
+# a03_rag_qa_coverage_improved.py - セマンティックカバレッジ分析とQ/A生成システム（改良版）
 
 ## 概要
 
-`a03_rag_qa_coverage_improved.py`は、**ルールベース・テンプレート駆動型**のQ&Aペア生成システムです。LLM APIを使用せずに高カバレージを実現する革新的なアプローチを採用しています。
+`a03_rag_qa_coverage_improved.py`は、文書から高カバレッジのQ&Aペアを自動生成するシステムです。ルールベースとテンプレートベースの手法を組み合わせ、99.7%という極めて高いカバレッジ率を達成します。
 
-### 主要な成果
-- **カバレージ率**: 92.8%（閾値0.6）
-- **生成Q&A数**: 4,478ペア
-- **処理効率**: LLM API呼び出し0回（埋め込み生成のみ）
-- **コスト**: 極めて低コスト（約$0.001未満）
+### 主要成果
+- **カバレッジ率**: 99.7%（閾値0.52）
+- **生成Q&A数**: 2,139ペア（150文書、609チャンク）
+- **実行時間**: 約2分
+- **API呼び出し**: 5回（埋め込みのみ、Q&A生成はルールベース）
+- **コスト**: $0.00076
+
+## システムアーキテクチャ（処理フロー図）
+
+```mermaid
+flowchart TD
+    Start([開始]) --> CheckEnv[環境チェック]
+    CheckEnv --> CheckAPI{APIキー確認}
+    CheckAPI -->|設定済み| LoadInput[入力データ読込]
+    CheckAPI -->|未設定| DemoMode[デモモード]
+
+    LoadInput --> DetectFormat{ファイル形式判定}
+    DetectFormat -->|CSV| LoadCSV[CSV読込]
+    DetectFormat -->|Text| LoadText[テキスト読込]
+    DemoMode --> GenerateDemo[デモテキスト生成]
+
+    LoadCSV --> ExtractText[テキスト抽出]
+    LoadText --> CombineText[テキスト結合]
+    GenerateDemo --> CombineText
+    ExtractText --> CombineText
+
+    CombineText --> CreateChunks[チャンク作成]
+    CreateChunks --> SemanticChunk[セマンティックチャンキング]
+    SemanticChunk --> ChunkLimit{チャンク数判定}
+
+    ChunkLimit -->|多い| SampleChunks[均等サンプリング]
+    ChunkLimit -->|適切| ProcessAll[全チャンク処理]
+
+    SampleChunks --> InitExtractor[キーワード抽出器初期化]
+    ProcessAll --> InitExtractor
+
+    InitExtractor --> MecabCheck{MeCab利用可能?}
+    MecabCheck -->|Yes| MecabExtractor[MeCab抽出器]
+    MecabCheck -->|No| RegexExtractor[正規表現抽出器]
+
+    MecabExtractor --> QAGenLoop[Q&A生成ループ]
+    RegexExtractor --> QAGenLoop
+
+    QAGenLoop --> LangDetect{言語判定}
+    LangDetect -->|英語| EnglishQA[英語Q&A生成]
+    LangDetect -->|日本語| JapaneseQA[日本語Q&A生成]
+
+    EnglishQA --> ComprehensiveQA[包括的Q&A]
+    JapaneseQA --> ComprehensiveQA
+
+    ComprehensiveQA --> DetailedQA[詳細Q&A]
+    DetailedQA --> ContextualQA[文脈Q&A]
+    ContextualQA --> KeywordQA[キーワードQ&A]
+    KeywordQA --> ThematicQA[テーマQ&A]
+
+    ThematicQA --> ChunkNext{次チャンク?}
+    ChunkNext -->|Yes| QAGenLoop
+    ChunkNext -->|No| RemoveDup[重複除去]
+
+    RemoveDup --> CheckCount{Q&A数確認}
+    CheckCount -->|不足| AdditionalGen[追加生成]
+    CheckCount -->|十分| CoverageAnalysis
+    AdditionalGen --> CoverageAnalysis
+
+    CoverageAnalysis --> GenEmbedDoc[文書埋め込み生成]
+    GenEmbedDoc --> BatchEmbed1[バッチ埋め込み1]
+
+    GenEmbedDoc --> GenEmbedQA[Q&A埋め込み生成]
+    GenEmbedQA --> BatchCheck{バッチサイズ確認}
+
+    BatchCheck -->|小| SingleBatch[単一バッチ処理]
+    BatchCheck -->|大| MultiBatch[複数バッチ処理]
+
+    SingleBatch --> BatchEmbed2[バッチ埋め込み2]
+    MultiBatch --> BatchEmbed3[分割バッチ埋め込み]
+
+    BatchEmbed1 --> CalcSimilarity[類似度計算]
+    BatchEmbed2 --> CalcSimilarity
+    BatchEmbed3 --> CalcSimilarity
+
+    CalcSimilarity --> CosineSim[コサイン類似度]
+    CosineSim --> BuildMatrix[カバレッジ行列構築]
+    BuildMatrix --> MaxSim[最大類似度抽出]
+
+    MaxSim --> ThresholdCheck{閾値判定}
+    ThresholdCheck -->|以上| MarkCovered[カバー済みマーク]
+    ThresholdCheck -->|未満| MarkUncovered[未カバーマーク]
+
+    MarkCovered --> CalcStats[統計計算]
+    MarkUncovered --> CalcStats
+
+    CalcStats --> CovRate[カバレッジ率]
+    CalcStats --> CovDist[カバレッジ分布]
+    CalcStats --> AvgSim[平均類似度]
+
+    CovRate --> Results[結果集約]
+    CovDist --> Results
+    AvgSim --> Results
+
+    Results --> CheckThreshold{目標達成?}
+    CheckThreshold -->|未達成| ShowWarning[改善提案表示]
+    CheckThreshold -->|達成| SaveResults[結果保存]
+    ShowWarning --> SaveResults
+
+    SaveResults --> SaveJSON[JSON保存]
+    SaveResults --> SaveCSV[CSV保存]
+    SaveResults --> SaveCoverage[カバレッジ保存]
+    SaveResults --> SaveSummary[サマリー保存]
+
+    SaveJSON --> ShowStats[統計表示]
+    SaveCSV --> ShowStats
+    SaveCoverage --> ShowStats
+    SaveSummary --> ShowStats
+
+    ShowStats --> End([終了])
+```
+
+## 主要機能
+
+### 1. **高カバレッジQ&A生成戦略**
+   - 包括的Q&A: チャンク全体をカバーする質問
+   - 詳細Q&A: 文ごとの具体的な質問
+   - 文脈Q&A: 前後の文脈を含む質問
+   - キーワードQ&A: 重要語句に焦点を当てた質問
+   - テーマQ&A: チャンクの主要テーマに関する質問
+
+### 2. **インテリジェントなキーワード抽出**
+   - MeCabによる日本語複合名詞抽出
+   - 正規表現フォールバック（MeCab不在時）
+   - ストップワード除去
+   - 頻度ベースの重要度判定
+
+### 3. **効率的なバッチ処理**
+   - 埋め込み生成の一括処理（最大2048個/バッチ）
+   - API呼び出し回数の最小化
+   - メモリ効率的な分割処理
+
+### 4. **多段階カバレッジ分析**
+   - 高カバレッジ（≥0.7）
+   - 中カバレッジ（0.5-0.7）
+   - 低カバレッジ（<0.5）
+   - チャンクごとの最大類似度追跡
 
 ---
 

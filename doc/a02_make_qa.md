@@ -1,47 +1,172 @@
-# a02_make_qa.py - Q&Aペア生成方式の詳細解説
-
-### 主要なポイント:
-
-1. LLMベースアプローチ
-- GPT-5-mini使用で高品質な自然言語Q&A生成
-- Pydanticモデルによる構造化出力
-- 4つの質問タイプ（fact、reason、comparison、application）
-2. 動的Q&A数調整メカニズム
-- チャンクのトークン数に応じて2〜8個のQ&A生成
-- 文書後半の位置バイアス補正（+1個追加）
-- qa_per_chunkを3→5に改善
-3. MeCab統合
-- 日本語文書の高精度文境界検出
-- 形態素解析によるキーワード抽出
-- 自動フォールバック（正規表現）対応
-4. バッチ処理戦略
-- 3-5チャンクを同時処理
-- API呼び出し数を80%削減
-- チャンク統合による品質向上
-5. 多段階カバレージ分析
-- Strict (0.80): 24.5%
-- Standard (0.70): 70.6%
-- Lenient (0.60): 94.0%
-6. 実績
-- 4,646 Q&Aペア生成
-- カバレージ70.6%（Standard閾値）
-- API呼び出し約265回
+# a02_make_qa.py - Q&Aペア自動生成システム
 
 ## 概要
 
-`a02_make_qa.py`は、**LLMベースの高品質Q&Aペア生成システム**です。多段階カバレージ分析と動的Q&A数調整により、文書全体を網羅的にカバーするQ&Aペアを生成します。
+`a02_make_qa.py`は、preprocessedされた文書データから自動的にQ&A（質問・回答）ペアを生成するシステムです。OpenAI APIを活用して高品質な学習用Q&Aペアを生成し、生成されたQ&Aペアの文書カバレージを分析します。
 
-### 主要な成果
-- **カバレージ率**: 70.6%（Standard閾値0.7）
-- **生成Q&A数**: 4,646ペア
-- **チャンク数**: 1,325個
-- **多段階分析**: Strict(24.5%)、Standard(70.6%)、Lenient(94.0%)
+## システムアーキテクチャ（処理フロー図）
 
-### 主要な特徴
-- **動的Q&A数調整**: チャンクのトークン数と位置に応じてQ&A数を最適化
-- **バッチ処理**: 3-5チャンクを同時処理してAPI効率化
-- **チャンク統合**: 小さいチャンクを統合して品質向上
-- **多段階カバレージ分析**: 3段階の閾値で詳細評価
+```mermaid
+flowchart TD
+    Start([開始]) --> LoadData[データ読み込み]
+    LoadData --> CSV[(preprocessedファイル)]
+    CSV --> CreateChunks[チャンク作成]
+
+    CreateChunks --> MecabChunk[MeCabチャンク分割]
+    MecabChunk --> LangCheck{言語判定}
+    LangCheck -->|日本語| JaSplit[日本語文分割]
+    LangCheck -->|英語| EnSplit[英語文分割]
+
+    JaSplit --> TokenCount[トークン数計算]
+    EnSplit --> TokenCount
+
+    TokenCount --> ChunkSize{サイズ判定}
+    ChunkSize -->|適切| AddChunk[チャンク追加]
+    ChunkSize -->|大きい| SplitWords[単語分割]
+    SplitWords --> AddChunk
+
+    AddChunk --> MergeOpt{統合オプション}
+    MergeOpt -->|Yes| MergeSmall[小チャンク統合]
+    MergeOpt -->|No| GenerateQA[Q&A生成]
+
+    MergeSmall --> CheckTokens{統合可能判定}
+    CheckTokens -->|可能| MergeChunks[チャンク統合]
+    CheckTokens -->|不可| GenerateQA
+    MergeChunks --> GenerateQA
+
+    GenerateQA --> BatchCheck{バッチサイズ判定}
+    BatchCheck -->|1チャンク| SingleGen[単一チャンク処理]
+    BatchCheck -->|2-5チャンク| BatchGen[バッチ処理]
+
+    SingleGen --> GetConfig[設定取得]
+    BatchGen --> GetConfig
+
+    GetConfig --> DatasetType{データセット判定}
+    DatasetType -->|cc_news| BaseCount5[基本数5]
+    DatasetType -->|japanese_text| BaseCount2[基本数2]
+    DatasetType -->|wikipedia_ja| BaseCount3[基本数3]
+
+    BaseCount5 --> CountQA[Q&A数決定]
+    BaseCount2 --> CountQA
+    BaseCount3 --> CountQA
+
+    CountQA --> TokenAnalysis[トークン数解析]
+    TokenAnalysis --> TokenBased{トークン数判定}
+    TokenBased -->|50未満| QA2[基本2個]
+    TokenBased -->|50-100| QA3[基本3個]
+    TokenBased -->|100-200| QABase1[基本数+1]
+    TokenBased -->|200-300| QABase2[基本数+2]
+    TokenBased -->|300以上| QABase3[基本数+3]
+
+    QA2 --> ChunkPos[チャンク位置確認]
+    QA3 --> ChunkPos
+    QABase1 --> ChunkPos
+    QABase2 --> ChunkPos
+    QABase3 --> ChunkPos
+
+    ChunkPos --> PosCheck{位置補正判定}
+    PosCheck -->|6番目以降| AddOne[+1個追加]
+    PosCheck -->|5番目以前| FinalCount[最終Q&A数確定]
+    AddOne --> FinalCount
+
+    FinalCount --> MaxCheck{上限チェック}
+    MaxCheck -->|8以下| PrepPrompt[プロンプト準備]
+    MaxCheck -->|8超過| Cap8[8個に制限]
+    Cap8 --> PrepPrompt
+
+    PrepPrompt --> LangPrompt{言語別プロンプト}
+    LangPrompt -->|日本語| JaPrompt[日本語プロンプト作成]
+    LangPrompt -->|英語| EnPrompt[英語プロンプト作成]
+
+    JaPrompt --> QTypes[質問タイプ指定]
+    EnPrompt --> QTypes
+
+    QTypes --> TypeList[fact/reason/comparison/application]
+    TypeList --> BuildPrompt[プロンプト構築]
+
+    BuildPrompt --> BatchMerge{バッチ統合}
+    BatchMerge -->|単一| SinglePrompt[単一プロンプト]
+    BatchMerge -->|複数| MergedPrompt[統合プロンプト]
+
+    SinglePrompt --> CallAPI[OpenAI API呼び出し]
+    MergedPrompt --> CallAPI
+
+    CallAPI --> ResponseCheck{レスポンス確認}
+    ResponseCheck -->|成功| ParseResp[Pydantic解析]
+    ResponseCheck -->|エラー| RetryLogic{リトライ判定}
+
+    RetryLogic -->|リトライ可| WaitBackoff[指数バックオフ待機]
+    RetryLogic -->|リトライ不可| Fallback[個別処理フォールバック]
+    WaitBackoff --> CallAPI
+    Fallback --> SingleGen
+
+    ParseResp --> ValidateQA[Q&A検証]
+    ValidateQA --> AssignMeta[メタデータ付与]
+    AssignMeta --> StoreQA[Q&Aペア保存]
+
+    StoreQA --> CovCheck{カバレージ分析}
+    CovCheck -->|Yes| AnalyzeCov[カバレージ分析実行]
+    CovCheck -->|No| SaveFiles[結果保存]
+
+    AnalyzeCov --> GenEmbed[埋め込み生成]
+    GenEmbed --> DocEmbed[文書埋め込み]
+    GenEmbed --> QAEmbed[Q&A埋め込み]
+
+    DocEmbed --> CalcMatrix[行列計算]
+    QAEmbed --> CalcMatrix
+
+    CalcMatrix --> MultiThresh[多段階評価]
+    MultiThresh --> Strict[Strict評価]
+    MultiThresh --> Standard[Standard評価]
+    MultiThresh --> Lenient[Lenient評価]
+
+    CalcMatrix --> ChunkAnal[特性分析]
+    ChunkAnal --> ByLength[長さ別分析]
+    ChunkAnal --> ByPosition[位置別分析]
+
+    ByLength --> Insights[インサイト]
+    ByPosition --> Insights
+    Strict --> CovResults[カバレージ結果]
+    Standard --> CovResults
+    Lenient --> CovResults
+    Insights --> CovResults
+
+    CovResults --> SaveFiles
+
+    SaveFiles --> JSONFile[(JSON出力)]
+    SaveFiles --> CSVFile[(CSV出力)]
+    SaveFiles --> CovFile[(カバレージ)]
+    SaveFiles --> SummaryFile[(サマリー)]
+
+    JSONFile --> End([終了])
+    CSVFile --> End
+    CovFile --> End
+    SummaryFile --> End
+```
+
+### 主要機能
+
+1. **マルチデータセット対応**
+   - CC-News英語ニュース
+   - 日本語Webテキスト
+   - Wikipedia日本語版
+
+2. **インテリジェントな文書処理**
+   - MeCabベースの文境界検出（日本語）
+   - トークン数に基づく適切なサイズへの分割
+   - 小さいチャンクの自動統合機能
+
+3. **高効率Q&Aペア生成**
+   - OpenAI APIを使用した自動生成
+   - バッチ処理対応（3-5チャンクを同時処理）
+   - 動的なQ&A数調整（チャンクサイズ・位置に基づく）
+   - 4種類の質問タイプ（fact/reason/comparison/application）
+
+4. **詳細なカバレージ分析**
+   - 生成Q&Aペアの文書カバー率計算
+   - 多段階閾値評価（strict/standard/lenient）
+   - チャンク特性別分析（長さ別・位置別）
+   - データセット別の最適閾値設定
 
 ---
 

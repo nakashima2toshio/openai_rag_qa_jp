@@ -1,14 +1,150 @@
-# a10_qa_optimized_hybrid_batch.py ドキュメント
+# a10_qa_optimized_hybrid_batch.py - バッチ処理版ハイブリッドQ&A生成システム
 
 ## 概要
 
-バッチ処理に最適化されたハイブリッドQ&A生成システム。複数文書を一度のAPI呼び出しで処理し、処理速度とコスト効率を大幅に改善。**品質重視モード（2024年11月追加）により、カバレージ95%を目指す高品質なQ&A生成も可能**。
+`a10_qa_optimized_hybrid_batch.py`は、大規模バッチ処理に最適化されたQ&A生成システムです。複数文書を一度のAPI呼び出しで処理し、処理速度とコスト効率を大幅に改善。品質重視モードにより、カバレージ95%を目指す高品質なQ&A生成も可能です。
 
-## 更新履歴
+### 主要成果
+- **API削減率**: 95.4%（68回 vs 従来1,491回）
+- **処理速度**: 0.16文書/秒
+- **総コスト**: $0.1581（497文書）
+- **カバレージ**: 74.6%（通常）/ 95%（品質モード）
 
-- **2024年11月**: 品質重視モード追加（カバレージ95%目標）
-- **2024年10月**: バッチ処理最適化（API削減95.4%）
-- **2024年9月**: MeCab統合（日本語処理精度向上）
+## システムアーキテクチャ（処理フロー図）
+
+```mermaid
+flowchart TD
+    Start([開始]) --> LoadConfig[設定読込]
+    LoadConfig --> CheckMode{処理モード判定}
+
+    CheckMode -->|通常| NormalConfig[通常設定]
+    CheckMode -->|品質重視| QualityConfig[品質設定]
+    CheckMode -->|比較| CompareMode[比較実行]
+
+    NormalConfig --> LoadData[データ読込]
+    QualityConfig --> LoadData
+
+    LoadData --> DetectDataset{データセット判定}
+    DetectDataset -->|cc_news| EnConfig[英語設定]
+    DetectDataset -->|japanese_text| JaConfig[日本語設定]
+    DetectDataset -->|wikipedia_ja| JaAcademicConfig[日本語学術設定]
+
+    EnConfig --> CheckMeCab{MeCab確認}
+    JaConfig --> CheckMeCab
+    JaAcademicConfig --> CheckMeCab
+
+    CheckMeCab -->|利用可能| MeCabChunking[MeCab文境界検出]
+    CheckMeCab -->|利用不可| RegexChunking[正規表現分割]
+
+    MeCabChunking --> CreateBatches[バッチ作成]
+    RegexChunking --> CreateBatches
+
+    CreateBatches --> BatchSize{バッチサイズ}
+    BatchSize -->|10文書| Batch10[10文書バッチ]
+    BatchSize -->|20文書| Batch20[20文書バッチ]
+    BatchSize -->|カスタム| BatchCustom[カスタムバッチ]
+
+    Batch10 --> ProcessBatch[バッチ処理開始]
+    Batch20 --> ProcessBatch
+    BatchCustom --> ProcessBatch
+
+    ProcessBatch --> Phase1[Phase1: チャンク作成]
+    Phase1 --> SemanticChunking[セマンティックチャンキング]
+    SemanticChunking --> AllChunks[全チャンク収集]
+
+    AllChunks --> Phase2[Phase2: LLM処理]
+    Phase2 --> DetectDocType{文書タイプ判定}
+
+    DetectDocType -->|news| NewsPrompt[ニュース用プロンプト]
+    DetectDocType -->|academic| AcademicPrompt[学術用プロンプト]
+    DetectDocType -->|auto| AutoPrompt[自動プロンプト]
+
+    NewsPrompt --> LLMBatch[バッチLLM呼出]
+    AcademicPrompt --> LLMBatch
+    AutoPrompt --> LLMBatch
+
+    LLMBatch --> LLMQuality{品質チェック}
+    LLMQuality -->|成功| LLMQAs[LLM Q&A]
+    LLMQuality -->|失敗| RuleFallback[ルールベース代替]
+
+    LLMQAs --> RuleSupport[ルールベース補完]
+    RuleFallback --> RuleSupport
+
+    RuleSupport --> KeywordQA[キーワードQ&A]
+    KeywordQA --> SummaryQA[サマリーQ&A]
+    SummaryQA --> ContextQA[文脈Q&A]
+
+    ContextQA --> Phase3[Phase3: 埋込生成]
+    Phase3 --> EmbedBatchSize{埋込バッチサイズ}
+
+    EmbedBatchSize -->|100| Embed100[100個バッチ]
+    EmbedBatchSize -->|150| Embed150[150個バッチ]
+    EmbedBatchSize -->|2048| EmbedMax[最大バッチ]
+
+    Embed100 --> ChunkEmbed[チャンク埋込]
+    Embed150 --> ChunkEmbed
+    EmbedMax --> ChunkEmbed
+
+    ChunkEmbed --> QAEmbed[Q&A埋込]
+    QAEmbed --> StreamProcess{ストリーミング}
+
+    StreamProcess -->|Yes| StreamEmbed[ストリーム処理]
+    StreamProcess -->|No| BulkEmbed[一括処理]
+
+    StreamEmbed --> Phase4[Phase4: カバレッジ]
+    BulkEmbed --> Phase4
+
+    Phase4 --> CalcSimilarity[類似度計算]
+    CalcSimilarity --> CosineSim[コサイン類似度]
+    CosineSim --> CoverageMatrix[カバレッジ行列]
+
+    CoverageMatrix --> CoverageCheck{カバレッジ判定}
+    CoverageCheck -->|目標達成| FinalizeBatch[バッチ完了]
+    CoverageCheck -->|未達成| AdditionalGen[追加生成]
+
+    AdditionalGen --> TargetCheck{目標確認}
+    TargetCheck -->|95%目標| MoreQA[Q&A追加]
+    TargetCheck -->|通常| FinalizeBatch
+
+    MoreQA --> Phase2
+
+    FinalizeBatch --> NextBatch{次バッチ?}
+    NextBatch -->|Yes| ProcessBatch
+    NextBatch -->|No| Aggregate[結果集約]
+
+    Aggregate --> CalcStats[統計計算]
+    CalcStats --> APIStats[API統計]
+    APIStats --> CostCalc[コスト計算]
+    CostCalc --> TimeStats[時間統計]
+
+    TimeStats --> SaveResults[結果保存]
+    SaveResults --> SaveJSON[JSON保存]
+    SaveResults --> SaveCSV[CSV保存]
+    SaveResults --> SaveSummary[サマリー保存]
+
+    SaveJSON --> ShowResults[結果表示]
+    SaveCSV --> ShowResults
+    SaveSummary --> ShowResults
+
+    ShowResults --> End([終了])
+
+    CompareMode --> SplitSample[サンプル分割]
+    SplitSample --> NormalRun[通常版実行]
+    SplitSample --> BatchRun[バッチ版実行]
+
+    NormalRun --> NormalTime[時間計測]
+    NormalRun --> NormalAPI[API計測]
+    BatchRun --> BatchTime[時間計測]
+    BatchRun --> BatchAPI[API計測]
+
+    NormalTime --> CompareResults[比較結果]
+    NormalAPI --> CompareResults
+    BatchTime --> CompareResults
+    BatchAPI --> CompareResults
+
+    CompareResults --> ShowImprovement[改善率表示]
+    ShowImprovement --> End
+```
 
 ## 主要機能
 

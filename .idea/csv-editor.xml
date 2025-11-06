@@ -10,28 +10,7 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/qa_output/a02/qa_pairs_cc_news_20251023_113852.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/qa_output/a02/qa_pairs_cc_news_20251104_023724.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="/qa_output/a02_qa_pairs_cc_news.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/qa_output/a03/qa_pairs_cc_news_20251025_072705.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
@@ -59,28 +38,7 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b25_20251022_143357.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/qa_output/a10/batch_qa_pairs_japanese_text_gpt_5_mini_b10_20251104_220450.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="/qa_output/a10_qa_pairs_cc_news.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/qa_output/qa_pairs_cc_news_20251104_015532.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
