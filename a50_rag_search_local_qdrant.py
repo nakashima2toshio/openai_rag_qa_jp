@@ -18,6 +18,10 @@ a50_rag_search_local_qdrant.py — Qdrant RAG検索用Streamlit UI
   - 法律・判例QA (legal)
   - TriviaQA（トリビアQA） (trivia)
   - CC News Q&A (qa_cc_news_a02_llm, qa_cc_news_a03_rule, qa_cc_news_a10_hybrid)
+    - Columbia City Balletの母娘ダンサー（Regina & Melina Willoughby）に関するニュース記事
+    - a02: LLM生成方式によるQ&Aペア
+    - a03: ルールベース生成方式によるQ&Aペア
+    - a10: ハイブリッド生成方式によるQ&Aペア
 
 起動: streamlit run a50_rag_search_local_qdrant.py --server.port=8504
 """
@@ -119,7 +123,7 @@ try:
 except Exception:
     available_collections = [default_collection]  # Fallback to default if can't connect
 
-# Sample questions for each domain
+# 各ドメイン・コレクション用のサンプル質問
 SAMPLE_QUESTIONS = {
     "customer": [
         "返金は可能ですか？",
@@ -149,11 +153,11 @@ SAMPLE_QUESTIONS = {
         "世界で最も長い川は何ですか？"
     ],
     "cc_news": [
-        "What are the main topics covered in recent news?",
-        "Tell me about technology advancements",
-        "What political events are being discussed?",
-        "Are there any major scientific discoveries?",
-        "What business trends are emerging?"
+        "Which Boston Ballet dancers starred in their Super Bowl video?",
+        "What role does The Nutcracker play for ballet companies beyond being a performance piece?",
+        "What insight did the speaker gain from seeing Robert's McLaren documentary?",
+        "Under what circumstance can a firm still charge a fee for an SAR under GDPR?",
+        "Which two technologies did Vyas use to illustrate a 5G use case?"
     ]
 }
 
@@ -190,15 +194,15 @@ with st.sidebar:
     qdrant_url_input = st.text_input("Qdrant URL", value=qdrant_url)
     debug_mode = st.checkbox("🐛 Debug Mode", value=False)
     
-    # Sample questions section
+    # サンプル質問セクション
     st.markdown("---")
     st.subheader("💡 質問例")
 
-    # Check if this is a CC News collection
+    # CC Newsコレクションかどうかをチェック
     is_cc_news = collection.startswith("qa_cc_news_")
 
     if is_cc_news:
-        # Show CC News sample questions
+        # CC Newsコレクション用のサンプル質問を表示
         st.write("**CC News サンプル検索:**")
         collection_label = ""
         if "a02" in collection:
@@ -210,7 +214,7 @@ with st.sidebar:
         st.caption(f"Collection: {collection}{collection_label}")
 
         for i, q in enumerate(SAMPLE_QUESTIONS.get("cc_news", []), 1):
-            if st.button(f"{i}. {q[:40]}...", key=f"sample_cc_news_{i}"):
+            if st.button(f"{i}. {q}", key=f"sample_cc_news_{i}"):
                 st.session_state['selected_query'] = q
     elif domain != "ALL":
         st.write(f"**{domain.upper()}ドメインの質問例:**")
@@ -246,22 +250,34 @@ if 'selected_query' not in st.session_state:
     st.session_state['selected_query'] = "返金は可能ですか？"
 
 st.code("""
-  - collection「qa_corpus」は5種類のデータセット（customer, medical, legal, sciq, trivia）に対応
-  - ここでドメインを選択するとそのドメインに特化した情報が取り出せます。
-  - collection「qa_corpus」のDomain=ALLは5つのデータセットの統合版です。
-  - CC News collections: 3つの生成手法で比較可能
+機能・データセット説明:
+  - collection「qa_corpus」: 5種類のドメイン別データセット（customer, medical, legal, sciq, trivia）
+    - Domainセレクタで特定ドメインを選択可能
+    - Domain=ALLは5つのデータセットの統合版
+
+  - CC News collections: 3つの異なるQ&A生成手法で比較可能
     - qa_cc_news_a02_llm: LLM生成方式（a02_qa_pairs_cc_news.csv）
+      - AIによる自然な質問・回答ペアの生成
     - qa_cc_news_a03_rule: ルールベース生成方式（a03_qa_pairs_cc_news.csv）
+      - テンプレートベースの構造化されたQ&A生成
     - qa_cc_news_a10_hybrid: ハイブリッド生成方式（a10_qa_pairs_cc_news.csv）
-  - OpenAIのembeddingモデルが多言語対応のため、日本語質問と英語データが同じベクトル空間で比較可能
-  - 例ば、日本語「返金は可能ですか？」と英語「Can I get a refund?」の類似度が0.4957と高い値を示している
-  - この多言語embedding機能により、翻訳なしで日英間の意味的検索が実現されている。
-  - 左ペインで、個別domainを選択すると質問・候補が表示されます。
-  - 実用的な閾値の目安（Score:）
-  - 0.8以上: 非常に関連性が高い（ほぼ一致）
-  - 0.6-0.8: 関連性がある（有用な結果）
-  - 0.4-0.6: 部分的に関連（参考程度）
-  - 0.4未満: 関連性が低い（フィルタリング推奨）
+      - LLMとルールベースを組み合わせた生成
+    - CC Newsデータセットには多様なトピックが含まれる:
+      - バレエ（Boston Ballet、The Nutcracker）
+      - ドキュメンタリー（McLaren）
+      - 法律・規制（GDPR、SAR）
+      - テクノロジー（5G）など
+
+  - 多言語対応埋め込み:
+    - OpenAI embedding modelが多言語対応のため、日英間での意味的検索が可能
+    - 例: 日本語「返金は可能ですか？」と英語「Can I get a refund?」の高い類似度（0.4957）
+    - 翻訳なしで日英クロスリンガル検索が実現
+
+  - 類似度スコア（Score）の目安:
+    - 0.8以上: 非常に関連性が高い（ほぼ一致）
+    - 0.6-0.8: 関連性がある（有用な結果）
+    - 0.4-0.6: 部分的に関連（参考程度）
+    - 0.4未満: 関連性が低い（フィルタリング推奨）
 """)
 query = st.text_input("Enter your query", value=st.session_state['selected_query'])
 do_search = st.button("Search")

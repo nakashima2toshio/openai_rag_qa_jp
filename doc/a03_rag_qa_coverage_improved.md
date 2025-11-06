@@ -1,945 +1,424 @@
-# a03_rag_qa_coverage_improved.py - 技術仕様書
+# a03_rag_qa_coverage_improved.py - Q&Aペア生成方式の詳細解説
 
-## 最新バージョン情報
-- **最終更新**: 2025-11-04
-- **バージョン**: v2.4 (最新実装版)
-- **主要機能**: ルールベースQ/A生成、バッチ処理、多段階カバレッジ分析、MeCabキーワード抽出、言語対応文分割、質問品質最適化（passage番号削除）
+### 主要なポイント:
 
----
-
-## 🎯 ハイライト
-
-**カバレッジ率99.7%を実現！実行時間わずか2分、API呼び出したった5回**
-
-- **カバレッジ率**: 99.7%（従来版50-60%の2倍）
-- **実行時間**: 約2分（従来版20分から90%短縮）
-- **API呼び出し**: 5回（従来版7,917回から99.94%削減）
-- **コスト**: $0.00076（従来版$0.08から99.05%削減）
-
----
-
-## 📋 推奨コマンド
-
-### 99.7%カバレッジ達成版（実績値）
-
-```bash
-python a03_rag_qa_coverage_improved.py \
-  --input OUTPUT/preprocessed_cc_news.csv \
-  --dataset cc_news \
-  --analyze-coverage \
-  --coverage-threshold 0.52 \
-  --qa-per-chunk 12 \
-  --max-chunks 609 \
-  --max-docs 150 \
-  --output qa_output
-```
-
-**実行結果:**
-- 処理文書: 150件
-- チャンク数: 609個
-- Q/A生成数: 7,308個
-- **カバレッジ率: 99.7%** ✅
-- **処理時間: 2分**
-- **API呼び出し: 5回**
-  - チャンク埋め込み: 1回
-  - Q/A埋め込み: 4回
-  - Q/A生成: 0回（ルールベースのため）
-- **コスト: $0.00076**
-- **出力先: qa_output/a03/** ⭐NEW
-
----
+1. 5つのQ&A生成タイプ
+- Comprehensive（包括的）
+- Factual Detailed（事実詳細）
+- Contextual（文脈的）
+- Keyword-Based（キーワードベース）
+- Thematic（テーマ的）
+2. ゼロLLMアプローチ
+- LLM API呼び出し0回
+- ルールベース・テンプレート駆動
+- 埋め込み生成のみAPIを使用
+3. 特徴的な技術
+- MeCab統合による日本語処理
+- 自動言語検出
+- バッチ処理最適化（最大2048埋め込み/バッチ）
+4. 実績
+- カバレージ92.8%達成
+- コスト$0.001未満
+- 4,478 Q&Aペア生成
 
 ## 概要
 
-`a03_rag_qa_coverage_improved.py`は、**カバレッジ率99.7%達成を実証した改良版**のセマンティックカバレッジ分析とQ/A生成システムです。ルールベースのアプローチに特化し、超高カバレッジと品質のQ/Aペアを超低コストで生成します。
+`a03_rag_qa_coverage_improved.py`は、**ルールベース・テンプレート駆動型**のQ&Aペア生成システムです。LLM APIを使用せずに高カバレージを実現する革新的なアプローチを採用しています。
 
-**主な特徴**:
-- 完全ルールベース（LLM不要）でコスト削減
-- MeCabによる日本語複合名詞抽出（自動フォールバック対応）
-- バッチ処理によるAPI呼び出し最適化
-- 3つの戦略的Q/A生成アプローチ
-
----
-
-## 目次
-
-1. [アーキテクチャ](#1-アーキテクチャ)
-2. [主要コンポーネント](#2-主要コンポーネント)
-3. [MeCabキーワード抽出](#3-mecabキーワード抽出)
-4. [Q/A生成戦略](#4-qa生成戦略)
-5. [カバレッジ分析](#5-カバレッジ分析)
-6. [データ処理フロー](#6-データ処理フロー)
-7. [コマンドライン引数](#7-コマンドライン引数)
-8. [パフォーマンス最適化](#8-パフォーマンス最適化)
-9. [出力ファイル](#9-出力ファイル)
-10. [使用例](#10-使用例)
-11. [トラブルシューティング](#11-トラブルシューティング)
-12. [今後の改善案](#12-今後の改善案)
+### 主要な成果
+- **カバレージ率**: 92.8%（閾値0.6）
+- **生成Q&A数**: 4,478ペア
+- **処理効率**: LLM API呼び出し0回（埋め込み生成のみ）
+- **コスト**: 極めて低コスト（約$0.001未満）
 
 ---
 
-## 1. アーキテクチャ
+## 1. Q&A生成戦略
 
-### 1.1 処理フロー
-
-```
-ユーザー実行（CSV入力）
-         ↓
-データ読み込み・前処理（L212-262）
-         ↓
-チャンク作成（SemanticCoverage）（L511）
-         ↓
-チャンクごとのQ/A生成（L536-547）
-  ├─ 戦略1: 全体要約Q/A（L290-299）
-  ├─ 戦略2: 文ごと詳細Q/A（L302-348）
-  └─ 戦略3: キーワードQ/A（L350-363）
-      ├─ 英語: 正規表現（L329-338）
-      └─ 日本語: MeCab → 正規表現（L351-362）
-         ↓
-バッチ埋め込み生成（L404-443）
-  ├─ チャンク埋め込み（OpenAI API: 1回）
-  └─ Q/A埋め込み（OpenAI API: 1-4回）
-         ↓
-カバレッジ分析（L446-485）
-  ├─ 類似度行列計算
-  ├─ 閾値判定
-  └─ 統計情報生成
-         ↓
-結果保存（qa_output/a03/）（L596-644）
-  ├─ qa_pairs_{dataset}_{timestamp}.json
-  ├─ qa_pairs_{dataset}_{timestamp}.csv
-  ├─ coverage_{dataset}_{timestamp}.json
-  └─ summary_{dataset}_{timestamp}.json
-```
-
-### 1.2 システム構成
+### 1.1 基本アーキテクチャ
 
 ```
-a03_rag_qa_coverage_improved.py
-├── KeywordExtractor クラス（L60-177）⭐
-│   ├── __init__()（L68-88）
-│   ├── _check_mecab_availability()（L89-98）
-│   ├── extract()（L100-120）
-│   ├── _extract_with_mecab()（L122-156）
-│   ├── _extract_with_regex()（L158-165）
-│   └── _filter_and_count()（L167-176）
-├── get_keyword_extractor()（L182-187）
-├── load_input_data()（L212-262）
-├── generate_comprehensive_qa_for_chunk()（L265-378）
-│   ├── 戦略1: 全体要約Q/A
-│   ├── 戦略2: 文ごと詳細Q/A
-│   └── 戦略3: キーワード抽出Q/A
-├── calculate_improved_coverage()（L381-487）
-│   ├── バッチ埋め込み生成
-│   ├── 重み付け類似度計算
-│   └── 統計情報生成
-├── process_with_improved_methods()（L490-586）
-├── save_results()（L589-644）
-└── main()（L647-780）
+文書 → セマンティックチャンキング → 5種類のQ&A生成戦略 → 重複排除 → カバレージ分析
 ```
+
+### 1.2 ゼロLLMアプローチ
+- **LLM呼び出し**: Q&A生成には一切使用しない
+- **埋め込み生成のみ**: OpenAI APIはembedding生成だけに使用
+- **ルールベース生成**: 事前定義されたテンプレートと抽出ルールを使用
 
 ---
 
-## 2. 主要コンポーネント
+## 2. 5つのQ&A生成タイプ
 
-### 2.1 インポート（L31-34, L36-46）
-
+### 2.1 Comprehensive（包括的質問）
 ```python
-from helper_rag_qa import (
-    SemanticCoverage,        # セマンティックチャンク作成、埋め込み生成、言語対応文分割
-    TemplateBasedQAGenerator,  # インポートのみ（未使用）
-)
+# 生成ルール
+質問: "このセクションにはどのような情報が含まれていますか？"
+回答: chunk_text[:500]  # チャンクの最初の500文字
+
+# 特徴
+- カバレージ戦略: 'full_chunk'
+- 全チャンクに対して必ず1つ生成
+- チャンク全体をカバーする基本質問
 ```
 
-**SemanticCoverageの新機能（2025-11-04更新）**:
-- **言語自動判定**: 日本語/英語を自動判定し、最適な文分割方法を選択
-- **MeCab統合**: 日本語テキストに対してMeCabによる高精度な文境界検出を実施
-- **自動フォールバック**: MeCab失敗時や英語テキストの場合、正規表現ベースの文分割に自動切り替え
-- **柔軟な環境対応**: MeCab未インストール環境でも正常に動作
-
-### 2.2 データセット設定（L189-209）
-
+### 2.2 Factual Detailed（事実詳細質問）
 ```python
-DATASET_CONFIGS = {
-    "cc_news": {
-        "name": "CC-News英語ニュース",
-        "text_column": "Combined_Text",
-        "title_column": "title",
-        "lang": "en"
-    },
-    "japanese_text": {
-        "name": "日本語Webテキスト",
-        "text_column": "Combined_Text",
-        "title_column": None,
-        "lang": "ja"
-    },
-    "wikipedia_ja": {
-        "name": "Wikipedia日本語版",
-        "text_column": "Combined_Text",
-        "title_column": "title",
-        "lang": "ja"
-    }
-}
+# 日本語の場合
+質問: "「{文の最初の30文字}」について詳しく説明してください。"
+回答: current_sentence + next_sentence  # 現在の文 + 次の文
+
+# 英語の場合
+質問: "What specific information is provided about {抽出した固有名詞}?"
+回答: current_sentence + next_sentence
+```
+
+**抽出パターン**:
+- 英語: 正規表現 `\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b`
+- 日本語: 文頭30文字を使用
+
+### 2.3 Contextual（文脈的質問）
+```python
+# 前後の文を関連付ける質問
+質問: "How does {現在の概念} relate to {前の概念}?"
+回答: previous_sentence + current_sentence
+
+# 特徴
+- 文章間の関係性を捉える
+- 前文がある場合のみ生成
+- コンテキストの連続性を確保
+```
+
+### 2.4 Keyword-Based（キーワードベース質問）
+```python
+# キーワード抽出方式
+if MeCab利用可能:
+    keywords = MeCab形態素解析による複合名詞抽出
+else:
+    keywords = 正規表現による名詞抽出
+
+# 質問生成
+質問: "「{keyword}」について何が述べられていますか？"
+回答: keyword_を含む文
+```
+
+**キーワード抽出の特徴**:
+- MeCab優先（利用可能な場合）
+- 複合名詞の抽出に対応
+- ストップワード除去（こと、もの、これ、それ等）
+
+### 2.5 Thematic（テーマ的質問）
+```python
+# チャンクの主題に関する質問
+質問: "「{主要キーワード}」に関する主要テーマは何ですか？"
+回答: chunk_text[:400]  # チャンクの最初の400文字
+
+# 生成ロジック
+- チャンクの最初と最後の文から主題を抽出
+- テーマを代表するキーワードを特定
 ```
 
 ---
 
-## 3. MeCabキーワード抽出
+## 3. 処理フロー
 
-### 3.1 KeywordExtractorクラス（L60-177）
-
-**目的**: MeCabと正規表現を統合したキーワード抽出（自動フォールバック対応）
-
-#### 3.1.1 初期化（L68-88）
+### 3.1 全体の処理フロー
 
 ```python
-def __init__(self, prefer_mecab: bool = True):
-    """
-    Args:
-        prefer_mecab: MeCabを優先的に使用するか（デフォルト: True）
-    """
-    self.prefer_mecab = prefer_mecab
-    self.mecab_available = self._check_mecab_availability()
+def main():
+    # 1. 文書の読み込み
+    documents = load_documents(args.input)
 
-    # ストップワード定義（L77-82）
-    self.stopwords = {
-        'こと', 'もの', 'これ', 'それ', 'ため', 'よう', 'さん',
-        'ます', 'です', 'ある', 'いる', 'する', 'なる', 'できる',
-        'いう', '的', 'な', 'に', 'を', 'は', 'が', 'で', 'と',
-        'の', 'から', 'まで', '等', 'など', 'よる', 'おく', 'くる'
-    }
+    # 2. セマンティックチャンキング
+    for doc in documents:
+        chunks = create_semantic_chunks(doc, max_tokens=200)
+
+    # 3. Q&A生成（5種類 × 各チャンク）
+    for chunk in chunks:
+        qa_pairs = generate_comprehensive_qa_for_chunk(chunk)
+
+    # 4. 重複排除
+    unique_qas = deduplicate_qa_pairs(qa_pairs)
+
+    # 5. カバレージ分析
+    coverage = calculate_improved_coverage(chunks, unique_qas)
 ```
 
-#### 3.1.2 MeCab利用可能性チェック（L89-98）
+### 3.2 チャンク処理の詳細
 
+#### セマンティックチャンキング
 ```python
-def _check_mecab_availability(self) -> bool:
-    """MeCabの利用可能性をチェック"""
-    try:
-        import MeCab
-        tagger = MeCab.Tagger()
-        tagger.parse("テスト")  # 実際に動作確認
-        return True
-    except (ImportError, RuntimeError):
-        return False
+# チャンク作成パラメータ
+- max_tokens: 200トークン
+- 文境界保持: 日本語は「。」、英語は「. 」で分割
+- オーバーラップ: なし（独立したチャンク）
 ```
 
-#### 3.1.3 キーワード抽出メイン処理（L100-120）
+#### チャンクサンプリング戦略
+```python
+if total_chunks > max_chunks:
+    # 均等サンプリング
+    step = total_chunks // max_chunks_to_process
+    selected_chunks = chunks[::step][:max_chunks_to_process]
+```
+
+### 3.3 Q&A生成の詳細フロー
 
 ```python
-def extract(self, text: str, top_n: int = 5) -> List[str]:
-    """
-    テキストからキーワードを抽出（自動フォールバック対応）
+def generate_comprehensive_qa_for_chunk(chunk_text, chunk_idx, qa_per_chunk, lang):
+    qa_pairs = []
 
-    Returns:
-        キーワードリスト（頻度順）
-    """
-    if self.mecab_available and self.prefer_mecab:
+    # 1. 言語検出
+    lang = detect_language(chunk_text)
+
+    # 2. 文分割
+    sentences = split_into_sentences(chunk_text, lang)
+
+    # 3. 各戦略でQ&A生成
+    # 3.1 Comprehensive（1個）
+    qa_pairs.append(generate_comprehensive_qa(chunk_text))
+
+    # 3.2 Factual Detailed（文ごと）
+    for sent in sentences:
+        qa_pairs.append(generate_factual_qa(sent))
+
+    # 3.3 Contextual（前後文の関連）
+    for i, sent in enumerate(sentences[1:]):
+        qa_pairs.append(generate_contextual_qa(sentences[i], sent))
+
+    # 3.4 Keyword-based（キーワードごと）
+    keywords = extract_keywords(chunk_text)
+    for keyword in keywords[:3]:  # 上位3キーワード
+        qa_pairs.append(generate_keyword_qa(keyword, chunk_text))
+
+    # 3.5 Thematic（1個）
+    qa_pairs.append(generate_thematic_qa(chunk_text))
+
+    return qa_pairs[:qa_per_chunk]  # 指定数に制限
+```
+
+---
+
+## 4. 言語処理の特徴
+
+### 4.1 言語検出ロジック
+
+```python
+def detect_language(text):
+    # 英語指標
+    en_indicators = ['the ', 'The ', ' is ', ' are ', ' was ', ' were ']
+    # 日本語指標
+    ja_indicators = ['。', 'は', 'が', 'を', 'に', 'で', 'と', 'の']
+
+    en_count = sum(1 for ind in en_indicators if ind in text)
+    ja_count = sum(1 for ind in ja_indicators if ind in text)
+
+    return 'ja' if ja_count > en_count else 'en'
+```
+
+### 4.2 MeCab統合（日本語処理）
+
+```python
+class KeywordExtractor:
+    def __init__(self):
         try:
-            keywords = self._extract_with_mecab(text, top_n)
-            if keywords:
-                return keywords
-        except Exception as e:
-            logger.warning(f"⚠️ MeCab抽出エラー: {e}")
+            import MeCab
+            self.mecab = MeCab.Tagger()
+            self.mecab_available = True
+        except:
+            self.mecab_available = False
 
-    # フォールバック: 正規表現版
-    return self._extract_with_regex(text, top_n)
-```
-
-#### 3.1.4 MeCabによる複合名詞抽出（L122-156）
-
-```python
-def _extract_with_mecab(self, text: str, top_n: int) -> List[str]:
-    """MeCabを使用した複合名詞抽出"""
-    import MeCab
-    tagger = MeCab.Tagger()
-    node = tagger.parseToNode(text)
-
-    compound_buffer = []
-    compound_nouns = []
-
-    while node:
-        features = node.feature.split(',')
-        pos = features[0]  # 品詞
-
-        if pos == '名詞':
-            compound_buffer.append(node.surface)
+    def extract_japanese_keywords(self, text):
+        if self.mecab_available:
+            # MeCabで複合名詞抽出
+            return self._extract_with_mecab(text)
         else:
-            # 名詞以外が来たらバッファをフラッシュ
-            if compound_buffer:
-                compound_noun = ''.join(compound_buffer)
-                if len(compound_noun) > 0:
-                    compound_nouns.append(compound_noun)
-                compound_buffer = []
-
-        node = node.next
-
-    # フィルタリングと頻度カウント
-    return self._filter_and_count(compound_nouns, top_n)
+            # 正規表現フォールバック
+            return self._extract_with_regex(text)
 ```
 
-#### 3.1.5 正規表現によるキーワード抽出（L158-165）
-
-```python
-def _extract_with_regex(self, text: str, top_n: int) -> List[str]:
-    """正規表現を使用したキーワード抽出"""
-    # カタカナ語、漢字複合語、英数字を抽出
-    pattern = r'[ァ-ヴー]{2,}|[一-龥]{2,}|[A-Za-z]{2,}[A-Za-z0-9]*'
-    words = re.findall(pattern, text)
-    return self._filter_and_count(words, top_n)
-```
-
-### 3.2 シングルトンインスタンス（L179-187）
-
-```python
-_keyword_extractor = None
-
-def get_keyword_extractor() -> KeywordExtractor:
-    """KeywordExtractorのシングルトンインスタンスを取得"""
-    global _keyword_extractor
-    if _keyword_extractor is None:
-        _keyword_extractor = KeywordExtractor()
-    return _keyword_extractor
-```
+**MeCabの利点**:
+- 複合名詞の正確な抽出
+- 品詞情報の活用
+- ストップワードの精密な除去
 
 ---
 
-## 4. Q/A生成戦略
+## 5. カバレージ分析メカニズム
 
-### 4.1 generate_comprehensive_qa_for_chunk()（L265-378）
-
-**目的**: 単一チャンクに対して包括的なQ/Aを生成
-
-#### 4.1.1 戦略1: チャンク全体の要約Q/A（L290-299）
+### 5.1 カバレージ計算アルゴリズム
 
 ```python
-if len(chunk_text) > 50:
-    qa = {
-        'question': f"What information is discussed in this section?" if is_english
-                   else f"このセクションにはどのような情報が含まれていますか？",
-        'answer': chunk_text[:500],  # 500文字の長い回答
-        'type': 'comprehensive',
-        'chunk_idx': chunk_idx,
-        'coverage_strategy': 'full_chunk'
-    }
-    qas.append(qa)
-```
+def calculate_improved_coverage(chunks, qa_pairs, analyzer, threshold=0.6):
+    # 1. チャンク埋め込み生成（バッチ処理）
+    chunk_embeddings = generate_embeddings_batch(
+        [c['text'] for c in chunks],
+        batch_size=2048
+    )
 
-**特徴**:
-- チャンク全体をカバーする包括的な質問
-- 500文字の長い回答でカバレッジ向上
-- 全チャンクに対して生成
+    # 2. Q&A埋め込み生成（回答を2倍重み付け）
+    qa_texts = [f"{q} {a} {a}" for q, a in qa_pairs]
+    qa_embeddings = generate_embeddings_batch(qa_texts, batch_size=2048)
 
-**改良点 (v2.4)**:
-- ❌ 旧: `"What information is contained in passage {chunk_idx + 1}?"`
-- ✅ 新: `"What information is discussed in this section?"`
-- **理由**: "passage N" というノイズを削除し、RAG検索時のコサイン類似度を向上（+0.10～+0.15）
+    # 3. コサイン類似度計算
+    similarities = cosine_similarity(chunk_embeddings, qa_embeddings)
 
-#### 4.1.2 戦略2: 文ごとの詳細Q/A（L302-361）
+    # 4. 各チャンクの最大類似度
+    max_similarities = np.max(similarities, axis=1)
 
-**英語の場合**（L306-361）:
+    # 5. カバレージ判定
+    covered = max_similarities >= threshold
+    coverage_rate = np.mean(covered)
 
-**1. 事実確認型質問（L309-326）**:
-```python
-# 固有名詞や主要概念を抽出
-main_concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', sent[:50])
-if main_concepts:
-    concept = main_concepts[0]
-    qa = {
-        'question': f"What specific information is provided about {concept}?",
-        'answer': sent + (" " + sentences[i + 1] if i + 1 < len(sentences) else ""),
-        'type': 'factual_detailed',
-        'chunk_idx': chunk_idx
-    }
-else:
-    qa = {
-        'question': f"What information is provided in the following context: {sent[:50]}?",
-        'answer': sent + (" " + sentences[i + 1] if i + 1 < len(sentences) else ""),
-        'type': 'factual_detailed',
-        'chunk_idx': chunk_idx
+    return {
+        'coverage_rate': coverage_rate,
+        'covered_chunks': np.sum(covered),
+        'total_chunks': len(chunks),
+        'max_similarities': max_similarities
     }
 ```
 
-**改良点 (v2.4)**:
-- ❌ 旧: `"In passage N, what specific information is provided about the following: ...?"`
-- ✅ 新: `"What specific information is provided about {concept}?"`
-- **理由**: 固有名詞・主要概念を抽出して質問に組み込み、より具体的で自然な質問を生成
-
-**2. 文脈関連質問（L329-348）**:
-```python
-if i > 0:
-    # 前の文と現在の文の主要概念を抽出
-    prev_concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', sentences[i-1][:30])
-    curr_concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', sent[:30])
-
-    if prev_concepts and curr_concepts:
-        qa = {
-            'question': f"How does {curr_concepts[0]} relate to {prev_concepts[0]}?",
-            'answer': sentences[i - 1] + " " + sent,
-            'type': 'contextual',
-            'chunk_idx': chunk_idx
-        }
-    else:
-        qa = {
-            'question': f"How does the information '{sent[:30]}...' connect to the previous context?",
-            'answer': sentences[i - 1] + " " + sent,
-            'type': 'contextual',
-            'chunk_idx': chunk_idx
-        }
-```
-
-**改良点 (v2.4)**:
-- ❌ 旧: `"How does the information '...' relate to the previous context in passage N?"`
-- ✅ 新: `"How does {concept A} relate to {concept B}?"` または `"How does ... connect to the previous context?"`
-- **理由**: 概念間の関係性を明示し、より意味のある質問を生成
-
-**3. キーワードベース質問（L350-361）**:
-```python
-important_words = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', sent)
-if important_words:
-    keyword = important_words[0]
-    qa = {
-        'question': f"What is mentioned about {keyword}?",
-        'answer': sent,
-        'type': 'keyword_based',
-        'chunk_idx': chunk_idx
-    }
-```
-
-**改良点 (v2.4)**:
-- ❌ 旧: `"What does passage N say about {keyword}?"`
-- ✅ 新: `"What is mentioned about {keyword}?"`
-- **理由**: シンプルで自然な質問形式に改善
-
-**日本語の場合**（L363-385）:
-```python
-# 詳細説明型質問
-qa = {
-    'question': f"「{sent[:30]}」について詳しく説明してください。",
-    'answer': sent + ("。" + sentences[i + 1] if i + 1 < len(sentences) else ""),
-    'type': 'factual_detailed',
-    'chunk_idx': chunk_idx
-}
-
-# 日本語キーワード抽出型Q/A（MeCab使用）
-extractor = get_keyword_extractor()
-keywords = extractor.extract(sent, top_n=2)
-for keyword in keywords:
-    if len(keyword) > 1:
-        qa = {
-            'question': f"「{keyword}」について何が述べられていますか？",
-            'answer': sent,
-            'type': 'keyword_based',
-            'chunk_idx': chunk_idx,
-            'keyword': keyword
-        }
-```
-
-**改良点 (v2.4)**:
-- ❌ 旧: `"パッセージNにおいて、「{keyword}」について..."`
-- ✅ 新: `"「{keyword}」について何が述べられていますか？"`
-- **理由**: "パッセージN" を削除し、より自然な日本語質問に改善
-
-#### 4.1.3 戦略3: キーワードベースQ/A（L350-363）
+### 5.2 カバレージ分布分析
 
 ```python
-# 日本語キーワード抽出型Q/A（MeCab使用）
-extractor = get_keyword_extractor()
-keywords = extractor.extract(sent, top_n=2)
-for keyword in keywords:
-    if len(keyword) > 1:  # 1文字のキーワードは除外
-        qa = {
-            'question': f"パッセージ{chunk_idx + 1}において、「{keyword}」について何が述べられていますか？",
-            'answer': sent,
-            'type': 'keyword_based',
-            'chunk_idx': chunk_idx,
-            'keyword': keyword
-        }
-        qas.append(qa)
-```
-
-**MeCab利用時の例**:
-- 入力: "人工知能は機械学習を活用します"
-- キーワード: ['人工知能', '機械学習']
-- 生成Q/A: "「人工知能」について何が述べられていますか？"
-
-#### 4.1.4 戦略4: チャンクの主要テーマQ/A（L365-376）
-
-```python
-if len(chunk_text) > 100:
-    first_sent = sentences[0] if sentences else chunk_text[:100]
-    last_sent = sentences[-1] if sentences else chunk_text[-100:]
-
-    qa = {
-        'question': f"What is the main theme discussed from '{first_sent[:30]}' to '{last_sent[:30]}' in passage {chunk_idx + 1}?"
-                   if is_english
-                   else f"パッセージ{chunk_idx + 1}の主要テーマは何ですか？",
-        'answer': chunk_text[:400],  # チャンクの主要部分
-        'type': 'thematic',
-        'chunk_idx': chunk_idx
-    }
-    qas.append(qa)
-```
-
----
-
-## 5. カバレッジ分析
-
-### 5.1 calculate_improved_coverage()（L381-487）
-
-**目的**: 改善されたカバレッジ計算（バッチ処理版）
-
-#### 5.1.1 埋め込み生成（L404-443）
-
-```python
-# チャンクの埋め込みを生成（既にバッチ処理）（L405）
-doc_embeddings = analyzer.generate_embeddings(chunks)
-
-# Q/Aペアのテキストを準備（バッチ処理用）（L408-416）
-qa_texts = []
-for qa in qa_pairs:
-    question = qa.get('question', '')
-    answer = qa.get('answer', '')
-    # 質問と回答を重み付けして結合（回答により重みを置く）
-    combined_text = f"{question} {answer} {answer}"  # 回答を2回含める
-    qa_texts.append(combined_text)
-
-# バッチ処理でQ/A埋め込みを生成（L419-443）
-MAX_BATCH_SIZE = 2048  # OpenAI APIのバッチサイズ制限
-
-if len(qa_texts) <= MAX_BATCH_SIZE:
-    # 一度にすべて処理可能
-    qa_chunks = [{"text": text} for text in qa_texts]
-    qa_embeddings = analyzer.generate_embeddings(qa_chunks)
-    logger.info(f"  バッチ処理完了: 1回のAPI呼び出しで{len(qa_texts)}個の埋め込みを生成")
-else:
-    # バッチサイズを超える場合は分割処理
-    num_batches = (len(qa_texts) + MAX_BATCH_SIZE - 1) // MAX_BATCH_SIZE
-    logger.info(f"  大量データのため{num_batches}回に分割してバッチ処理")
-
-    for i in range(0, len(qa_texts), MAX_BATCH_SIZE):
-        batch = qa_texts[i:i+MAX_BATCH_SIZE]
-        batch_chunks = [{"text": text} for text in batch]
-        batch_embeddings = analyzer.generate_embeddings(batch_chunks)
-        qa_embeddings.extend(batch_embeddings)
-```
-
-#### 5.1.2 カバレッジ行列計算（L446-465）
-
-```python
-# カバレッジ行列の計算
-coverage_matrix = np.zeros((len(chunks), len(qa_pairs)))
-covered_chunks = set()
-
-# 各チャンクに対する最大類似度を追跡
-max_similarities = np.zeros(len(chunks))
-
-for i, doc_emb in enumerate(doc_embeddings):
-    for j, qa_emb in enumerate(qa_embeddings):
-        similarity = analyzer.cosine_similarity(doc_emb, qa_emb)
-        coverage_matrix[i, j] = similarity
-
-        # このチャンクの最大類似度を更新
-        if similarity > max_similarities[i]:
-            max_similarities[i] = similarity
-
-        # 閾値を超えたらカバーされたとマーク
-        if similarity >= threshold:
-            covered_chunks.add(i)
-```
-
-#### 5.1.3 統計情報の計算（L467-485）
-
-```python
-coverage_rate = len(covered_chunks) / len(chunks) if chunks else 0
-avg_max_similarity = np.mean(max_similarities)
-
-coverage_results = {
-    "coverage_rate": coverage_rate,
-    "covered_chunks": len(covered_chunks),
-    "total_chunks": len(chunks),
-    "threshold": threshold,
-    "avg_max_similarity": float(avg_max_similarity),
-    "min_max_similarity": float(np.min(max_similarities)),
-    "max_max_similarity": float(np.max(max_similarities)),
-    "uncovered_chunks": list(set(range(len(chunks))) - covered_chunks),
-    "coverage_distribution": {
-        "high_coverage": int(np.sum(max_similarities >= 0.7)),     # 高品質マッチ
-        "medium_coverage": int(np.sum((max_similarities >= 0.5) & (max_similarities < 0.7))),  # 中品質
-        "low_coverage": int(np.sum(max_similarities < 0.5))        # 低品質
-    }
+coverage_distribution = {
+    "high_coverage": (max_similarities >= 0.7).sum(),     # 高カバレージ
+    "medium_coverage": ((0.5 <= max_similarities) & (max_similarities < 0.7)).sum(),  # 中
+    "low_coverage": (max_similarities < 0.5).sum()        # 低
 }
 ```
 
 ---
 
-## 6. データ処理フロー
+## 6. 最適化テクニック
 
-### 6.1 load_input_data()（L212-262）
-
-**目的**: 入力ファイルからテキストデータを読み込み
-
-**処理手順**:
-1. ファイル存在確認（L214-216）
-2. CSV形式の処理（L220-251）:
-   - データセット設定適用（L223-237）
-   - テキストカラム自動検出（L241-250）
-3. テキストファイル処理（L254-260）
-4. 結合テキスト返却（L262）
-
-### 6.2 process_with_improved_methods()（L490-586）
-
-**目的**: 改良版Q/A生成のメイン処理
-
-**処理手順**:
-1. SemanticCoverage初期化（L510）
-2. チャンク作成（L511）
-3. チャンクサンプリング（L519-527）:
-   ```python
-   if total_chunks > max_chunks_to_process:
-       # 均等にサンプリング
-       step = total_chunks // max_chunks_to_process
-       selected_chunks = [chunks[i] for i in range(0, total_chunks, step)][:max_chunks_to_process]
-   ```
-4. 各チャンクでQ/A生成（L536-547）:
-   ```python
-   for i, chunk in enumerate(selected_chunks):
-       chunk_qas = generate_comprehensive_qa_for_chunk(
-           chunk['text'],
-           i,
-           qa_per_chunk=qa_per_chunk
-       )
-       all_qas.extend(chunk_qas)
-   ```
-5. 重複除去（L558-566）
-6. カバレッジ向上のための追加生成（L571-583）
-
-### 6.3 save_results()（L589-644）
-
-**目的**: 結果をファイルに保存
-
-**出力先**: `qa_output/a03/`（L597）
-
-**保存ファイル**:
-1. Q/Aペア（JSON）（L602-605）
-2. Q/Aペア（CSV）（L607-610）
-3. カバレッジ分析結果（JSON）（L618-621）
-4. サマリー情報（JSON）（L624-638）
-
----
-
-## 7. コマンドライン引数
-
-### 7.1 引数定義（L649-663）
-
-| 引数 | 型 | デフォルト | 説明 |
-|------|-----|----------|------|
-| `--input` | str | - | 入力ファイルパス（必須） |
-| `--dataset` | str | None | データセット種別（cc_news, japanese_text, wikipedia_ja） |
-| `--max-docs` | int | None | 処理する最大文書数 |
-| `--methods` | list | ['rule', 'template'] | 使用する手法 |
-| `--model` | str | gpt-4o-mini | 使用するモデル |
-| `--output` | str | qa_output | 出力ディレクトリ |
-| `--analyze-coverage` | flag | False | カバレッジ分析を実行 |
-| `--coverage-threshold` | float | 0.65 | カバレッジ判定閾値 |
-| `--qa-per-chunk` | int | 4 | チャンクあたりのQ/A生成数 |
-| `--max-chunks` | int | 300 | 処理する最大チャンク数 |
-| `--demo` | flag | False | デモモード |
-
-### 7.2 main()関数（L647-780）
-
-**処理フロー**:
-1. 環境チェック（L672-675）
-2. データ読み込み（L677-691）
-3. Q/A生成処理（L704-711）
-4. カバレッジ分析（L714-750）
-5. 結果保存（L753）
-6. 統計情報表示（L764-773）
-
----
-
-## 8. パフォーマンス最適化
-
-### 8.1 バッチ処理によるAPI呼び出し削減
-
-**従来版の問題**:
-- Q/Aごとに個別API呼び出し（1,000個のQ/A = 1,000回）
-- 処理時間が長い（10-20分）
-- レート制限に達しやすい
-
-**改良版の解決策**:
-- 最大2048個を1回のAPIで処理（L422）
-- API呼び出し数: 1,000回 → 2-5回（-99.5%）
-- 処理時間: 10-20分 → 2-3分（-85%）
-
-### 8.2 重み付け類似度計算
-
-**改良点**（L415）:
+### 6.1 バッチ処理最適化
 ```python
-# 従来版
-qa_text = question + " " + answer
-
-# 改良版（回答を2倍にして重み付け）
-combined_text = f"{question} {answer} {answer}"
+# 埋め込み生成のバッチ処理
+MAX_BATCH_SIZE = 2048  # OpenAI APIの制限
+if len(texts) > MAX_BATCH_SIZE:
+    embeddings = []
+    for i in range(0, len(texts), MAX_BATCH_SIZE):
+        batch = texts[i:i+MAX_BATCH_SIZE]
+        batch_embeddings = generate_embeddings(batch)
+        embeddings.extend(batch_embeddings)
 ```
 
-**効果**:
-- 類似度スコア向上: 平均+0.15
-- カバレッジ率向上: +10%
-
-### 8.3 カバレッジ達成のための重要パラメータ
-
-| パラメータ | 通常値 | 80%達成 | 95%達成 | **99.7%達成（実績）** |
-|----------|--------|---------|---------|---------------------|
-| `--qa-per-chunk` | 4-5 | 6-8 | 10-12 | **12** |
-| `--coverage-threshold` | 0.65-0.70 | 0.60-0.65 | 0.52-0.60 | **0.52** |
-| `--max-chunks` | 300 | 400 | 500 | **609** |
-| `--max-docs` | 50-100 | 100 | 150 | **150** |
-
----
-
-## 9. 出力ファイル
-
-### 9.1 ファイル構成
-
-```
-qa_output/a03/
-├── qa_pairs_{dataset}_{timestamp}.csv       # Q/Aペア（CSV形式）
-├── qa_pairs_{dataset}_{timestamp}.json      # Q/Aペア（JSON形式）
-├── coverage_{dataset}_{timestamp}.json      # カバレッジ分析結果
-└── summary_{dataset}_{timestamp}.json       # 実行サマリー
-```
-
-### 9.2 サマリーファイル例（L624-638）
-
-```json
-{
-    "dataset_type": "cc_news",
-    "generated_at": "20241029_141030",
-    "total_qa_pairs": 7308,
-    "files": {
-        "qa_json": "qa_output/a03/qa_pairs_cc_news_20241029_141030.json",
-        "qa_csv": "qa_output/a03/qa_pairs_cc_news_20241029_141030.csv",
-        "coverage": "qa_output/a03/coverage_cc_news_20241029_141030.json",
-        "summary": "qa_output/a03/summary_cc_news_20241029_141030.json"
-    },
-    "coverage_rate": 0.997,
-    "coverage_details": {
-        "high_coverage": 450,
-        "medium_coverage": 150,
-        "low_coverage": 9
-    }
-}
-```
-
----
-
-## 10. 使用例
-
-### 10.1 基本実行（推奨設定）
-
-```bash
-python a03_rag_qa_coverage_improved.py \
-    --input OUTPUT/preprocessed_cc_news.csv \
-    --dataset cc_news \
-    --analyze-coverage \
-    --qa-per-chunk 5 \
-    --coverage-threshold 0.65
-```
-
-**期待結果**:
-- Q/A生成数: 1,500-2,000個
-- カバレッジ率: 75-85%
-- API呼び出し: 2-3回
-- 処理時間: 2-3分
-- コスト: $0.0001未満
-
-### 10.2 高カバレッジ版（80%目標）
-
-```bash
-python a03_rag_qa_coverage_improved.py \
-    --input OUTPUT/preprocessed_cc_news.csv \
-    --dataset cc_news \
-    --analyze-coverage \
-    --coverage-threshold 0.60 \
-    --qa-per-chunk 6 \
-    --max-chunks 400
-```
-
-### 10.3 最大カバレッジ版（99.7%実証済み）
-
-```bash
-python a03_rag_qa_coverage_improved.py \
-    --input OUTPUT/preprocessed_cc_news.csv \
-    --dataset cc_news \
-    --analyze-coverage \
-    --coverage-threshold 0.52 \
-    --qa-per-chunk 12 \
-    --max-chunks 609 \
-    --max-docs 150
-```
-
-### 10.4 日本語データセット処理
-
-```bash
-# Wikipedia日本語版
-python a03_rag_qa_coverage_improved.py \
-    --input OUTPUT/preprocessed_wikipedia_ja.csv \
-    --dataset wikipedia_ja \
-    --analyze-coverage \
-    --qa-per-chunk 6
-
-# 日本語Webテキスト
-python a03_rag_qa_coverage_improved.py \
-    --input OUTPUT/preprocessed_japanese_text.csv \
-    --dataset japanese_text \
-    --analyze-coverage \
-    --qa-per-chunk 5
-```
-
----
-
-## 11. トラブルシューティング
-
-### 11.1 カバレッジ率が目標に届かない
-
-**解決策**:
-
-1. **閾値を下げる**:
-   ```bash
-   --coverage-threshold 0.55  # 0.65 → 0.55
-   ```
-
-2. **Q/A数を増やす**:
-   ```bash
-   --qa-per-chunk 8  # 5 → 8
-   ```
-
-3. **チャンク数を増やす**:
-   ```bash
-   --max-chunks 500  # 300 → 500
-   ```
-
-### 11.2 MeCabが利用できない
-
-**症状**:
-```
-⚠️ MeCabが利用できません（正規表現モード）（L87）
-```
-
-**対応**:
-- 自動的に正規表現モードにフォールバック（L119-120）
-- 機能は正常に動作
-- 日本語複合名詞の抽出精度が若干低下
-
-**MeCabインストール方法**:
-```bash
-# macOS
-brew install mecab mecab-ipadic
-pip install mecab-python3
-
-# Ubuntu/Debian
-sudo apt-get install mecab libmecab-dev mecab-ipadic-utf8
-pip install mecab-python3
-```
-
-### 11.3 API Rate Limit エラー
-
-**対応**: コード内の`MAX_BATCH_SIZE`を調整（L422）
+### 6.2 重複排除アルゴリズム
 ```python
-MAX_BATCH_SIZE = 1024  # 2048 → 1024に削減
+def deduplicate_qa_pairs(qa_pairs):
+    unique = {}
+    for qa in qa_pairs:
+        # 質問の最初の30文字をキーとして使用
+        key = qa['question'][:30]
+        if key not in unique:
+            unique[key] = qa
+    return list(unique.values())
 ```
 
-### 11.4 メモリ不足エラー
+### 6.3 カバレージベース補強
+```python
+# カバレージが不足している場合、追加生成
+if len(unique_qas) < total_chunks * 2:
+    # 追加チャンクから簡易Q&A生成
+    for chunk in additional_chunks:
+        qa_pairs.extend(
+            generate_comprehensive_qa_for_chunk(
+                chunk, qa_per_chunk=2  # 最小限のQ&A
+            )
+        )
+```
 
-**対応**: チャンク数を制限
+---
+
+## 7. 実行パラメータと設定
+
+### 7.1 コマンドライン引数
+
 ```bash
---max-chunks 200
---max-docs 50
+python a03_rag_qa_coverage_improved.py \
+    --dataset cc_news \                    # データセット名
+    --qa-per-chunk 10 \                   # チャンクあたりQ&A数（推奨: 10）
+    --coverage-threshold 0.60 \           # カバレージ閾値（0.60-0.65）
+    --max-chunks 2000 \                    # 処理する最大チャンク数
+    --output-dir qa_output/a03            # 出力ディレクトリ
+```
+
+### 7.2 推奨設定
+
+| パラメータ | 推奨値 | 説明 |
+|----------|--------|------|
+| qa-per-chunk | 10 | 高カバレージ達成に必要 |
+| coverage-threshold | 0.60 | 92.8%カバレージを達成する閾値 |
+| max-chunks | 2000 | 大規模データセットの処理制限 |
+
+---
+
+## 8. パフォーマンス特性
+
+### 8.1 実測値（500文書処理時）
+
+| 指標 | 値 |
+|------|-----|
+| カバレージ率 | 92.8% |
+| 生成Q&A数 | 4,478ペア |
+| チャンク数 | 1,689 |
+| Q&A/チャンク比 | 2.7 |
+| LLM API呼び出し | 0回 |
+| 埋め込みAPI呼び出し | 約2,167回 |
+| 推定コスト | < $0.01 |
+| 処理時間 | 約100-130分（推定） |
+
+### 8.2 Q&Aタイプ別分布
+
+```
+- contextual: 2,431件 (54.3%)      # 文脈的質問が最多
+- keyword_based: 1,711件 (38.2%)   # キーワードベース
+- factual_detailed: 229件 (5.1%)   # 詳細事実
+- thematic: 105件 (2.3%)           # テーマ的
+- comprehensive: 2件 (0.04%)       # 包括的（重複排除の影響）
 ```
 
 ---
 
-## 12. 今後の改善案
+## 9. 長所と短所
 
-### 12.1 機能拡張
+### 長所
+✅ **超低コスト**: LLM API不要でQ&A生成
+✅ **高カバレージ**: 92.8%を達成
+✅ **予測可能**: ルールベースで動作が確定的
+✅ **高速処理**: LLM呼び出しのオーバーヘッドなし
+✅ **日英両対応**: 自動言語検出とMeCab統合
 
-1. **マルチスレッド処理**
-   - 並列処理による高速化
-   - チャンク処理の並列化
-
-2. **キャッシュ機能**
-   - 埋め込みベクトルのキャッシュ
-   - 再実行時の高速化
-
-3. **動的戦略選択**
-   - 文書タイプに応じた最適戦略の自動選択
-   - チャンク内容に基づくQ/A数の動的調整
-
-4. **リアルタイムモニタリング**
-   - Streamlit UIによる進捗可視化
-   - カバレッジのリアルタイム表示
-
-### 12.2 品質向上
-
-1. **MeCab辞書カスタマイズ**
-   - ドメイン固有の辞書追加
-   - キーワード抽出精度向上
-
-2. **Q/A品質評価**
-   - 生成されたQ/Aの品質スコアリング
-   - 低品質Q/Aの自動除外
-
-3. **カバレッジ最適化**
-   - 未カバーチャンクの自動検出と追加Q/A生成
-   - チャンク重要度に基づくQ/A数調整
+### 短所
+❌ **質問の自然さ**: テンプレートベースで画一的
+❌ **文脈理解**: 深い意味理解は不可能
+❌ **創造性**: 新しい観点の質問生成は困難
+❌ **閾値依存**: 0.6という緩い閾値でのみ高カバレージ
 
 ---
 
-## 変更履歴
+## 10. 使用推奨シナリオ
 
-### v2.4 (2025-11-04)
-- **質問品質最適化**: "passage N" 接頭辞の削除によるRAG検索精度向上
-  - 戦略1: `"What information is contained in passage N?"` → `"What information is discussed in this section?"`
-  - 戦略2-1: 固有名詞・主要概念を抽出した自然な質問生成
-    - `"In passage N, what specific information..."` → `"What specific information is provided about {concept}?"`
-  - 戦略2-2: 概念間の関係性を明示した文脈質問
-    - `"How does ... relate to ... in passage N?"` → `"How does {concept A} relate to {concept B}?"`
-  - 戦略2-3: シンプルで自然なキーワードベース質問
-    - `"What does passage N say about {keyword}?"` → `"What is mentioned about {keyword}?"`
-  - 戦略4: 主要テーマ質問の洗練化
-    - 英語: 主要概念を抽出したテーマ質問生成
-    - 日本語: MeCabキーワードを活用したテーマ質問生成
-- **効果**: コサイン類似度+0.10～+0.15向上、RAG検索の実用性大幅改善
+### 最適な用途
+- ✅ **RAGシステムの初期構築**: 高速・低コストでベースライン構築
+- ✅ **カバレージ最大化が必要**: 網羅性重視のシステム
+- ✅ **予算制約がある**: API費用を最小化したい場合
+- ✅ **大規模データセット**: 数千〜数万文書の処理
 
-### v2.3 (2025-11-04)
-- **SemanticCoverage改良**: 言語自動判定とMeCabによる日本語文分割統合
-  - 日本語テキストに対してMeCabによる高精度文境界検出を実装
-  - 英語テキスト/MeCab失敗時の正規表現フォールバックを実装
-  - チャンク作成の精度向上（日本語文書対応強化）
-- ドキュメント更新: SemanticCoverageの新機能を文書化
-
-### v2.2 (2024-10-29)
-- ドキュメント全面更新（コード行番号の具体的な参照を追加）
-- 実装の詳細な説明を追加
-
-### v2.1 (2024-10-23)
-- 出力ディレクトリを`qa_output/a03/`に変更（サブディレクトリ自動作成）
-- ファイル管理の改善
-
-### v2.0 (2024-10-22)
-- **99.7%カバレッジ達成を実証**（150文書、609チャンク、7,308Q/A）
-- **MeCabキーワード抽出機能追加**（日本語複合名詞対応、自動フォールバック）
-- KeywordExtractorクラス実装
-
-### v1.0 (2024-10-21)
-- 改良版初版リリース
-- バッチ処理実装（API呼び出し99.94%削減）
-- 3戦略Q/A生成実装
-- 重み付け類似度計算実装
+### 不適切な用途
+- ❌ **高品質Q&Aが必要**: 自然な質問文が求められる場合
+- ❌ **複雑な推論**: 深い理解や推論が必要な質問
+- ❌ **教育用コンテンツ**: 学習用の多様な質問が必要な場合
 
 ---
 
-**最終更新日**: 2025年11月04日
-**バージョン**: 2.4
-**作成者**: OpenAI RAG Q&A JP開発チーム
+## まとめ
+
+`a03_rag_qa_coverage_improved.py`は、**コストとカバレージのトレードオフを極限まで最適化**したシステムです。LLMを使わないルールベースアプローチにより、極めて低コストで92.8%という高カバレージを実現しています。
+
+質問の自然さを犠牲にする代わりに、**確実性、予測可能性、コスト効率**を獲得しており、特に大規模RAGシステムの初期構築や、カバレージ重視のユースケースに最適な選択肢となっています。
+
+---
+
+*作成日: 2025年11月6日*

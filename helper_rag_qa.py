@@ -2610,31 +2610,294 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
     """
     バッチ処理に最適化されたハイブリッドQ/A生成クラス
     API呼び出しを大幅に削減し、処理を高速化
+    品質重視モード追加（カバレージ95%目標）
     """
 
     def __init__(self,
                  model: str = "gpt-5-mini",
                  embedding_model: str = "text-embedding-3-small",
                  batch_size: int = 10,
-                 embedding_batch_size: int = 100):
+                 embedding_batch_size: int = 100,
+                 quality_mode: bool = False,
+                 target_coverage: float = 0.95):
         """
         Args:
             model: 使用するLLMモデル
             embedding_model: 埋め込みモデル
             batch_size: LLM処理のバッチサイズ
             embedding_batch_size: 埋め込み処理のバッチサイズ
+            quality_mode: 品質重視モード（True: カバレージ優先、False: 効率優先）
+            target_coverage: 目標カバレージ率（デフォルト95%）
         """
         super().__init__(model, embedding_model)
-        self.batch_size = batch_size
+        self.batch_size = batch_size if not quality_mode else min(5, batch_size)  # 品質モードでは最大5
         self.embedding_batch_size = embedding_batch_size
+        self.quality_mode = quality_mode
+        self.target_coverage = target_coverage
 
         # バッチ処理統計
         self.batch_stats = {
             "llm_batches": 0,
             "embedding_batches": 0,
             "total_llm_calls": 0,
-            "total_embedding_calls": 0
+            "total_embedding_calls": 0,
+            "coverage_iterations": 0
         }
+
+    def calculate_optimal_qa_count(self, text: str, target_coverage: float = 0.95) -> int:
+        """
+        文書の複雑度に基づいて最適なQ/A数を動的に決定
+
+        Args:
+            text: 対象文書
+            target_coverage: 目標カバレージ率
+
+        Returns:
+            最適なQ/A数
+        """
+        # 文書の特徴分析
+        text_length = len(text)
+        sentences = re.split(r'[。！？\.\!\?]+', text)
+        unique_concepts = len(set(re.findall(r'[ァ-ヴー]{3,}|[A-Z]{2,}|[一-龥]{4,}', text)))
+        information_density = unique_concepts / (text_length / 1000) if text_length > 0 else 0
+
+        # 基本Q/A数の計算
+        if information_density > 10:  # 高密度
+            base_qa_count = 8
+        elif information_density > 5:  # 中密度
+            base_qa_count = 6
+        else:  # 低密度
+            base_qa_count = 4
+
+        # チャンク数に基づく調整
+        chunks = self._create_semantic_chunks(text)
+        chunk_adjustment = len(chunks) * 0.5
+
+        # 品質モードでの調整
+        if self.quality_mode:
+            base_qa_count = int(base_qa_count * 1.5)  # 50%増加
+
+        optimal_count = int(base_qa_count + chunk_adjustment)
+        return min(optimal_count, 15)  # 上限15個
+
+    def generate_hierarchical_qa(self, text: str, lang: str = "en") -> List[Dict]:
+        """
+        階層的アプローチでQ/Aを生成（3段階）
+
+        Args:
+            text: 対象テキスト
+            lang: 言語コード
+
+        Returns:
+            階層的に生成されたQ/Aペア
+        """
+        all_qa_pairs = []
+
+        # 第1層: 文書全体の包括的質問（1-2個）
+        if lang == "ja":
+            comprehensive_qa = [
+                {
+                    "question": "この文書の主要な内容を要約してください",
+                    "answer": text[:500] if len(text) > 500 else text,
+                    "type": "comprehensive",
+                    "layer": 1
+                }
+            ]
+        else:
+            comprehensive_qa = [
+                {
+                    "question": "What is the main content of this document?",
+                    "answer": text[:500] if len(text) > 500 else text,
+                    "type": "comprehensive",
+                    "layer": 1
+                }
+            ]
+        all_qa_pairs.extend(comprehensive_qa)
+
+        # 第2層: パラグラフレベルの詳細質問（3-4個）
+        paragraphs = text.split('\n\n') if '\n\n' in text else [text[i:i+500] for i in range(0, len(text), 400)]
+        paragraph_qa = []
+
+        for i, para in enumerate(paragraphs[:4]):
+            if len(para.strip()) > 50:
+                if lang == "ja":
+                    qa = {
+                        "question": f"「{para[:30]}...」について説明してください",
+                        "answer": para,
+                        "type": "paragraph_detail",
+                        "layer": 2
+                    }
+                else:
+                    qa = {
+                        "question": f"Explain the following: '{para[:30]}...'",
+                        "answer": para,
+                        "type": "paragraph_detail",
+                        "layer": 2
+                    }
+                paragraph_qa.append(qa)
+        all_qa_pairs.extend(paragraph_qa)
+
+        # 第3層: キーワード/エンティティ特化質問（5-6個）
+        # キーワード抽出
+        if lang == "ja":
+            pattern = r'[ァ-ヴー]{3,}|[一-龥]{4,}'
+        else:
+            pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b|[A-Z]{2,}'
+
+        entities = list(set(re.findall(pattern, text)))[:6]
+        entity_qa = []
+
+        for entity in entities:
+            # エンティティの文脈を抽出
+            context_match = re.search(r'[^。.!?]*' + re.escape(entity) + r'[^。.!?]*', text)
+            if context_match:
+                context = context_match.group(0)
+                if lang == "ja":
+                    qa = {
+                        "question": f"「{entity}」について何が述べられていますか？",
+                        "answer": context,
+                        "type": "entity_specific",
+                        "layer": 3
+                    }
+                else:
+                    qa = {
+                        "question": f"What is mentioned about {entity}?",
+                        "answer": context,
+                        "type": "entity_specific",
+                        "layer": 3
+                    }
+                entity_qa.append(qa)
+        all_qa_pairs.extend(entity_qa)
+
+        return all_qa_pairs
+
+    def generate_with_coverage_feedback(
+        self,
+        text: str,
+        target_coverage: float = 0.95,
+        max_iterations: int = 3,
+        lang: str = "en"
+    ) -> Dict:
+        """
+        カバレージフィードバックループでQ/Aを生成
+
+        Args:
+            text: 入力テキスト
+            target_coverage: 目標カバレージ率
+            max_iterations: 最大反復回数
+            lang: 言語コード
+
+        Returns:
+            生成結果の辞書
+        """
+        qa_pairs = []
+        current_coverage = 0
+        iteration = 0
+        uncovered_chunks = []
+
+        # 初回は階層的生成
+        if self.quality_mode:
+            qa_pairs = self.generate_hierarchical_qa(text, lang)
+
+        while current_coverage < target_coverage and iteration < max_iterations:
+            iteration += 1
+            self.batch_stats["coverage_iterations"] = iteration
+
+            # カバレージ計算
+            if qa_pairs:
+                coverage_result = self._calculate_semantic_coverage(text, qa_pairs)
+                current_coverage = coverage_result['coverage_percentage'] / 100
+
+                # 未カバーチャンクを特定
+                if current_coverage < target_coverage:
+                    uncovered_chunks = self._identify_uncovered_chunks(
+                        text, qa_pairs, coverage_result
+                    )
+            else:
+                # 初回は通常の生成
+                optimal_count = self.calculate_optimal_qa_count(text, target_coverage)
+                rule_result = self.qa_extractor.extract_for_qa_generation(
+                    text, qa_count=optimal_count, mode="auto"
+                )
+                qa_pairs = self._template_to_qa(rule_result)
+                continue
+
+            if current_coverage >= target_coverage:
+                break
+
+            # 未カバー領域に対してQ/A生成
+            additional_qa = self._generate_targeted_qa(
+                uncovered_chunks, text, lang
+            )
+            qa_pairs.extend(additional_qa)
+
+            print(f"反復 {iteration}: カバレージ = {current_coverage:.1%}, "
+                  f"Q/A総数 = {len(qa_pairs)}")
+
+        return {
+            "qa_pairs": qa_pairs,
+            "final_coverage": current_coverage,
+            "iterations": iteration,
+            "total_qa": len(qa_pairs)
+        }
+
+    def _identify_uncovered_chunks(
+        self,
+        text: str,
+        qa_pairs: List[Dict],
+        coverage_result: Dict
+    ) -> List[str]:
+        """未カバーのチャンクを特定"""
+        chunks = self._create_semantic_chunks(text)
+
+        # 各チャンクのカバレージスコアを取得
+        chunk_embeddings = self._get_embeddings([c["text"] for c in chunks])
+        qa_texts = [f"{qa['question']} {qa['answer']}" for qa in qa_pairs]
+        qa_embeddings = self._get_embeddings(qa_texts)
+
+        uncovered = []
+        threshold = 0.65 if self.quality_mode else 0.7
+
+        for i, chunk in enumerate(chunks):
+            max_similarity = 0
+            for qa_emb in qa_embeddings:
+                similarity = self._cosine_similarity(chunk_embeddings[i], qa_emb)
+                max_similarity = max(max_similarity, similarity)
+
+            if max_similarity < threshold:
+                uncovered.append(chunk["text"])
+
+        return uncovered
+
+    def _generate_targeted_qa(
+        self,
+        uncovered_chunks: List[str],
+        full_text: str,
+        lang: str
+    ) -> List[Dict]:
+        """未カバー領域に焦点を当てたQ/A生成"""
+        targeted_qa = []
+
+        for chunk in uncovered_chunks[:5]:  # 最大5チャンク
+            # チャンクから重要なキーワードを抽出
+            if lang == "ja":
+                pattern = r'[ァ-ヴー]{3,}|[一-龥]{4,}'
+                question_template = "「{}」について詳しく説明してください"
+            else:
+                pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b|[A-Z]{2,}'
+                question_template = "Please explain in detail about {}"
+
+            keywords = re.findall(pattern, chunk)
+            if keywords:
+                keyword = keywords[0]
+                qa = {
+                    "question": question_template.format(keyword),
+                    "answer": chunk,
+                    "type": "targeted_coverage"
+                }
+                targeted_qa.append(qa)
+
+        return targeted_qa
 
     def generate_batch_hybrid_qa(
         self,

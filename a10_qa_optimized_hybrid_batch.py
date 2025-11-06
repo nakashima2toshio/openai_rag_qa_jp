@@ -10,19 +10,23 @@ API呼び出しを最小化し、処理を高速化
 - MeCab利用可否は自動判定され、未インストール環境では自動的に
   正規表現にフォールバック
 
-# 確実に95%達成するための推奨コマンド
+# 確実に95%達成するための推奨コマンド（品質重視モード）
   python a10_qa_optimized_hybrid_batch.py \
       --dataset cc_news \
       --model gpt-5-mini \
-      --batch-size 10 \
+      --quality-mode \
+      --target-coverage 0.95 \
+      --batch-size 5 \
       --embedding-batch-size 150 \
-      --qa-count 12 \
       --output qa_output
 
 
 使用方法:
     # 基本使用（バッチサイズ10）
     python a10_qa_optimized_hybrid_batch.py --dataset cc_news
+
+    # 品質重視モード（カバレージ95%目標）
+    python a10_qa_optimized_hybrid_batch.py --dataset cc_news --quality-mode
 
     # バッチサイズ指定
     python a10_qa_optimized_hybrid_batch.py --dataset cc_news --batch-size 20
@@ -137,9 +141,26 @@ def generate_batch_qa_from_dataset(
     use_llm: bool = True,
     calculate_coverage: bool = True,
     doc_type: Optional[str] = None,
-    output_dir: str = "qa_output"
+    output_dir: str = "qa_output",
+    quality_mode: bool = False,
+    target_coverage: float = 0.95
 ) -> Dict:
-    """バッチ処理でデータセットからQ/A生成"""
+    """バッチ処理でデータセットからQ/A生成
+
+    Args:
+        df: 入力データフレーム
+        dataset_type: データセットタイプ
+        model: 使用するLLMモデル
+        batch_size: バッチサイズ
+        embedding_batch_size: 埋め込みバッチサイズ
+        qa_count: Q/A数
+        use_llm: LLM使用フラグ
+        calculate_coverage: カバレージ計算フラグ
+        doc_type: 文書タイプ
+        output_dir: 出力ディレクトリ
+        quality_mode: 品質重視モード
+        target_coverage: 目標カバレージ率
+    """
 
     config = DATASET_CONFIGS[dataset_type]
     text_col = config["text_column"]
@@ -163,11 +184,13 @@ def generate_batch_qa_from_dataset(
     # テキストリストの準備
     texts = df[text_col].tolist()
 
-    # バッチ生成器の初期化
+    # バッチ生成器の初期化（品質モードを追加）
     generator = BatchHybridQAGenerator(
         model=model,
         batch_size=batch_size,
-        embedding_batch_size=embedding_batch_size
+        embedding_batch_size=embedding_batch_size,
+        quality_mode=quality_mode,
+        target_coverage=target_coverage
     )
 
     # MeCab利用状況を確認（SemanticCoverageインスタンス経由）
@@ -495,6 +518,17 @@ def main():
         default=10,
         help="比較実行のサンプルサイズ"
     )
+    parser.add_argument(
+        "--quality-mode",
+        action="store_true",
+        help="品質重視モード（カバレージ95%目標）"
+    )
+    parser.add_argument(
+        "--target-coverage",
+        type=float,
+        default=0.95,
+        help="目標カバレージ率（品質モード時）"
+    )
 
     args = parser.parse_args()
 
@@ -537,6 +571,8 @@ def main():
 
         # 通常のバッチ処理実行
         logger.info("\n[2/3] バッチ処理Q/A生成...")
+        if args.quality_mode:
+            logger.info(f"🎯 品質重視モード: 目標カバレージ {args.target_coverage*100:.0f}%")
         generation_results = generate_batch_qa_from_dataset(
             df,
             args.dataset,
@@ -547,7 +583,9 @@ def main():
             use_llm=not args.no_llm,
             calculate_coverage=not args.no_coverage,
             doc_type=args.doc_type,
-            output_dir=args.output
+            output_dir=args.output,
+            quality_mode=args.quality_mode,
+            target_coverage=args.target_coverage
         )
 
         # 結果保存
