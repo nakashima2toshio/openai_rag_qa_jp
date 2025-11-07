@@ -10,15 +10,73 @@ API呼び出しを最小化し、処理を高速化
 - MeCab利用可否は自動判定され、未インストール環境では自動的に
   正規表現にフォールバック
 
+最適化オプション
+実行コマンド（最適化版）：
+497件のデータ
+[バッチ処理Q/A生成]
+品質重視モード: 目標カバレージ 95%
+キャッシュモード: qa_cache
+バッチ処理Q/A生成開始: 497件の文書
+バッチサイズ: LLM=10, 埋め込み=300
+データセット言語: en
+
+1. **API呼び出し削減**
+   - 通常版（推定）: 1491回
+   - バッチ版（実際）: 110回
+   - 削減率: 92.6%
+
+2. **処理速度向上**
+   - 処理速度: 0.14文書/秒
+   - 497文書を61.3分で処理
+
+3. **スケーラビリティ**
+   - 大規模データセット処理が現実的に
+   - レート制限リスクの大幅低減
+
+
+python a10_qa_optimized_hybrid_batch.py \
+--dataset cc_news \
+--model gpt-5-mini \
+--quality-mode \
+--target-coverage 0.95 \
+--batch-size 10 \
+--embedding-batch-size 300 \
+--use-cache \
+--cache-dir qa_cache \
+--output qa_output
+
+# キャッシュ活用版（同じデータセットの再実行時）
+python a10_qa_optimized_hybrid_batch.py \
+--dataset cc_news \
+--model gpt-5-mini \
+--quality-mode \
+--target-coverage 0.95 \
+--batch-size 10 \
+--embedding-batch-size 300 \
+--use-cache \
+--cache-dir qa_cache \
+--output qa_output
+
+# 段階的品質向上版（初回は速度優先、後で品質向上）
+python a10_qa_optimized_hybrid_batch.py \
+--dataset cc_news \
+--model gpt-5-mini \
+--progressive-quality \
+--initial-coverage 0.85 \
+--final-coverage 0.95 \
+--batch-size 15 \
+--output qa_output
+
+
 # 確実に95%達成するための推奨コマンド（品質重視モード）
-  python a10_qa_optimized_hybrid_batch.py \
-      --dataset cc_news \
-      --model gpt-5-mini \
-      --quality-mode \
-      --target-coverage 0.95 \
-      --batch-size 5 \
-      --embedding-batch-size 150 \
-      --output qa_output
+python a10_qa_optimized_hybrid_batch.py \
+  --dataset cc_news \
+  --model gpt-5-mini \
+  --quality-mode \
+  --target-coverage 0.95 \
+  --batch-size 5 \
+  --embedding-batch-size 150 \
+  --output qa_output
 
 
 使用方法:
@@ -53,6 +111,10 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import logging
 from tqdm import tqdm
+
+# .envファイルから環境変数を読み込む
+from dotenv import load_dotenv
+load_dotenv()
 
 # helper_rag_qa から新しいバッチクラスをインポート
 from helper_rag_qa import BatchHybridQAGenerator, OptimizedHybridQAGenerator
@@ -143,7 +205,12 @@ def generate_batch_qa_from_dataset(
     doc_type: Optional[str] = None,
     output_dir: str = "qa_output",
     quality_mode: bool = False,
-    target_coverage: float = 0.95
+    target_coverage: float = 0.95,
+    use_cache: bool = False,
+    cache_dir: str = "qa_cache",
+    progressive_quality: bool = False,
+    initial_coverage: float = 0.85,
+    final_coverage: float = 0.95
 ) -> Dict:
     """バッチ処理でデータセットからQ/A生成
 
@@ -529,6 +596,34 @@ def main():
         default=0.95,
         help="目標カバレージ率（品質モード時）"
     )
+    parser.add_argument(
+        "--use-cache",
+        action="store_true",
+        help="埋め込みキャッシュを使用"
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default="qa_cache",
+        help="キャッシュディレクトリ"
+    )
+    parser.add_argument(
+        "--progressive-quality",
+        action="store_true",
+        help="段階的品質向上モード"
+    )
+    parser.add_argument(
+        "--initial-coverage",
+        type=float,
+        default=0.85,
+        help="初期目標カバレージ率（段階的品質向上モード時）"
+    )
+    parser.add_argument(
+        "--final-coverage",
+        type=float,
+        default=0.95,
+        help="最終目標カバレージ率（段階的品質向上モード時）"
+    )
 
     args = parser.parse_args()
 
@@ -573,6 +668,11 @@ def main():
         logger.info("\n[2/3] バッチ処理Q/A生成...")
         if args.quality_mode:
             logger.info(f"🎯 品質重視モード: 目標カバレージ {args.target_coverage*100:.0f}%")
+        if args.use_cache:
+            logger.info(f"📦 キャッシュモード: {args.cache_dir}")
+        if args.progressive_quality:
+            logger.info(f"📈 段階的品質向上モード: {args.initial_coverage*100:.0f}% → {args.final_coverage*100:.0f}%")
+
         generation_results = generate_batch_qa_from_dataset(
             df,
             args.dataset,
@@ -585,7 +685,12 @@ def main():
             doc_type=args.doc_type,
             output_dir=args.output,
             quality_mode=args.quality_mode,
-            target_coverage=args.target_coverage
+            target_coverage=args.target_coverage,
+            use_cache=args.use_cache,
+            cache_dir=args.cache_dir,
+            progressive_quality=args.progressive_quality,
+            initial_coverage=args.initial_coverage,
+            final_coverage=args.final_coverage
         )
 
         # 結果保存

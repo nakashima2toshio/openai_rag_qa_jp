@@ -21,6 +21,10 @@ from openai import OpenAI
 from pydantic import BaseModel
 import spacy
 
+# .envファイルから環境変数を読み込む
+from dotenv import load_dotenv
+load_dotenv()
+
 """
 [キーワード抽出関連クラス]
 
