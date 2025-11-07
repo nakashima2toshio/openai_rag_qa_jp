@@ -2,6 +2,121 @@
 
 日本語RAG（Retrieval-Augmented Generation）システムのQ&A生成・評価・検索ツール集
 
+## システムアーキテクチャ（Q&A生成処理フロー）
+
+3つのQ&A生成プログラム（a02, a03, a10）の共通処理フローと各手法の特徴を示します：
+
+```mermaid
+flowchart TD
+    Start([開始])
+    Input[preprocessedデータ読み込み]
+    Clean[データクレンジング]
+    LangDetect{言語判定}
+    MeCabCheck{MeCab利用可能}
+    RegexSplit[正規表現による文分割 英語]
+    MeCabSplit[MeCabによる文境界検出]
+    RegexSplitJa[正規表現による文分割 日本語]
+    Chunk[セマンティックチャンク作成]
+    MergeCheck{小チャンク統合}
+    Merge[チャンク統合]
+    QAGen[QA生成方式選択]
+    Method{手法}
+
+    A02_Dynamic[動的QA数決定]
+    A02_Batch[バッチ処理]
+    A02_QA[高品質QA生成]
+
+    A03_Keyword[キーワード抽出]
+    A03_Template[テンプレート生成]
+    A03_QA[大量QA生成]
+
+    A10_Mode{処理モード}
+    A10_Hybrid[ハイブリッド生成]
+    A10_Hierarchical[階層的生成]
+    A10_Batch[大規模バッチ処理]
+
+    Embedding[埋め込みベクトル生成]
+    Coverage[セマンティックカバレージ分析]
+    Eval{カバレージ目標達成}
+    A10_Feedback[未カバー領域特定]
+    Output[結果保存]
+    End([終了])
+
+    Start --> Input
+    Input --> Clean
+    Clean --> LangDetect
+
+    LangDetect -->|日本語| MeCabCheck
+    LangDetect -->|英語| RegexSplit
+
+    MeCabCheck -->|Yes| MeCabSplit
+    MeCabCheck -->|No| RegexSplitJa
+
+    MeCabSplit --> Chunk
+    RegexSplitJa --> Chunk
+    RegexSplit --> Chunk
+
+    Chunk --> MergeCheck
+    MergeCheck -->|Yes a02 a10| Merge
+    MergeCheck -->|No a03| QAGen
+    Merge --> QAGen
+
+    QAGen --> Method
+
+    Method -->|a02| A02_Dynamic
+    A02_Dynamic --> A02_Batch
+    A02_Batch --> A02_QA
+
+    Method -->|a03| A03_Keyword
+    A03_Keyword --> A03_Template
+    A03_Template --> A03_QA
+
+    Method -->|a10| A10_Mode
+    A10_Mode -->|通常| A10_Hybrid
+    A10_Mode -->|品質重視| A10_Hierarchical
+    A10_Hybrid --> A10_Batch
+    A10_Hierarchical --> A10_Batch
+
+    A02_QA --> Embedding
+    A03_QA --> Embedding
+    A10_Batch --> Embedding
+
+    Embedding --> Coverage
+    Coverage --> Eval
+
+    Eval -->|No a10品質| A10_Feedback
+    A10_Feedback --> A10_Hierarchical
+
+    Eval -->|Yes| Output
+    Output --> End
+
+    classDef inputStyle fill:#000000,stroke:#00bcd4,stroke-width:2px,color:#ffffff
+    classDef processStyle fill:#000000,stroke:#9c27b0,stroke-width:2px,color:#ffffff
+    classDef methodStyle fill:#000000,stroke:#ff9800,stroke-width:2px,color:#ffffff
+    classDef outputStyle fill:#000000,stroke:#4caf50,stroke-width:2px,color:#ffffff
+    classDef decisionStyle fill:#000000,stroke:#e91e63,stroke-width:2px,color:#ffffff
+
+    class Input,Clean inputStyle
+    class MeCabSplit,RegexSplit,RegexSplitJa,Chunk,Merge,Embedding,Coverage processStyle
+    class A02_Dynamic,A02_Batch,A02_QA,A03_Keyword,A03_Template,A03_QA,A10_Hybrid,A10_Hierarchical,A10_Batch,A10_Feedback methodStyle
+    class Output outputStyle
+    class LangDetect,MeCabCheck,MergeCheck,Method,A10_Mode,Eval decisionStyle
+```
+
+### 処理フローの特徴
+
+#### 共通処理部分
+1. **データ前処理**: 全手法で同一のクレンジング処理
+2. **言語別文分割**: 日本語はMeCab優先、英語は正規表現
+3. **チャンク作成**: 200-300トークンのセマンティックチャンク
+4. **埋め込み生成**: OpenAI text-embedding-3を使用
+5. **カバレージ分析**: コサイン類似度による評価
+
+#### 各手法の独自処理
+- **a02（LLM直接生成）**: 動的Q&A数調整、位置バイアス補正
+- **a03（テンプレート）**: キーワード抽出、ルールベース生成
+- **a10（ハイブリッド）**: 階層的生成、フィードバックループ
+
 ## プロジェクト概要
 
 このプロジェクトは、日本語および英語のドキュメントからQ&Aペアを自動生成し、セマンティックカバレッジ分析を行い、Qdrantベクトルデータベースを使用した高精度な検索システムを提供します。
@@ -116,11 +231,36 @@ python server.py
 # RAGデータの前処理
 streamlit run a01_load_non_qa_rag_data.py --server.port=8502
 
-# Q&Aペアの生成
-python a02_make_qa.py --dataset cc_news --model gpt-4o-mini
+# Q&Aペアの生成（標準版・推奨設定）
+python a02_make_qa.py \
+    --dataset cc_news \
+    --batch-chunks 3 \     # 5→3: より丁寧な処理
+    --merge-chunks \
+    --min-tokens 100 \     # 150→100: 小チャンク削減
+    --max-tokens 300 \     # 400→300: 過度な統合防止
+    --model gpt-5-mini \
+    --analyze-coverage
 
-# カバレッジ分析付きQ&A生成
-python a03_rag_qa_coverage_improved.py
+# カバレッジ分析付きQ&A生成（高速版・推奨設定）
+python a03_rag_qa_coverage_improved.py \
+    --input OUTPUT/preprocessed_cc_news.csv \
+    --dataset cc_news \
+    --analyze-coverage \
+    --coverage-threshold 0.60 \
+    --qa-per-chunk 10 \
+    --max-chunks 2000 \
+    --output qa_output
+
+# バッチ処理ハイブリッドQ&A生成（推奨）
+python a10_qa_optimized_hybrid_batch.py --dataset cc_news --model gpt-5-mini
+
+# 品質重視モード（カバレージ95%目標、階層的生成）
+python a10_qa_optimized_hybrid_batch.py \
+    --dataset cc_news \
+    --model gpt-5-mini \
+    --quality-mode \
+    --target-coverage 0.95 \
+    --batch-size 5
 ```
 
 ### 2. Qdrantへのデータ登録
