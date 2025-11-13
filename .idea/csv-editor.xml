@@ -17,6 +17,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/OUTPUT/preprocessed_livedoor.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/OUTPUT/preprocessed_wikipedia_ja.csv">
           <value>
             <Attribute>
@@ -31,7 +38,21 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/qa_output/a02_qa_pairs_livedoor.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/qa_output/a03/qa_pairs_cc_news_20251104_214433.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a03/qa_pairs_livedoor_20251108_211942.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
@@ -53,6 +74,13 @@
           </value>
         </entry>
         <entry key="/qa_output/a10_qa_pairs_cc_news.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a10_qa_pairs_livedoor.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

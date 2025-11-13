@@ -2,14 +2,23 @@
 
 ## 概要
 
-`a03_rag_qa_coverage_improved.py`は、文書から高カバレッジのQ&Aペアを自動生成するシステムです。ルールベースとテンプレートベースの手法を組み合わせ、99.7%という極めて高いカバレッジ率を達成します。
+`a03_rag_qa_coverage_improved.py`は、文書から高カバレッジのQ&Aペアを自動生成するシステムです。ルールベースとテンプレートベースの手法を組み合わせ、90%以上という高いカバレッジ率を達成します。
 
-### 主要成果
-- **カバレッジ率**: 99.7%（閾値0.52）
-- **生成Q&A数**: 2,139ペア（150文書、609チャンク）
-- **実行時間**: 約2分
-- **API呼び出し**: 5回（埋め込みのみ、Q&A生成はルールベース）
-- **コスト**: $0.00076
+## 対応データセット
+
+以下の4種類のデータセットに対応しています:
+
+1. **cc_news**: CC-News英語ニュース
+2. **japanese_text**: 日本語Webテキスト
+3. **wikipedia_ja**: Wikipedia日本語版
+4. **livedoor**: ライブドアニュース（日本語）
+
+### 主要成果（CC-Newsデータセット実行例）
+- **カバレッジ率**: 90.3%（閾値0.60）
+- **生成Q&A数**: 4,278ペア（497文書、1,689チャンク）
+- **実行時間**: 約3分
+- **API呼び出し**: 埋め込み生成のみ（Q&A生成はルールベース）
+- **コスト**: < $0.01
 
 ## システムアーキテクチャ（処理フロー図）
 ### 処理
@@ -485,27 +494,41 @@ python a03_rag_qa_coverage_improved.py \
 
 ## 8. パフォーマンス特性
 
-### 8.1 実測値（500文書処理時）
+### 8.1 実測値（CC-Newsデータセット、497文書処理）
 
 | 指標 | 値 |
 |------|-----|
-| カバレージ率 | 92.8% |
-| 生成Q&A数 | 4,478ペア |
+| カバレージ率 | 90.3% |
+| 生成Q&A数 | 4,278ペア |
 | チャンク数 | 1,689 |
-| Q&A/チャンク比 | 2.7 |
+| Q&A/チャンク比 | 2.5 |
 | LLM API呼び出し | 0回 |
-| 埋め込みAPI呼び出し | 約2,167回 |
+| 埋め込みAPI呼び出し | 3回（バッチ処理） |
 | 推定コスト | < $0.01 |
-| 処理時間 | 約100-130分（推定） |
+| 処理時間 | 約3分 |
 
-### 8.2 Q&Aタイプ別分布
+### 8.2 Q&Aタイプ別分布（CC-News実行例）
 
 ```
-- contextual: 2,431件 (54.3%)      # 文脈的質問が最多
-- keyword_based: 1,711件 (38.2%)   # キーワードベース
-- factual_detailed: 229件 (5.1%)   # 詳細事実
-- thematic: 105件 (2.3%)           # テーマ的
-- comprehensive: 2件 (0.04%)       # 包括的（重複排除の影響）
+- contextual: 2,753件 (64.3%)      # 文脈的質問が最多
+- keyword_based: 1,520件 (35.5%)   # キーワードベース
+- factual_detailed: 2件 (0.05%)    # 詳細事実
+- thematic: 2件 (0.05%)            # テーマ的
+- comprehensive: 1件 (0.02%)       # 包括的
+```
+
+### 8.3 カバレッジ詳細分析
+
+```
+カバレッジ分布:
+- 高カバレッジ (≥0.7): 1,173チャンク (69.5%)
+- 中カバレッジ (0.5-0.7): 484チャンク (28.7%)
+- 低カバレッジ (<0.5): 32チャンク (1.9%)
+
+統計値:
+- 平均最大類似度: 0.745
+- 最小類似度: 0.220
+- 最大類似度: 0.889
 ```
 
 ---
@@ -550,4 +573,109 @@ python a03_rag_qa_coverage_improved.py \
 
 ---
 
+---
+
+## API仕様
+
+### コマンドライン引数
+
+| 引数 | 型 | デフォルト | 説明 |
+|------|-----|-----------|------|
+| `--input` | str | None | 入力ファイルパス（CSV/テキスト） |
+| `--dataset` | str | None | データセット選択（cc_news, japanese_text, wikipedia_ja, livedoor） |
+| `--max-docs` | int | None | 処理する最大文書数（テスト用） |
+| `--methods` | list | ['rule', 'template'] | 使用する手法（rule, template, llm） |
+| `--model` | str | gpt-4o-mini | 使用するOpenAIモデル（LLM手法時） |
+| `--output` | str | qa_output | 出力ディレクトリ |
+| `--analyze-coverage` | flag | False | カバレッジ分析を実行 |
+| `--coverage-threshold` | float | 0.65 | カバレッジ判定閾値（推奨: 0.60） |
+| `--qa-per-chunk` | int | 4 | チャンクあたりのQ&A生成数 |
+| `--max-chunks` | int | 300 | 処理する最大チャンク数 |
+| `--demo` | flag | False | デモモード |
+
+### セマンティックチャンキングパラメータ
+
+```python
+# create_semantic_chunksの内部設定
+max_tokens = 200        # チャンクの最大トークン数
+min_tokens = 50         # チャンクの最小トークン数
+prefer_paragraphs = True  # 段落優先モード
+```
+
+### 出力ファイル形式
+
+実行後、以下の4つのファイルが出力されます:
+
+1. **Q/Aペア（JSON）**: `qa_pairs_{dataset}_{timestamp}.json`
+   - 全Q/Aペアの詳細情報
+   - メタデータ（type, chunk_idx, coverage_strategy等）を含む
+
+2. **Q/Aペア（CSV）**: `qa_pairs_{dataset}_{timestamp}.csv`
+   - スプレッドシートで開ける形式
+   - Q/Aタイプ別の分析に便利
+
+3. **カバレッジ分析結果**: `coverage_{dataset}_{timestamp}.json`
+   - カバレッジ率、カバー済みチャンク数
+   - カバレッジ分布（高/中/低）
+   - 未カバーチャンクの詳細
+
+4. **サマリー**: `summary_{dataset}_{timestamp}.json`
+   - 処理の概要統計
+   - ファイルパス情報
+   - 基本メトリクス
+
+### 依存関係
+
+```python
+# 主要パッケージ
+openai>=1.100.2          # OpenAI API（埋め込み生成のみ）
+pandas>=2.0.0            # データ処理
+numpy>=1.24.0            # 数値計算
+tiktoken>=0.5.0          # トークンカウント
+python-dotenv>=1.0.0     # 環境変数管理
+
+# オプション（日本語処理強化）
+MeCab                    # 日本語形態素解析（推奨）
+```
+
+### 環境変数
+
+```bash
+# 必須
+OPENAI_API_KEY=your-openai-api-key
+
+# オプション
+# なし（カバレッジ分析にQdrantは不要）
+```
+
+### 実行例
+
+```bash
+# CC-Newsデータセット処理（推奨設定）
+python a03_rag_qa_coverage_improved.py \
+    --input OUTPUT/preprocessed_cc_news.csv \
+    --dataset cc_news \
+    --analyze-coverage \
+    --coverage-threshold 0.60 \
+    --qa-per-chunk 10 \
+    --max-chunks 2000 \
+    --output qa_output
+
+# Livedoorニュースデータセット処理例（20文書テスト）
+python a03_rag_qa_coverage_improved.py \
+    --input OUTPUT/preprocessed_livedoor.csv \
+    --dataset livedoor \
+    --analyze-coverage \
+    --coverage-threshold 0.60 \
+    --qa-per-chunk 10 \
+    --max-docs 20 \
+    --output qa_output
+
+# デモモード
+python a03_rag_qa_coverage_improved.py --demo --analyze-coverage
+```
+
+---
+
 *作成日: 2025年11月6日*
+*最終更新: 2025年11月12日*

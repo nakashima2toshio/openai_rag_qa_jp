@@ -1,3 +1,28 @@
+
+Q/Aペア：
+qa_output/a02_qa_pairs_cc_news.csv  4,646件
+qa_output/a02_qa_pairs_livedoor.csv   965件
+
+### Qdrant-colledtion list
+
+• raw_cc_news (660件)
+• qa_cc_news_a02_llm (9,290件)
+• qa_cc_news_a03_rule (8,556件)
+• qa_cc_news_a10_hybrid (4,334件)
+
+• raw_livedoor (20,193件)
+• qa_livedoor_a02_20_llm (964件)
+• qa_livedoor_a03_rule (466件)
+• qa_livedoor_a10_hybrid (2,175件)
+
+### colledtion list for csv
+qa_output/a02_qa_pairs_cc_news.csv
+qa_output/a02_qa_pairs_livedoor.csv
+qa_output/a03_qa_pairs_cc_news.csv
+qa_output/a03_qa_pairs_livedoor.csv
+qa_output/a10_qa_pairs_cc_news.csv
+qa_output/a10_qa_pairs_livedoor.csv
+
 ### %ls -1d *.py
 
 a01_load_non_qa_rag_data.py

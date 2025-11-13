@@ -82,8 +82,8 @@ class VectorStoreConfig:
     def get_all_configs(cls) -> Dict[str, 'VectorStoreConfig']:
         """全データセット設定を取得（CSVファイル対応版）"""
         return {
-            "a02_make_qa": cls(
-                dataset_type="a02_make_qa",
+            "a02_cc_news": cls(
+                dataset_type="a02_cc_news",
                 filename="a02_qa_pairs_cc_news.csv",
                 store_name="CC News Q&A - Basic Generation (a02_make_qa)",
                 description="CC NewsデータセットQ&A（基本生成方式）",
@@ -93,8 +93,19 @@ class VectorStoreConfig:
                 max_chunks_per_file=4000,
                 csv_text_column="question"  # questionカラムを使用
             ),
-            "a03_coverage": cls(
-                dataset_type="a03_coverage",
+            "a02_livedoor": cls(
+                dataset_type="a02_livedoor",
+                filename="a02_qa_pairs_livedoor.csv",
+                store_name="Livedoor Q&A - Basic Generation (a02_make_qa)",
+                description="LivedoorデータセットQ&A（基本生成方式）",
+                chunk_size=2000,
+                overlap=100,
+                max_file_size_mb=30,
+                max_chunks_per_file=4000,
+                csv_text_column="question"
+            ),
+            "a03_cc_news": cls(
+                dataset_type="a03_cc_news",
                 filename="a03_qa_pairs_cc_news.csv",
                 store_name="CC News Q&A - Coverage Improved (a03_coverage)",
                 description="CC NewsデータセットQ&A（カバレッジ改良方式）",
@@ -104,11 +115,33 @@ class VectorStoreConfig:
                 max_chunks_per_file=4000,
                 csv_text_column="question"
             ),
-            "a10_hybrid": cls(
-                dataset_type="a10_hybrid",
+            "a03_livedoor": cls(
+                dataset_type="a03_livedoor",
+                filename="a03_qa_pairs_livedoor.csv",
+                store_name="Livedoor Q&A - Coverage Improved (a03_coverage)",
+                description="LivedoorデータセットQ&A（カバレッジ改良方式）",
+                chunk_size=2000,
+                overlap=100,
+                max_file_size_mb=30,
+                max_chunks_per_file=4000,
+                csv_text_column="question"
+            ),
+            "a10_cc_news": cls(
+                dataset_type="a10_cc_news",
                 filename="a10_qa_pairs_cc_news.csv",
                 store_name="CC News Q&A - Hybrid Method (a10_hybrid)",
                 description="CC NewsデータセットQ&A（ハイブリッド生成方式）",
+                chunk_size=2000,
+                overlap=100,
+                max_file_size_mb=30,
+                max_chunks_per_file=4000,
+                csv_text_column="question"
+            ),
+            "a10_livedoor": cls(
+                dataset_type="a10_livedoor",
+                filename="a10_qa_pairs_livedoor.csv",
+                store_name="Livedoor Q&A - Hybrid Method (a10_hybrid)",
+                description="LivedoorデータセットQ&A（ハイブリッド生成方式）",
                 chunk_size=2000,
                 overlap=100,
                 max_file_size_mb=30,

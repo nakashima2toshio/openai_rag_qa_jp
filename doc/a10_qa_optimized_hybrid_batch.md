@@ -2,53 +2,22 @@
 
 ## 概要
 
-### 詳細内容
-
-1. バッチ処理の明確化
-
-- 1チャンク vs 2-5チャンクの分岐
-- 単一処理とバッチ処理の違いを明示
-
-2. データセット別設定
-
-- cc_news → 基本数5
-- japanese_text → 基本数2
-- wikipedia_ja → 基本数3
-
-3. Q&A数決定の詳細プロセス
-
-- トークン数解析ステップを追加
-- 各トークン範囲での基本数設定を明示
-- チャンク位置確認と位置補正判定を分離
-- 上限チェック（8個制限）を明示
-
-4. プロンプト生成の詳細
-
-- 言語別プロンプト作成の分岐
-- 質問タイプ指定（fact/reason/comparison/application）
-- プロンプト構築プロセス
-- バッチ統合（単一/複数）の処理
-
-5. エラー処理とリトライロジック
-
-- レスポンス確認の分岐
-- リトライ可否の判定
-- 指数バックオフ待機
-- フォールバック処理への遷移
-
-6. 後処理
-
-- Pydantic解析
-- Q&A検証
-- メタデータ付与
-
-
 `a10_qa_optimized_hybrid_batch.py`は、大規模バッチ処理に最適化されたQ&A生成システムです。複数文書を一度のAPI呼び出しで処理し、処理速度とコスト効率を大幅に改善。品質重視モードにより、カバレージ95%を目指す高品質なQ&A生成も可能です。
 
-### 主要成果
-- **API削減率**: 95.4%（68回 vs 従来1,491回）
-- **処理速度**: 0.16文書/秒
-- **総コスト**: $0.1581（497文書）
+## 対応データセット
+
+以下の4種類のデータセットに対応しています:
+
+1. **cc_news**: CC-News英語ニュース
+2. **japanese_text**: 日本語Webテキスト
+3. **wikipedia_ja**: Wikipedia日本語版
+4. **livedoor**: Livedoorニュースコーパス（日本語）
+
+### 主要成果（CC-Newsデータセット、497文書処理）
+- **API削減率**: 92.6%（110回 vs 従来1,491回）
+- **処理速度**: 0.14文書/秒
+- **処理時間**: 61.3分
+- **総コスト**: < $0.20
 - **カバレージ**: 74.6%（通常）/ 95%（品質モード）
 
 ## システムアーキテクチャ（処理フロー図）
@@ -520,6 +489,11 @@ DATASET_CONFIGS = {
         "lang": "ja",
         "default_doc_type": "academic",
         "chunk_strategy": "mecab_with_fallback"
+    },
+    "livedoor": {
+        "lang": "ja",
+        "default_doc_type": "news",
+        "chunk_strategy": "mecab_with_fallback"
     }
 }
 ```
@@ -630,4 +604,121 @@ def compare_with_normal_version(sample_size: int = 10):
 
 ---
 
+---
+
+## API仕様
+
+### コマンドライン引数
+
+| 引数 | 型 | デフォルト | 説明 |
+|------|-----|-----------|------|
+| `--dataset` | str | cc_news | データセット選択（cc_news, japanese_text, wikipedia_ja, livedoor） |
+| `--model` | str | gpt-5-mini | 使用するLLMモデル |
+| `--batch-size` | int | 10 | LLMバッチサイズ（1-20） |
+| `--embedding-batch-size` | int | 100 | 埋め込みバッチサイズ（1-2048） |
+| `--max-docs` | int | None | 処理する最大文書数（テスト用） |
+| `--qa-count` | int | None | 文書あたりのQ/A数 |
+| `--doc-type` | str | None | 文書タイプ（news, technical, academic, auto） |
+| `--no-llm` | flag | False | LLMを使用しない（ルールベースのみ） |
+| `--no-coverage` | flag | False | カバレッジ計算を行わない |
+| `--output` | str | qa_output | 出力ディレクトリ |
+| `--compare` | flag | False | 通常版との比較実行 |
+| `--compare-size` | int | 10 | 比較実行のサンプルサイズ |
+| `--quality-mode` | flag | False | 品質重視モード（カバレッジ95%目標） |
+| `--target-coverage` | float | 0.95 | 目標カバレッジ率（品質モード時） |
+| `--use-cache` | flag | False | 埋め込みキャッシュを使用 |
+| `--cache-dir` | str | qa_cache | キャッシュディレクトリ |
+| `--progressive-quality` | flag | False | 段階的品質向上モード |
+| `--initial-coverage` | float | 0.85 | 初期目標カバレッジ率 |
+| `--final-coverage` | float | 0.95 | 最終目標カバレッジ率 |
+
+### BatchHybridQAGeneratorパラメータ
+
+```python
+class BatchHybridQAGenerator:
+    def __init__(
+        self,
+        model: str = "gpt-5-mini",
+        batch_size: int = 10,              # LLMバッチサイズ
+        embedding_batch_size: int = 100,    # 埋め込みバッチサイズ
+        quality_mode: bool = False,         # 品質重視モード
+        target_coverage: float = 0.95       # 目標カバレッジ率
+    ):
+```
+
+### 出力ファイル形式
+
+実行後、以下のファイルが出力されます:
+
+1. **サマリー**: `batch_summary_{dataset}_{model}_b{batch_size}_{timestamp}.json`
+   - 処理統計、API使用状況、カバレッジ情報
+   - バッチ処理の詳細統計
+
+2. **Q/Aペア（CSV）**: `batch_qa_pairs_{dataset}_{model}_b{batch_size}_{timestamp}.csv`
+   - 全Q/Aペアのリスト
+   - doc_id, question, answer, doc_title, text_lengthを含む
+
+### 依存関係
+
+```python
+# 主要パッケージ
+openai>=1.100.2          # OpenAI API
+pandas>=2.0.0            # データ処理
+numpy>=1.24.0            # 数値計算
+tiktoken>=0.5.0          # トークンカウント
+python-dotenv>=1.0.0     # 環境変数管理
+tqdm                     # プログレスバー表示
+
+# オプション（日本語処理強化）
+MeCab                    # 日本語形態素解析（推奨）
+```
+
+### 環境変数
+
+```bash
+# 必須
+OPENAI_API_KEY=your-openai-api-key
+
+# オプション
+# なし
+```
+
+### 実行例
+
+```bash
+# 基本実行（通常モード）
+python a10_qa_optimized_hybrid_batch.py --dataset cc_news
+
+# 品質重視モード（カバレッジ95%目標）
+python a10_qa_optimized_hybrid_batch.py \
+    --dataset cc_news \
+    --quality-mode \
+    --target-coverage 0.95 \
+    --batch-size 5 \
+    --embedding-batch-size 150
+
+# Livedoorニュースデータセット処理例
+python a10_qa_optimized_hybrid_batch.py \
+    --dataset livedoor \
+    --quality-mode \
+    --max-docs 500 \
+    --batch-size 20 \
+    --embedding-batch-size 500 \
+    --use-cache \
+    --cache-dir qa_cache_livedoor
+
+# 通常版との比較実行
+python a10_qa_optimized_hybrid_batch.py \
+    --dataset cc_news \
+    --compare \
+    --compare-size 10
+
+# MeCab対応の日本語データセット処理
+python a10_qa_optimized_hybrid_batch.py --dataset japanese_text
+python a10_qa_optimized_hybrid_batch.py --dataset wikipedia_ja
+```
+
+---
+
 *作成日: 2025年11月6日*
+*最終更新: 2025年11月12日*

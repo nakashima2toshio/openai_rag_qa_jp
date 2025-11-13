@@ -6,13 +6,19 @@ python a20_output_qa_csv.py
 
 入力ファイルパターン（最新のファイルを自動選択）:
 - qa_output/a02/qa_pairs_cc_news_*.csv
+- qa_output/a02/qa_pairs_livedoor_*.csv
 - qa_output/a03/qa_pairs_cc_news_*.csv
-- qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b10_*.csv
+- qa_output/a03/qa_pairs_livedoor_*.csv
+- qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b*_*.csv
+- qa_output/a10/batch_qa_pairs_livedoor_gpt_5_mini_b*_*.csv
 
 出力ファイル:
 - qa_output/a02_qa_pairs_cc_news.csv
+- qa_output/a02_qa_pairs_livedoor.csv
 - qa_output/a03_qa_pairs_cc_news.csv
+- qa_output/a03_qa_pairs_livedoor.csv
 - qa_output/a10_qa_pairs_cc_news.csv
+- qa_output/a10_qa_pairs_livedoor.csv
 """
 
 import csv
@@ -96,12 +102,24 @@ def main():
             'output': 'qa_output/a02_qa_pairs_cc_news.csv'
         },
         {
+            'pattern': 'qa_output/a02/qa_pairs_livedoor_*.csv',
+            'output': 'qa_output/a02_qa_pairs_livedoor.csv'
+        },
+        {
             'pattern': 'qa_output/a03/qa_pairs_cc_news_*.csv',
             'output': 'qa_output/a03_qa_pairs_cc_news.csv'
         },
         {
-            'pattern': 'qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b10_*.csv',
+            'pattern': 'qa_output/a03/qa_pairs_livedoor_*.csv',
+            'output': 'qa_output/a03_qa_pairs_livedoor.csv'
+        },
+        {
+            'pattern': 'qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b*_*.csv',
             'output': 'qa_output/a10_qa_pairs_cc_news.csv'
+        },
+        {
+            'pattern': 'qa_output/a10/batch_qa_pairs_livedoor_gpt_5_mini_b*_*.csv',
+            'output': 'qa_output/a10_qa_pairs_livedoor.csv'
         }
     ]
 

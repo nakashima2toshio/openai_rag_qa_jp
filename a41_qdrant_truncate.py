@@ -9,8 +9,9 @@ Qdrantに登録されたRAGデータを安全に削除するためのユーテ�
 使い方：
 # 実行コマンド
 
-  # 全コレクションを削除（危険！）
+  # 全コレクションを削除（危険！） ---------------------------------
   python a41_qdrant_truncate.py --all-collections --force
+  # -----------------------------------------------------------
 
   python a41_qdrant_truncate.py --collection product_embeddings --drop-collection --force
 

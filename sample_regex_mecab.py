@@ -1,4 +1,4 @@
-# python regex_mecab.py
+# python sample_regex_mecab.py
 # MeCab複合名詞版と正規表現版を統合したロバストなキーワード抽出システム
 
 import re

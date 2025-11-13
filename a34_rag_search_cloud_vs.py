@@ -78,17 +78,23 @@ class VectorStoreManager:
     CONFIG_FILE_PATH = Path("vector_stores.json")
 
     # デフォルトのVector Store設定（フォールバック用）
-    # 注: CC News関連を上位に配置（Pythonの辞書は3.7+で挿入順序を保持）
+    # 注: 辞書は挿入順序を保持（Python 3.7+）
     DEFAULT_VECTOR_STORES = {
-        "CC News Q&A (LLM)"       : "vs_cc_news_basic_placeholder",  # CC News LLM生成方式
-        "CC News Q&A (Coverage)"  : "vs_cc_news_coverage_placeholder",  # CC Newsカバレッジ改良方式
-        "CC News Q&A (Hybrid)"    : "vs_cc_news_hybrid_placeholder",  # CC Newsハイブリッド生成方式
-        "Customer Support FAQ"    : "vs_68c94da49c80819189dd42d6e941c4b5",
-        "Science & Technology Q&A": "vs_68c94db932fc8191b6e17f86e6601bc1",
-        "Medical Q&A"             : "vs_68c94daffc708191b3c561f4dd6b2af8",
-        "Legal Q&A"               : "vs_68c94dc1cc008191a197bdbc3947a67b",
-        "Trivia Q&A"              : "vs_68c94dc9e6b08191946d7cafcd9880a3",
-        "Unified Knowledge Base"  : "vs_unified_placeholder",  # 統合ナレッジベース（プレースホルダー）
+        # CC News データセット（3種類の生成方式）
+        "CC News Q&A (a02_llm)"      : "vs_cc_news_a02_llm_placeholder",  # CC News LLM生成方式
+        "CC News Q&A (a03_rule)"     : "vs_cc_news_a03_rule_placeholder",  # CC News ルールベース生成方式
+        "CC News Q&A (a10_hybrid)"   : "vs_cc_news_a10_hybrid_placeholder",  # CC News ハイブリッド生成方式
+        # Livedoor データセット（3種類の生成方式）
+        "Livedoor Q&A (a02_llm)"     : "vs_livedoor_a02_llm_placeholder",  # Livedoor LLM生成方式
+        "Livedoor Q&A (a03_rule)"    : "vs_livedoor_a03_rule_placeholder",  # Livedoor ルールベース生成方式
+        "Livedoor Q&A (a10_hybrid)"  : "vs_livedoor_a10_hybrid_placeholder",  # Livedoor ハイブリッド生成方式
+        # その他のデータセット
+        "Customer Support FAQ"       : "vs_68c94da49c80819189dd42d6e941c4b5",
+        "Science & Technology Q&A"   : "vs_68c94db932fc8191b6e17f86e6601bc1",
+        "Medical Q&A"                : "vs_68c94daffc708191b3c561f4dd6b2af8",
+        "Legal Q&A"                  : "vs_68c94dc1cc008191a197bdbc3947a67b",
+        "Trivia Q&A"                 : "vs_68c94dc9e6b08191946d7cafcd9880a3",
+        "Unified Knowledge Base"     : "vs_unified_placeholder",  # 統合ナレッジベース（プレースホルダー）
     }
 
     # a30_020_make_vsid.py のVectorStoreConfigと対応するマッピング

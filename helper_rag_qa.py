@@ -1511,70 +1511,214 @@ class SemanticCoverage:
         except (ImportError, RuntimeError):
             return False
 
-    def create_semantic_chunks(self, document: str, verbose: bool = True) -> List[Dict]:
+    def create_semantic_chunks(self, document: str, max_tokens: int = 200, min_tokens: int = 50,
+                               prefer_paragraphs: bool = True, verbose: bool = True) -> List[Dict]:
         """
-        文書を意味的に区切られたチャンクに分割
+        文書を意味的に区切られたチャンクに分割（段落優先のセマンティック分割）
 
         重要ポイント：
-        1. 文の境界で分割（意味の断絶を防ぐ）
-        2. トピックの変化を検出
-        3. 適切なサイズを維持（埋め込みモデルの制限内）
+        1. 段落の境界で分割（最優先 - 筆者の意図したセマンティック境界）
+        2. 文の境界で分割（意味の断絶を防ぐ）
+        3. トピックの変化を検出
+        4. 適切なサイズを維持（埋め込みモデルの制限内）
+
+        Args:
+            document: 分割対象の文書
+            max_tokens: チャンクの最大トークン数（デフォルト: 200）
+            min_tokens: チャンクの最小トークン数（デフォルト: 50）
+            prefer_paragraphs: 段落ベースの分割を優先するか（デフォルト: True）
+            verbose: 詳細な出力を行うか
+
+        Returns:
+            チャンク辞書のリスト（id, text, type, sentences等を含む）
         """
 
-        # Step 1: 文単位で分割
-        sentences = self._split_into_sentences(document)
-        if verbose:
-            print(f"文の数: {len(sentences)}")
+        # Step 1: 段落ベースの分割を試行（prefer_paragraphs=Trueの場合）
+        if prefer_paragraphs:
+            para_chunks = self._chunk_by_paragraphs(document, max_tokens, min_tokens)
 
-        # Step 2: 意味的に関連する文をグループ化
-        chunks = []
-        current_chunk = []
-        current_tokens = 0
-        max_tokens = 200  # チャンクの最大トークン数
+            if verbose:
+                print(f"段落ベースのチャンク数: {len(para_chunks)}")
+                type_counts = {}
+                for chunk in para_chunks:
+                    chunk_type = chunk.get('type', 'unknown')
+                    type_counts[chunk_type] = type_counts.get(chunk_type, 0) + 1
+                print(f"チャンクタイプ内訳: {type_counts}")
 
-        for i, sentence in enumerate(sentences):
-            sentence_tokens = len(self.tokenizer.encode(sentence))
+            # 段落ベースのチャンクを標準フォーマットに変換
+            chunks = []
+            for i, chunk in enumerate(para_chunks):
+                chunk_text = chunk['text']
+                sentences = self._split_into_sentences(chunk_text)
+                chunks.append({
+                    "id"                : f"chunk_{i}",
+                    "text"              : chunk_text,
+                    "type"              : chunk['type'],
+                    "sentences"         : sentences,
+                    "start_sentence_idx": 0,  # 段落ベースでは文インデックスは相対的
+                    "end_sentence_idx"  : len(sentences) - 1
+                })
+        else:
+            # Step 1 (旧方式): 文単位で分割
+            sentences = self._split_into_sentences(document)
+            if verbose:
+                print(f"文の数: {len(sentences)}")
 
-            # 現在のチャンクにこの文を追加すべきか判断
-            if current_tokens + sentence_tokens > max_tokens and current_chunk:
-                # チャンクを保存
-                chunk_text = " ".join(current_chunk)
+            # Step 2: 意味的に関連する文をグループ化
+            chunks = []
+            current_chunk = []
+            current_tokens = 0
+
+            for i, sentence in enumerate(sentences):
+                sentence_tokens = len(self.tokenizer.encode(sentence))
+
+                # 現在のチャンクにこの文を追加すべきか判断
+                if current_tokens + sentence_tokens > max_tokens and current_chunk:
+                    # チャンクを保存
+                    chunk_text = " ".join(current_chunk)
+                    chunks.append({
+                        "id"                : f"chunk_{len(chunks)}",
+                        "text"              : chunk_text,
+                        "type"              : "sentence_group",
+                        "sentences"         : current_chunk.copy(),
+                        "start_sentence_idx": i - len(current_chunk),
+                        "end_sentence_idx"  : i - 1
+                    })
+                    current_chunk = [sentence]
+                    current_tokens = sentence_tokens
+                else:
+                    current_chunk.append(sentence)
+                    current_tokens += sentence_tokens
+
+            # 最後のチャンクを追加
+            if current_chunk:
                 chunks.append({
                     "id"                : f"chunk_{len(chunks)}",
-                    "text"              : chunk_text,
-                    "sentences"         : current_chunk.copy(),
-                    "start_sentence_idx": i - len(current_chunk),
-                    "end_sentence_idx"  : i - 1
+                    "text"              : " ".join(current_chunk),
+                    "type"              : "sentence_group",
+                    "sentences"         : current_chunk,
+                    "start_sentence_idx": len(sentences) - len(current_chunk),
+                    "end_sentence_idx"  : len(sentences) - 1
                 })
-                current_chunk = [sentence]
-                current_tokens = sentence_tokens
-            else:
-                current_chunk.append(sentence)
-                current_tokens += sentence_tokens
-
-        # 最後のチャンクを追加
-        if current_chunk:
-            chunks.append({
-                "id"                : f"chunk_{len(chunks)}",
-                "text"              : " ".join(current_chunk),
-                "sentences"         : current_chunk,
-                "start_sentence_idx": len(sentences) - len(current_chunk),
-                "end_sentence_idx"  : len(sentences) - 1
-            })
 
         # Step 3: トピックの連続性を考慮した再調整
-        chunks = self._adjust_chunks_for_topic_continuity(chunks)
+        chunks = self._adjust_chunks_for_topic_continuity(chunks, min_tokens)
 
         return chunks
 
+    def _split_into_paragraphs(self, text: str) -> List[str]:
+        """
+        段落単位で分割（セマンティック分割の最優先レベル）
+
+        段落は筆者が意図的に作った意味的なまとまりであり、
+        最も重要なセマンティック境界となる
+        """
+        # 空行（\n\n）で段落を分割
+        paragraphs = re.split(r'\n\s*\n', text)
+
+        # 空白のみの段落を除外
+        paragraphs = [p.strip() for p in paragraphs if p.strip()]
+
+        return paragraphs
+
+    def _chunk_by_paragraphs(self, text: str, max_tokens: int = 200, min_tokens: int = 50) -> List[Dict[str, Any]]:
+        """
+        段落単位でチャンク化（セマンティック最優先）
+
+        段落をベースにチャンクを作成し、トークン数制限を考慮する。
+        段落が大きすぎる場合は文単位に分割する。
+
+        Args:
+            text: 分割対象のテキスト
+            max_tokens: チャンクの最大トークン数
+            min_tokens: チャンクの最小トークン数（これより小さい場合は次と結合を検討）
+
+        Returns:
+            チャンクのリスト（各チャンクは {'text': str, 'type': str} の辞書）
+        """
+        paragraphs = self._split_into_paragraphs(text)
+        chunks = []
+
+        for para in paragraphs:
+            para_tokens = len(self.tokenizer.encode(para))
+
+            if para_tokens <= max_tokens:
+                # 段落がそのままチャンクとして適切
+                chunks.append({'text': para, 'type': 'paragraph'})
+            else:
+                # 段落が大きすぎる → 文単位に分割
+                sentences = self._split_into_sentences(para)
+                current_chunk = []
+                current_tokens = 0
+
+                for sent in sentences:
+                    sent_tokens = len(self.tokenizer.encode(sent))
+
+                    if sent_tokens > max_tokens:
+                        # 単一文が上限超過 → 強制分割
+                        if current_chunk:
+                            chunks.append({'text': ''.join(current_chunk), 'type': 'sentence_group'})
+                            current_chunk = []
+                            current_tokens = 0
+
+                        # 強制分割を実施
+                        forced_chunks = self._force_split_sentence(sent, max_tokens)
+                        chunks.extend(forced_chunks)
+
+                    elif current_tokens + sent_tokens > max_tokens:
+                        # 追加すると上限超過 → 現在のチャンクを確定
+                        if current_chunk:
+                            chunks.append({'text': ''.join(current_chunk), 'type': 'sentence_group'})
+                        current_chunk = [sent]
+                        current_tokens = sent_tokens
+
+                    else:
+                        # 追加可能
+                        current_chunk.append(sent)
+                        current_tokens += sent_tokens
+
+                # 残りを確定
+                if current_chunk:
+                    chunks.append({'text': ''.join(current_chunk), 'type': 'sentence_group'})
+
+        return chunks
+
+    def _force_split_sentence(self, sentence: str, max_tokens: int = 200) -> List[Dict[str, Any]]:
+        """
+        単一文が上限超過の場合に強制的に分割（最終手段）
+
+        セマンティック境界を無視して、トークン数ベースで強制的に分割する。
+        これは意味的な一貫性を犠牲にするが、処理上の制約を守るために必要。
+
+        Args:
+            sentence: 分割対象の文
+            max_tokens: チャンクの最大トークン数
+
+        Returns:
+            強制分割されたチャンクのリスト
+        """
+        # トークンレベルで分割
+        tokens = self.tokenizer.encode(sentence)
+        forced_chunks = []
+
+        for i in range(0, len(tokens), max_tokens):
+            chunk_tokens = tokens[i:i + max_tokens]
+            chunk_text = self.tokenizer.decode(chunk_tokens)
+            forced_chunks.append({
+                'text': chunk_text,
+                'type': 'forced_split'
+            })
+
+        return forced_chunks
+
     def _split_into_sentences(self, text: str) -> List[str]:
-        """文単位で分割（言語自動判定・MeCab対応）"""
+        """文単位で分割（言語自動判定・MeCab優先対応）"""
 
         # 日本語判定（最初の100文字で判定）
         is_japanese = bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', text[:100]))
 
         if is_japanese and self.mecab_available:
-            # 日本語の場合、MeCab利用を試みる
+            # 日本語の場合、MeCab利用を優先（セマンティック精度向上）
             try:
                 sentences = self._split_sentences_mecab(text)
                 if sentences:
@@ -1621,22 +1765,42 @@ class SemanticCoverage:
 
         return sentences if sentences else []
 
-    def _adjust_chunks_for_topic_continuity(self, chunks: List[Dict]) -> List[Dict]:
-        """トピックの連続性を考慮してチャンクを調整"""
+    def _adjust_chunks_for_topic_continuity(self, chunks: List[Dict], min_tokens: int = 50) -> List[Dict]:
+        """
+        トピックの連続性を考慮してチャンクを調整（最小トークン数対応）
 
+        短すぎるチャンクを隣接チャンクとマージして意味的まとまりを維持する。
+
+        Args:
+            chunks: チャンクのリスト
+            min_tokens: チャンクの最小トークン数（これより小さい場合はマージを検討）
+
+        Returns:
+            調整後のチャンクリスト
+        """
         adjusted_chunks = []
+
         for i, chunk in enumerate(chunks):
-            # 隣接チャンクとの意味的類似度を計算
-            if i > 0 and len(chunk["sentences"]) < 2:
-                # 短すぎるチャンクは前のチャンクとマージを検討
+            chunk_tokens = len(self.tokenizer.encode(chunk["text"]))
+
+            # 最小トークン数以下の短いチャンクの場合
+            if i > 0 and chunk_tokens < min_tokens:
+                # 前のチャンクとマージを検討
                 prev_chunk = adjusted_chunks[-1]
                 combined_text = prev_chunk["text"] + " " + chunk["text"]
+                combined_tokens = len(self.tokenizer.encode(combined_text))
 
-                if len(self.tokenizer.encode(combined_text)) < 300:
-                    # マージ
+                # マージしても最大トークン数（300）を超えない場合はマージ
+                if combined_tokens < 300:
+                    # マージ実施
                     prev_chunk["text"] = combined_text
                     prev_chunk["sentences"].extend(chunk["sentences"])
                     prev_chunk["end_sentence_idx"] = chunk["end_sentence_idx"]
+
+                    # typeの更新（異なるtypeがマージされた場合）
+                    if prev_chunk.get("type") != chunk.get("type"):
+                        prev_chunk["type"] = "merged"
+
                     continue
 
             adjusted_chunks.append(chunk)
@@ -2529,29 +2693,36 @@ Return a JSON with "qa_pairs" array, each containing "question" and "answer".
             return {"coverage_percentage": 0, "embedding_calls": 0}
 
     def _create_semantic_chunks(self, text: str, chunk_size: int = 200) -> List[Dict]:
-        """テキストをセマンティックチャンクに分割"""
-        sentences = re.split(r'[。！？\n]+', text)
+        """
+        テキストをセマンティックチャンクに分割（段落優先・MeCab対応）
+
+        SemanticCoverage.create_semantic_chunks()を使用して、
+        段落境界を最優先したセマンティック分割を実行。
+        日本語の場合はMeCabによる高精度な文境界検出を自動適用。
+        """
+        # SemanticCoverageインスタンスを使用
+        semantic_analyzer = SemanticCoverage(embedding_model=self.embedding_model)
+
+        # 段落優先のセマンティック分割を実行
+        semantic_chunks = semantic_analyzer.create_semantic_chunks(
+            document=text,
+            max_tokens=chunk_size,
+            min_tokens=50,  # 最小トークン数
+            prefer_paragraphs=True,  # 段落優先モード
+            verbose=False
+        )
+
+        # SemanticCoverageの出力形式をBatchHybridQAGeneratorの形式に変換
         chunks = []
-        current_chunk = []
-        current_tokens = 0
+        for semantic_chunk in semantic_chunks:
+            chunk_text = semantic_chunk['text']
+            chunk_tokens = len(self.tokenizer.encode(chunk_text))
 
-        for sentence in sentences:
-            sentence_tokens = len(self.tokenizer.encode(sentence))
-            if current_tokens + sentence_tokens > chunk_size and current_chunk:
-                chunks.append({
-                    "text": "".join(current_chunk),
-                    "tokens": current_tokens
-                })
-                current_chunk = [sentence]
-                current_tokens = sentence_tokens
-            else:
-                current_chunk.append(sentence)
-                current_tokens += sentence_tokens
-
-        if current_chunk:
             chunks.append({
-                "text": "".join(current_chunk),
-                "tokens": current_tokens
+                "text": chunk_text,
+                "tokens": chunk_tokens,
+                "type": semantic_chunk.get('type', 'unknown'),  # paragraph/sentence_group/forced_split
+                "sentences": semantic_chunk.get('sentences', [])
             })
 
         return chunks

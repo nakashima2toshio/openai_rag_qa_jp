@@ -58,6 +58,7 @@
   - Wikipedia日本語版（動作確認済み）
   - CC100日本語Webテキスト（動作確認済み）
   - CC-News英語ニュース（動作確認済み）
+  - Livedoorニュースコーパス（動作確認済み、7,376件）
 - ✅ **データ検証・品質チェック**
   - 基本検証（必須フィールド、NULL値、重複）
   - データセット固有の詳細検証
@@ -68,6 +69,7 @@
 - ✅ **トークン使用量推定**
 - ✅ **CSV/TXT/JSONフォーマット出力**
 - ✅ **HuggingFace Hub自動ダウンロード**
+- ✅ **直接ダウンロード対応**（Livedoorコーパス等）
 
 ### 1.3 対応データセット
 
@@ -76,6 +78,7 @@
 | wikipedia_ja | Wikipedia日本語版 | wikimedia/wikipedia | 20231101.ja | title, text | 1000 |
 | japanese_text | CC100日本語Webテキスト | range3/cc100-ja | - | text | 1000 |
 | cc_news | CC-News英語ニュース | cc_news | - | title, text | 500 |
+| livedoor | Livedoorニュースコーパス | - (直接DL) | - | url, title, content, category | 7376 |
 
 ## 2. アーキテクチャ
 
@@ -140,17 +143,21 @@
 - **NonQARAGConfig**: データセット設定の一元管理クラス
 
 #### 2.3.2 データ検証
-- **validate_wikipedia_data_specific**: Wikipedia固有検証（L139-165）
-- **validate_news_data_specific**: ニュース固有検証（L168-201）
-- **validate_scientific_data_specific**: 学術論文固有検証（L204-241）
-- **validate_code_data_specific**: コード固有検証（L243-267）
-- **validate_stackoverflow_data_specific**: Stack Overflow固有検証（L270-308）
+- **validate_wikipedia_data_specific**: Wikipedia固有検証（L161-187）
+- **validate_news_data_specific**: ニュース固有検証（L190-223）
+- **validate_scientific_data_specific**: 学術論文固有検証（L226-262）
+- **validate_code_data_specific**: コード固有検証（L265-289）
+- **validate_stackoverflow_data_specific**: Stack Overflow固有検証（L292-330）
 
-#### 2.3.3 データ処理
-- **extract_text_content**: テキスト抽出・結合（L316-361）
+#### 2.3.3 Livedoorコーパス処理
+- **download_livedoor_corpus**: Livedoorコーパスをダウンロード・解凍（L337-371）
+- **load_livedoor_corpus**: Livedoorコーパスを読み込み（L374-437）
 
-#### 2.3.4 メイン処理
-- **main**: アプリケーション全体の制御（L367-948）
+#### 2.3.4 データ処理
+- **extract_text_content**: テキスト抽出・結合（L444-489）
+
+#### 2.3.5 メイン処理
+- **main**: アプリケーション全体の制御（L496-1127）
 
 ## 3. データセット設定
 
@@ -188,7 +195,7 @@
 #### get_all_datasets() -> List[str]
 全データセットタイプのリストを取得
 
-**返却値**: ["wikipedia_ja", "japanese_text", "cc_news"]
+**返却値**: ["wikipedia_ja", "japanese_text", "cc_news", "livedoor"]
 
 ### 3.2 データセット別設定
 
@@ -254,6 +261,43 @@
 **データセット固有設定**（L453-464）:
 - remove_urls: URL除去（デフォルト: True）
 - min_text_length: 最小テキスト長（デフォルト: 100）
+
+#### 3.2.4 Livedoorニュースコーパス（L117-132）
+```python
+{
+    "name": "Livedoorニュースコーパス",
+    "icon": "📰",
+    "required_columns": ["url", "title", "content", "category"],
+    "description": "Livedoorニュース日本語記事（9カテゴリ）",
+    "hf_dataset": None,  # 直接ダウンロード
+    "download_url": "https://www.rondhuit.com/download/ldcc-20140209.tar.gz",
+    "hf_config": None,
+    "split": None,
+    "streaming": False,
+    "text_field": "content",
+    "title_field": "title",
+    "sample_size": 7376  # 全記事数
+}
+```
+
+**対応カテゴリ**（9種類）:
+- dokujo-tsushin（独女通信）
+- it-life-hack（ITライフハック）
+- kaden-channel（家電チャンネル）
+- livedoor-homme（ライブドアオム）
+- movie-enter（映画エンタメ）
+- peachy（ピーチィ）
+- smax（エスマックス）
+- sports-watch（スポーツウォッチ）
+- topic-news（トピックニュース）
+
+**ファイル形式**:
+```
+1行目: URL
+2行目: 日付
+3行目: タイトル
+4行目以降: 本文
+```
 
 ## 4. データ検証機能
 
@@ -356,20 +400,86 @@
 
 ## 5. データ処理
 
-### 5.1 テキスト抽出
+### 5.1 Livedoorコーパスダウンロード
+
+#### download_livedoor_corpus(save_dir: str = "datasets") -> str
+**場所**: L337-371
+
+**目的**: Livedoorニュースコーパスのtar.gzファイルをダウンロード・解凍
+
+**処理フロー**:
+```python
+1. ダウンロード先ディレクトリ作成（L346-347）
+   ↓
+2. tar.gzファイルをダウンロード（L354-358）
+   URL: https://www.rondhuit.com/download/ldcc-20140209.tar.gz
+   ↓
+3. datasets/livedoor/に解凍（L360-369）
+   ⚠️ セキュリティ対策: tar.extractall(filter='data')
+   ↓
+4. 解凍先ディレクトリパスを返却
+```
+
+**セキュリティ対策**:
+- Python 3.12+で`tar.extractall()`の`filter='data'`パラメータを使用
+- パストラバーサル攻撃を防止
+
+**返却値**: 解凍先ディレクトリパス（例: "datasets/livedoor"）
+
+### 5.2 Livedoorコーパス読み込み
+
+#### load_livedoor_corpus(data_dir: str) -> pd.DataFrame
+**場所**: L374-437
+
+**目的**: 解凍済みのLivedoorコーパスをDataFrameに読み込み
+
+**処理フロー**:
+```python
+1. カテゴリリスト定義（L384-394）
+   ↓
+2. 各カテゴリディレクトリを走査（L399-433）
+   ├── text/{category}/*.txt を取得
+   ├── LICENSE.txt, README.txt を除外
+   └── 各txtファイルを解析
+       ├── 1行目: URL
+       ├── 2行目: 日付
+       ├── 3行目: タイトル
+       └── 4行目以降: 本文
+   ↓
+3. DataFrame変換（L434）
+   ↓
+4. ログ出力とDataFrame返却（L435-436）
+```
+
+**エラーハンドリング**:
+- カテゴリディレクトリ不在: logger.warning（L402-403）
+- ファイル読み込みエラー: logger.error（L432）
+
+**返却値**:
+```python
+pd.DataFrame({
+    'url': str,
+    'date': str,
+    'title': str,
+    'content': str,
+    'category': str
+})
+```
+
+### 5.3 テキスト抽出
 
 #### extract_text_content(df: pd.DataFrame, dataset_type: str) -> pd.DataFrame
-**場所**: L316-361
+**場所**: L444-489
 
 **目的**: データセットからテキストコンテンツを抽出し、Combined_Textカラムを作成
 
 **処理フロー**:
 ```python
-1. データセット設定取得（L318-320）
+1. データセット設定取得（L447-449）
    ↓
 2. text_field と title_field を特定
    ↓
-3. フィールド存在チェック（L324-356）
+3. フィールド存在チェック（L453-485）
    ├── タイトル + テキスト両方あり
    │   → f"{clean_text(title)} {clean_text(text)}"
    ├── テキストのみ
@@ -380,16 +490,16 @@
        └── 候補も見つからない
            → 全カラムを結合
    ↓
-4. 空テキストを除外（L358）
+4. 空テキストを除外（L487）
    ↓
 5. df_processedを返却
 ```
 
 **デコレーター**: @safe_execute（エラーハンドリング自動化）
 
-### 5.2 前処理オプション
+### 5.4 前処理オプション
 
-#### 短いテキストの除外（L789-797）
+#### 短いテキストの除外（L968-976）
 ```python
 if remove_short_text:
     before_len = len(df_processed)
@@ -405,7 +515,7 @@ if remove_short_text:
 - remove_short_text: bool（デフォルト: True）
 - min_length: int（デフォルト: 100）
 
-#### 重複除去（L799-805）
+#### 重複除去（L978-984）
 ```python
 if remove_duplicates:
     before_len = len(df_processed)
@@ -422,17 +532,21 @@ if remove_duplicates:
 
 ### 6.1 自動ダウンロード機能
 
-**場所**: L565-675
+**場所**: L694-855
 
 **処理フロー**:
 ```python
-1. ユーザー入力取得（L545-563）
+1. ユーザー入力取得（L674-692）
    ├── dataset_name: HuggingFaceデータセット名
    ├── config_name: Config名（オプション）
    ├── split_name: Split名（デフォルト: train）
    └── sample_size: サンプル数
    ↓
-2. データセット別処理（L581-609）
+2. データセット別処理（L707-800）
+   ├── livedoor（Livedoorニュースコーパス）
+   │   ├── download_livedoor_corpus()でダウンロード・解凍
+   │   ├── load_livedoor_corpus()で読み込み
+   │   └── サンプリング（オプション）
    ├── wikimedia/wikipedia
    │   → config必須（例: 20231101.ja）
    ├── range3/cc100-ja
@@ -441,17 +555,19 @@ if remove_duplicates:
    │   → configオプション
    └── その他（非推奨）
    ↓
-3. ストリーミングロード（L588-601）
+3. ストリーミングロード（HuggingFaceのみ）
    ↓
-4. サンプリング（プログレスバー表示）（L612-618）
+4. サンプリング（プログレスバー表示）
    ↓
-5. DataFrame変換（L619）
+5. DataFrame変換
    ↓
-6. datasets/フォルダに保存（L623-633）
+6. datasets/フォルダに保存（L802-813）
    ├── CSV: {dataset_name}_{split}_{size}_{timestamp}.csv
    └── JSON: {dataset_name}_{split}_{size}_{timestamp}_metadata.json
    ↓
-7. セッションステートに保存（L653-655）
+7. メタデータ保存（L815-830）
+   ↓
+8. セッションステートに保存（L832-834）
 ```
 
 ### 6.2 ストリーミングモード
@@ -461,28 +577,55 @@ if remove_duplicates:
 - 大規模データセット対応: GBサイズのデータセットでも処理可能
 - プログレス表示: リアルタイムで進捗確認
 
-**実装例**（L588-601）:
+**実装例（Wikipedia日本語版）**（L728-745）:
 ```python
 # ストリーミングモードでロード
+actual_dataset = "wikimedia/wikipedia"
+actual_config = config_name if config_name else "20231101.ja"
+
 dataset = hf_load_dataset(
-    dataset_name,
-    config_name,
+    actual_dataset,
+    actual_config,
     split=split_name,
     streaming=True  # メモリ効率的な逐次処理
 )
 
 # サンプリング
 samples = []
+progress_bar = st.progress(0)
 for i, item in enumerate(dataset):
     if i >= sample_size:
         break
     samples.append(item)
     progress_bar.progress((i + 1) / sample_size)
+
+df = pd.DataFrame(samples)
+progress_bar.empty()
+```
+
+**Livedoor実装例**（L711-725）:
+```python
+# Livedoorニュースコーパスの特別処理
+if selected_dataset == "livedoor":
+    st.info("📥 Livedoorニュースコーパスをダウンロード中...")
+
+    # ダウンロードと解凍
+    with st.spinner("ダウンロードと解凍中..."):
+        data_dir = download_livedoor_corpus("datasets")
+
+    # データ読み込み
+    with st.spinner("データを読み込み中..."):
+        df = load_livedoor_corpus(data_dir)
+
+    # サンプリング（必要に応じて）
+    if sample_size < len(df):
+        df = df.sample(n=sample_size, random_state=42)
+        st.info(f"📊 {len(df)}件にサンプリングしました")
 ```
 
 ### 6.3 メタデータ管理
 
-**場所**: L636-651
+**場所**: L815-830
 
 **保存内容**:
 ```json
@@ -507,79 +650,82 @@ for i, item in enumerate(dataset):
 
 ### 7.1 タブ構成
 
-#### タブ1: データアップロード（L519-700）
+#### タブ1: データアップロード（L648-880）
 **機能**:
-1. **CSVファイルアップロード**（L523-527）
+1. **CSVファイルアップロード**（L651-656）
    - file_uploader（type=['csv']）
    - アップロード後、session_stateに保存
 
-2. **HuggingFace自動ロード**（L530-675）
+2. **HuggingFace/直接ダウンロード自動ロード**（L659-855）
    - データセット名入力
    - Config/Split/サンプル数設定
-   - ストリーミングダウンロード
+   - Livedoor対応: 直接ダウンロード・解凍・読み込み
+   - ストリーミングダウンロード（HuggingFace）
+   - datasets/フォルダにCSV・メタデータJSON保存
 
-3. **データプレビュー**（L685-700）
+3. **データプレビュー**（L864-880）
    - 先頭10件表示
    - カラム詳細（データ型、NULL数、ユニーク数）
 
-#### タブ2: データ検証（L703-747）
+#### タブ2: データ検証（L882-926）
 **機能**:
-1. **基本検証**（L711-713）
+1. **基本検証**（L890-892）
    - validate_data()を実行
    - 必須フィールドチェック
 
-2. **データセット固有検証**（L716-728）
+2. **データセット固有検証**（L895-906）
    - validate_*_data_specific()を実行
    - データセットタイプに応じた詳細検証
+   - Livedoor対応: validate_news_data_specific()
 
-3. **検証結果表示**（L731-738）
+3. **検証結果表示**（L910-917）
    - ⚠️: st.warning()
    - ✅: st.success()
    - 💡: st.info()
 
-4. **テキストサンプル表示**（L741-746）
+4. **テキストサンプル表示**（L920-925）
    - 先頭3件のテキストプレビュー（500文字まで）
 
-#### タブ3: 前処理実行（L749-850）
+#### タブ3: 前処理実行（L928-1029）
 **機能**:
-1. **前処理設定**（L758-780）
+1. **前処理設定**（L937-959）
    - 短いテキスト除外設定
    - 重複除去設定
 
-2. **前処理実行**（L783-824）
+2. **前処理実行**（L962-1003）
    - extract_text_content()実行
    - フィルタリング処理
    - session_stateに保存
 
-3. **処理済みデータプレビュー**（L829-831）
+3. **処理済みデータプレビュー**（L1006-1010）
    - Combined_Textカラムの先頭10件
 
-4. **トークン使用量推定**（L834-835）
+4. **トークン使用量推定**（L1013-1014）
    - estimate_token_usage()呼び出し
 
-5. **テキスト長分布表示**（L838-849）
+5. **テキスト長分布表示**（L1017-1028）
    - 平均、最小、最大、中央値をメトリクス表示
 
-#### タブ4: 結果・ダウンロード（L852-944）
+#### タブ4: 結果・ダウンロード（L1031-1123）
 **機能**:
-1. **処理サマリー**（L861-872）
+1. **処理サマリー**（L1040-1051）
    - 処理件数、除外件数、残存率をメトリクス表示
 
-2. **ファイルダウンロード**（L876-920）
+2. **ファイルダウンロード**（L1054-1099）
    - CSVファイル: 処理済みデータ全体
    - テキストファイル: Combined_Textのみ
    - メタデータ(JSON): 処理設定情報
 
-3. **OUTPUTフォルダ保存**（L923-937）
+3. **OUTPUTフォルダ保存**（L1102-1116）
    - save_files_to_output()呼び出し
    - 保存先パス表示
 
-4. **データサンプル表示**（L940-944）
+4. **データサンプル表示**（L1119-1123）
    - 先頭3件のテキスト（1000文字まで）
 
 ### 7.2 インタラクティブ設定
 
-#### サイドバー設定（L384-420）
+#### サイドバー設定（L514-564）
 ```python
 with st.sidebar:
     # データセットタイプ選択
@@ -599,7 +745,7 @@ with st.sidebar:
     # （各データセットに応じた設定UI）
 ```
 
-#### データセット別オプション（L422-464）
+#### データセット別オプション（L551-594）
 
 | データセット | オプション | デフォルト | 説明 |
 |------------|----------|----------|------|
@@ -609,12 +755,13 @@ with st.sidebar:
 |  | min_text_length | 10 | 最小テキスト長 |
 | cc_news | remove_urls | True | URL除去 |
 |  | min_text_length | 100 | 最小テキスト長 |
+| livedoor | （なし） | - | カテゴリ自動処理 |
 
 ## 8. 出力・保存
 
 ### 8.1 ダウンロード機能
 
-#### CSVファイル（L877-904）
+#### CSVファイル（L1056-1083）
 ```python
 csv_buffer = io.StringIO()
 df_processed.to_csv(csv_buffer, index=False)
@@ -628,7 +775,7 @@ st.download_button(
 )
 ```
 
-#### テキストファイル（L883-912）
+#### テキストファイル（L1062-1091）
 ```python
 text_data = '\n'.join(df_processed['Combined_Text'].dropna().astype(str))
 
@@ -640,7 +787,7 @@ st.download_button(
 )
 ```
 
-#### メタデータ(JSON)（L885-920）
+#### メタデータ(JSON)（L1064-1099）
 ```python
 metadata = {
     'dataset_type': config['dataset_type'],
@@ -662,7 +809,7 @@ st.download_button(
 
 ### 8.2 OUTPUTフォルダ保存
 
-#### save_files_to_output()の呼び出し（L924-937）
+#### save_files_to_output()の呼び出し（L1103-1116）
 ```python
 if st.button("💾 OUTPUTフォルダに保存", type="primary"):
     saved_files = save_files_to_output(
@@ -684,32 +831,34 @@ OUTPUT/
 ├── preprocessed_wikipedia_ja.csv
 ├── preprocessed_japanese_text.csv
 ├── preprocessed_cc_news.csv
+├── preprocessed_livedoor.csv
 ├── wikipedia_ja.txt
 ├── japanese_text.txt
-└── cc_news.txt
+├── cc_news.txt
+└── livedoor.txt
 ```
 
 ## 9. helper_rag連携
 
-### 9.1 インポート関数一覧（L35-51）
+### 9.1 インポート関数一覧（L41-57）
 
 | 関数名 | 用途 | 使用箇所 |
 |-------|------|---------|
-| setup_page_config | ページ設定 | L375-381 |
+| setup_page_config | ページ設定 | L503-511 |
 | setup_page_header | ページヘッダー設定 | - |
 | setup_sidebar_header | サイドバーヘッダー設定 | - |
-| select_model | モデル選択UI | L418 |
-| show_model_info | モデル情報表示 | L419 |
-| validate_data | 基本データ検証 | L713 |
+| select_model | モデル選択UI | L547 |
+| show_model_info | モデル情報表示 | L548 |
+| validate_data | 基本データ検証 | L892 |
 | load_dataset | データセットロード | - |
-| estimate_token_usage | トークン使用量推定 | L835 |
+| estimate_token_usage | トークン使用量推定 | L1014 |
 | create_download_data | ダウンロードデータ作成 | - |
 | display_statistics | 統計情報表示 | - |
-| save_files_to_output | OUTPUTフォルダ保存 | L925-929 |
+| save_files_to_output | OUTPUTフォルダ保存 | L1104-1108 |
 | show_usage_instructions | 使用方法表示 | - |
-| clean_text | テキストクレンジング | L328, L333 |
+| clean_text | テキストクレンジング | L457, L462 |
 | TokenManager | トークン管理クラス | - |
-| safe_execute | エラーハンドリング | L315（デコレーター） |
+| safe_execute | エラーハンドリング | L444（デコレーター） |
 
 ### 9.2 主要クラス
 
@@ -757,7 +906,8 @@ streamlit run a01_load_non_qa_rag_data.py --server.headless=true
 1. データセットタイプ選択（サイドバー）
    ├── wikipedia_ja: Wikipedia日本語版
    ├── japanese_text: CC100日本語
-   └── cc_news: CC-News英語
+   ├── cc_news: CC-News英語
+   └── livedoor: Livedoorニュースコーパス
    ↓
 2. モデル選択（サイドバー）
    └── GPT-4o、GPT-4o-mini等
@@ -767,7 +917,8 @@ streamlit run a01_load_non_qa_rag_data.py --server.headless=true
    ↓
 4. データアップロード（タブ1）
    ├── CSVファイルアップロード または
-   └── HuggingFace Hub自動ダウンロード
+   ├── HuggingFace Hub自動ダウンロード または
+   └── 直接ダウンロード（Livedoor等）
    ↓
 5. データ検証（タブ2）
    ├── 基本検証（NULL、重複等）
@@ -830,9 +981,26 @@ Config: なし
   - remove_duplicates: True
 ```
 
+#### Livedoorニュースコーパス
+```python
+データセット: livedoor
+ダウンロード: 直接DL（https://www.rondhuit.com/download/ldcc-20140209.tar.gz）
+サンプル数: 7376（全記事）
+オプション:
+  - （なし、カテゴリ自動処理）
+前処理:
+  - remove_short_text: True
+  - min_length: 100
+  - remove_duplicates: True
+注意事項:
+  - 9カテゴリ全記事を読み込み
+  - datasets/livedoor/に保存
+  - ファイル形式: URL/日付/タイトル/本文（4行構造）
+```
+
 ## 11. エラーハンドリング
 
-### 11.1 HuggingFaceエラー（L657-675）
+### 11.1 HuggingFaceエラー（L836-854）
 
 #### スクリプトベース廃止エラー
 ```python
@@ -863,7 +1031,7 @@ else:
     st.info("💡 データセット名、config名、split名を確認してください")
 ```
 
-### 11.2 データ処理エラー（L822-824）
+### 11.2 データ処理エラー（L1001-1003）
 
 #### 前処理エラー
 ```python
@@ -889,11 +1057,11 @@ def extract_text_content(df: pd.DataFrame, dataset_type: str) -> pd.DataFrame:
 ### 12.1 機能拡張
 
 1. **追加データセット対応**
+   - ✅ Livedoorニュース（対応済み）
    - arXiv学術論文
    - PubMed医学論文
    - Stack Overflow Q&A
    - CodeSearchNet（コードデータ）
-   - Livedoorニュース
 
 2. **高度な前処理**
    - 言語自動検出
@@ -935,6 +1103,30 @@ def extract_text_content(df: pd.DataFrame, dataset_type: str) -> pd.DataFrame:
 
 ---
 
-**最終更新日**: 2024年10月29日
-**バージョン**: 1.0.0
+## 変更履歴
+
+### v1.1.0 (2025-11-12)
+- ✅ Livedoorニュースコーパス対応追加（7,376記事）
+- ✅ 直接ダウンロード機能追加（download_livedoor_corpus）
+- ✅ Livedoorコーパス読み込み機能追加（load_livedoor_corpus）
+- ✅ セキュリティ対策: tar.extractall(filter='data')
+- ✅ メタデータJSON保存の改善
+- ✅ 9カテゴリ対応（独女通信、ITライフハック等）
+- ✅ カテゴリ別データ分析機能
+
+### v1.0.0 (2024-10-29)
+- 🎉 初回リリース
+- Wikipedia日本語版対応
+- CC100日本語対応
+- CC-News英語対応
+- HuggingFace Hub統合
+- ストリーミングモード実装
+- データ検証機能
+- 前処理パイプライン
+- CSV/TXT/JSON出力
+
+---
+
+**最終更新日**: 2025年11月12日
+**バージョン**: 1.1.0
 **作成者**: OpenAI RAG Q&A JP開発チーム

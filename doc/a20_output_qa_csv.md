@@ -1,9 +1,9 @@
 # a20_output_qa_csv.py - 技術仕様書
 
 ## 最新バージョン情報
-- **最終更新**: 2024-10-29
-- **バージョン**: v1.0
-- **主要機能**: Q/Aペア抽出、統一フォーマット変換
+- **最終更新**: 2025-11-12
+- **バージョン**: v1.1
+- **主要機能**: Q/Aペア抽出、統一フォーマット変換、複数データセット対応
 
 ---
 
@@ -11,10 +11,18 @@
 
 `a20_output_qa_csv.py`は、各Q&A生成プログラム（a02, a03, a10）の最新出力CSVファイルから`question`と`answer`の列のみを抽出し、統一フォーマットのCSVファイルを作成するユーティリティスクリプトです。
 
+## 対応データセット
+
+以下の2種類のデータセットに対応しています:
+
+1. **cc_news**: CC-News英語ニュース
+2. **livedoor**: Livedoorニュースコーパス（日本語）
+
 **主な用途**:
 - 異なるプログラムの出力を統一フォーマットに変換
 - 不要なメタデータカラムの除去
 - 最新のQ/Aペアファイルの自動選択と抽出
+- 複数データセット（cc_news、livedoor）対応
 
 ---
 
@@ -55,21 +63,27 @@
 
 ## 処理対象ファイル
 
-### 入力ファイルパターン（L93-106）
+### 入力ファイルパターン（L99-124）
 
-| プログラム | 入力パターン | 説明 |
-|----------|------------|------|
-| a02 | `qa_output/a02/qa_pairs_cc_news_*.csv` | LLMバッチ処理版の出力 |
-| a03 | `qa_output/a03/qa_pairs_cc_news_*.csv` | ルールベース改良版の出力 |
-| a10 | `qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b25_*.csv` | ハイブリッドバッチ処理版の出力 |
+| プログラム | データセット | 入力パターン | 説明 |
+|----------|----------|------------|------|
+| a02 | cc_news | `qa_output/a02/qa_pairs_cc_news_*.csv` | LLMバッチ処理版（英語） |
+| a02 | livedoor | `qa_output/a02/qa_pairs_livedoor_*.csv` | LLMバッチ処理版（日本語） |
+| a03 | cc_news | `qa_output/a03/qa_pairs_cc_news_*.csv` | ルールベース改良版（英語） |
+| a03 | livedoor | `qa_output/a03/qa_pairs_livedoor_*.csv` | ルールベース改良版（日本語） |
+| a10 | cc_news | `qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b*_*.csv` | ハイブリッドバッチ処理版（英語） |
+| a10 | livedoor | `qa_output/a10/batch_qa_pairs_livedoor_gpt_5_mini_b*_*.csv` | ハイブリッドバッチ処理版（日本語） |
 
-### 出力ファイル（L93-106）
+### 出力ファイル（L99-124）
 
 | 出力ファイル | 説明 |
 |------------|------|
-| `qa_output/a02_qa_pairs_cc_news.csv` | a02の最新Q/Aペア（統一フォーマット） |
-| `qa_output/a03_qa_pairs_cc_news.csv` | a03の最新Q/Aペア（統一フォーマット） |
-| `qa_output/a10_qa_pairs_cc_news.csv` | a10の最新Q/Aペア（統一フォーマット） |
+| `qa_output/a02_qa_pairs_cc_news.csv` | a02の最新Q/Aペア（CC-News） |
+| `qa_output/a02_qa_pairs_livedoor.csv` | a02の最新Q/Aペア（Livedoor） |
+| `qa_output/a03_qa_pairs_cc_news.csv` | a03の最新Q/Aペア（CC-News） |
+| `qa_output/a03_qa_pairs_livedoor.csv` | a03の最新Q/Aペア（Livedoor） |
+| `qa_output/a10_qa_pairs_cc_news.csv` | a10の最新Q/Aペア（CC-News） |
+| `qa_output/a10_qa_pairs_livedoor.csv` | a10の最新Q/Aペア（Livedoor） |
 
 ---
 
@@ -252,9 +266,12 @@ Q&Aペア抽出処理を開始します
 
 ```
 qa_output/
-├── a02_qa_pairs_cc_news.csv    # a02の最新Q/Aペア
-├── a03_qa_pairs_cc_news.csv    # a03の最新Q/Aペア
-└── a10_qa_pairs_cc_news.csv    # a10の最新Q/Aペア
+├── a02_qa_pairs_cc_news.csv      # a02の最新Q/Aペア（CC-News）
+├── a02_qa_pairs_livedoor.csv     # a02の最新Q/Aペア（Livedoor）
+├── a03_qa_pairs_cc_news.csv      # a03の最新Q/Aペア（CC-News）
+├── a03_qa_pairs_livedoor.csv     # a03の最新Q/Aペア（Livedoor）
+├── a10_qa_pairs_cc_news.csv      # a10の最新Q/Aペア（CC-News）
+└── a10_qa_pairs_livedoor.csv     # a10の最新Q/Aペア（Livedoor）
 ```
 
 ### 出力フォーマット
@@ -489,6 +506,11 @@ head -5 qa_output/a10_qa_pairs_cc_news.csv
 
 ## 変更履歴
 
+### v1.1 (2025-11-12)
+- **Livedoorデータセット対応追加**
+- 合計6つの出力ファイルに対応（cc_news × 3プログラム + livedoor × 3プログラム）
+- ドキュメント更新
+
 ### v1.0 (2024-10-29)
 - 初版リリース
 - a02, a03, a10の出力に対応
@@ -497,6 +519,6 @@ head -5 qa_output/a10_qa_pairs_cc_news.csv
 
 ---
 
-**最終更新日**: 2024年10月29日
-**バージョン**: 1.0
+**最終更新日**: 2025年11月12日
+**バージョン**: 1.1
 **作成者**: OpenAI RAG Q&A JP開発チーム

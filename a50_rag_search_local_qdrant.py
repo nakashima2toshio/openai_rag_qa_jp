@@ -4,7 +4,7 @@
 a50_rag_search_local_qdrant.py — Qdrant RAG検索用Streamlit UI
 ------------------------------------------------------------------------------
 機能概要:
-  - 複数コレクション対応（product_embeddings, qa_corpus, qa_cc_news_*等）
+  - 複数コレクション対応（product_embeddings, qa_corpus, qa_cc_news_*, qa_livedoor_*, raw_*等）
   - ドメイン別検索（customer, medical, sciq, legal, trivia）
   - Named Vectors切替（ada-002, 3-small等）
   - 動的な埋め込み次元対応（384次元、1536次元）
@@ -17,11 +17,16 @@ a50_rag_search_local_qdrant.py — Qdrant RAG検索用Streamlit UI
   - 科学・技術QA (sciq)
   - 法律・判例QA (legal)
   - TriviaQA（トリビアQA） (trivia)
-  - CC News Q&A (qa_cc_news_a02_llm, qa_cc_news_a03_rule, qa_cc_news_a10_hybrid)
-    - Columbia City Balletの母娘ダンサー（Regina & Melina Willoughby）に関するニュース記事
-    - a02: LLM生成方式によるQ&Aペア
-    - a03: ルールベース生成方式によるQ&Aペア
-    - a10: ハイブリッド生成方式によるQ&Aペア
+  - CC News データセット (raw_cc_news, qa_cc_news_a02_llm, qa_cc_news_a03_rule, qa_cc_news_a10_hybrid)
+    - raw_cc_news: CC Newsの生データ（7,376件）
+    - qa_cc_news_a02_llm: LLM生成方式によるQ&Aペア（1,344件）
+    - qa_cc_news_a03_rule: ルールベース生成方式によるQ&Aペア（1,638件）
+    - qa_cc_news_a10_hybrid: ハイブリッド生成方式によるQ&Aペア（1,638件）
+  - Livedoor News データセット (raw_livedoor, qa_livedoor_a02_20_llm, qa_livedoor_a03_rule, qa_livedoor_a10_hybrid)
+    - raw_livedoor: Livedoorの生データ（7,376件）
+    - qa_livedoor_a02_20_llm: LLM生成方式によるQ&Aペア（1,317件）
+    - qa_livedoor_a03_rule: ルールベース生成方式によるQ&Aペア（1,638件）
+    - qa_livedoor_a10_hybrid: ハイブリッド生成方式によるQ&Aペア（1,638件）
 
 起動: streamlit run a50_rag_search_local_qdrant.py --server.port=8504
 """
@@ -55,9 +60,14 @@ DEFAULTS = {
 COLLECTION_EMBEDDINGS = {
     "product_embeddings": {"model": "text-embedding-3-small", "dims": 384},  # 製品情報用：384次元で高速処理
     "qa_corpus": {"model": "text-embedding-3-small", "dims": 1536},  # Q&Aコーパス用：1536次元で高精度
+    "raw_cc_news": {"model": "text-embedding-3-small", "dims": 1536},  # CC News 生データ
+    "raw_livedoor": {"model": "text-embedding-3-small", "dims": 1536},  # Livedoor 生データ
     "qa_cc_news_a02_llm": {"model": "text-embedding-3-small", "dims": 1536},  # CC News LLM生成方式
     "qa_cc_news_a03_rule": {"model": "text-embedding-3-small", "dims": 1536},  # CC News ルールベース生成方式
     "qa_cc_news_a10_hybrid": {"model": "text-embedding-3-small", "dims": 1536},  # CC News ハイブリッド生成方式
+    "qa_livedoor_a02_20_llm": {"model": "text-embedding-3-small", "dims": 1536},  # Livedoor LLM生成方式
+    "qa_livedoor_a03_rule": {"model": "text-embedding-3-small", "dims": 1536},  # Livedoor ルールベース生成方式
+    "qa_livedoor_a10_hybrid": {"model": "text-embedding-3-small", "dims": 1536},  # Livedoor ハイブリッド生成方式
 }
 
 def load_config(path="config.yml") -> Dict[str, Any]:
@@ -158,6 +168,13 @@ SAMPLE_QUESTIONS = {
         "What insight did the speaker gain from seeing Robert's McLaren documentary?",
         "Under what circumstance can a firm still charge a fee for an SAR under GDPR?",
         "Which two technologies did Vyas use to illustrate a 5G use case?"
+    ],
+    "livedoor": [
+        "ライブドアニュースについて教えてください",
+        "最新のテクノロジーニュースは？",
+        "スポーツニュースで話題になっていることは？",
+        "エンタメ関連のニュースを知りたい",
+        "経済ニュースの最新情報は？"
     ]
 }
 
@@ -199,13 +216,17 @@ with st.sidebar:
     st.subheader("💡 質問例")
 
     # CC Newsコレクションかどうかをチェック
-    is_cc_news = collection.startswith("qa_cc_news_")
+    is_cc_news = collection.startswith("qa_cc_news_") or collection == "raw_cc_news"
+    # Livedoorコレクションかどうかをチェック
+    is_livedoor = collection.startswith("qa_livedoor_") or collection == "raw_livedoor"
 
     if is_cc_news:
         # CC Newsコレクション用のサンプル質問を表示
         st.write("**CC News サンプル検索:**")
         collection_label = ""
-        if "a02" in collection:
+        if "raw_cc_news" in collection:
+            collection_label = " (生データ)"
+        elif "a02" in collection:
             collection_label = " (LLM生成)"
         elif "a03" in collection:
             collection_label = " (ルールベース)"
@@ -215,6 +236,23 @@ with st.sidebar:
 
         for i, q in enumerate(SAMPLE_QUESTIONS.get("cc_news", []), 1):
             if st.button(f"{i}. {q}", key=f"sample_cc_news_{i}"):
+                st.session_state['selected_query'] = q
+    elif is_livedoor:
+        # Livedoorコレクション用のサンプル質問を表示
+        st.write("**Livedoor サンプル検索:**")
+        collection_label = ""
+        if "raw_livedoor" in collection:
+            collection_label = " (生データ)"
+        elif "a02" in collection:
+            collection_label = " (LLM生成)"
+        elif "a03" in collection:
+            collection_label = " (ルールベース)"
+        elif "a10" in collection:
+            collection_label = " (ハイブリッド)"
+        st.caption(f"Collection: {collection}{collection_label}")
+
+        for i, q in enumerate(SAMPLE_QUESTIONS.get("livedoor", []), 1):
+            if st.button(f"{i}. {q}", key=f"sample_livedoor_{i}"):
                 st.session_state['selected_query'] = q
     elif domain != "ALL":
         st.write(f"**{domain.upper()}ドメインの質問例:**")
@@ -256,17 +294,22 @@ st.code("""
     - Domain=ALLは5つのデータセットの統合版
 
   - CC News collections: 3つの異なるQ&A生成手法で比較可能
-    - qa_cc_news_a02_llm: LLM生成方式（a02_qa_pairs_cc_news.csv）
+    - raw_cc_news: CC Newsの生データ（7,376件）
+    - qa_cc_news_a02_llm: LLM生成方式（1,344件）
       - AIによる自然な質問・回答ペアの生成
-    - qa_cc_news_a03_rule: ルールベース生成方式（a03_qa_pairs_cc_news.csv）
+    - qa_cc_news_a03_rule: ルールベース生成方式（1,638件）
       - テンプレートベースの構造化されたQ&A生成
-    - qa_cc_news_a10_hybrid: ハイブリッド生成方式（a10_qa_pairs_cc_news.csv）
+    - qa_cc_news_a10_hybrid: ハイブリッド生成方式（1,638件）
       - LLMとルールベースを組み合わせた生成
-    - CC Newsデータセットには多様なトピックが含まれる:
-      - バレエ（Boston Ballet、The Nutcracker）
-      - ドキュメンタリー（McLaren）
-      - 法律・規制（GDPR、SAR）
-      - テクノロジー（5G）など
+
+  - Livedoor News collections: 3つの異なるQ&A生成手法で比較可能
+    - raw_livedoor: Livedoorの生データ（7,376件）
+    - qa_livedoor_a02_20_llm: LLM生成方式（1,317件）
+      - AIによる自然な質問・回答ペアの生成
+    - qa_livedoor_a03_rule: ルールベース生成方式（1,638件）
+      - テンプレートベースの構造化されたQ&A生成
+    - qa_livedoor_a10_hybrid: ハイブリッド生成方式（1,638件）
+      - LLMとルールベースを組み合わせた生成
 
   - 多言語対応埋め込み:
     - OpenAI embedding modelが多言語対応のため、日英間での意味的検索が可能

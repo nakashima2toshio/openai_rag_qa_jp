@@ -1,5 +1,22 @@
 # a42_qdrant_registration.py - 3つの独立コレクションへのQdrant登録ツール
 
+### 追加・コレクション：
+
+| コレクション名                | CSVファイル                             | ドメイン     | 生成方法         |
+|------------------------|-------------------------------------|----------|--------------|
+| qa_livedoor_a02_20_llm | qa_output/a02_qa_pairs_livedoor.csv | livedoor | a02_make_qa  |
+| qa_livedoor_a03_rule   | qa_output/a03_qa_pairs_livedoor.csv | livedoor | a03_coverage |
+| qa_livedoor_a10_hybrid | qa_output/a10_qa_pairs_livedoor.csv | livedoor | a10_hybrid   |
+
+
+### 登録データ一覧：
+| コレクション名               | CSVファイル                            | 生成方法         | 説明       |
+|-----------------------|------------------------------------|--------------|-----------------------------------------------|
+| qa_cc_news_a02_llm    | qa_output/a02_qa_pairs_cc_news.csv | a02_make_qa  | LLM生成方式 (a02_make_qa.py)                      |
+| qa_cc_news_a03_rule   | qa_output/a03_qa_pairs_cc_news.csv | a03_coverage | ルールベース生成方式 (a03_rag_qa_coverage_improved.py)|
+| qa_cc_news_a10_hybrid | qa_output/a10_qa_pairs_cc_news.csv | a10_hybrid   | ハイブリッド生成方式 (a10_qa_optimized_hybrid_batch.py) |
+
+
 ## 📥 INPUT / 📤 OUTPUT
 
 ### INPUT（入力ファイル）

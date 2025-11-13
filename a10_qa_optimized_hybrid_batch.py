@@ -33,6 +33,26 @@ API呼び出しを最小化し、処理を高速化
    - 大規模データセット処理が現実的に
    - レート制限リスクの大幅低減
 
+# =======================================
+キャッシュ活用（2回目以降）
+[60分くらい]
+python a10_qa_optimized_hybrid_batch.py \
+--dataset livedoor \
+--quality-mode \
+--max-docs 500 \
+--batch-size 20 \
+--embedding-batch-size 500 \
+--use-cache \
+--cache-dir qa_cache_livedoor
+予想時間：初回30-50分、2回目以降15-25分
+
+
+# 品質重視モード（カバレージ95%目標）
+python a10_qa_optimized_hybrid_batch.py --dataset livedoor --quality-mode
+
+# バッチサイズ指定
+python a10_qa_optimized_hybrid_batch.py --dataset livedoor --batch-size 10 --embedding-batch-size 300
+
 
 python a10_qa_optimized_hybrid_batch.py \
 --dataset cc_news \
@@ -154,6 +174,15 @@ DATASET_CONFIGS = {
         "title_column": "title",
         "lang": "ja",
         "default_doc_type": "academic"
+    },
+    "livedoor": {
+        "name": "Livedoorニュースコーパス",
+        "file": "OUTPUT/preprocessed_livedoor.csv",
+        "text_column": "Combined_Text",
+        "title_column": "title",
+        "category_column": "category",
+        "lang": "ja",
+        "default_doc_type": "news"
     }
 }
 

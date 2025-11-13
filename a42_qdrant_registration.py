@@ -87,28 +87,71 @@ DEFAULTS = {
 }
 
 # ------------------ コレクション定義 ------------------
-# CSVファイル → コレクション名 → 生成方法のマッピング
+# CSVファイル/TXTファイル → コレクション名 → 生成方法のマッピング
 COLLECTION_MAPPINGS = [
     {
         "csv_file": "qa_output/a02_qa_pairs_cc_news.csv",
         "collection": "qa_cc_news_a02_llm",
         "generation_method": "a02_make_qa",
         "domain": "cc_news",
-        "description": "LLM生成方式（a02_make_qa.py）"
+        "description": "LLM生成方式（a02_make_qa.py）",
+        "type": "qa"
     },
     {
         "csv_file": "qa_output/a03_qa_pairs_cc_news.csv",
         "collection": "qa_cc_news_a03_rule",
         "generation_method": "a03_coverage",
         "domain": "cc_news",
-        "description": "ルールベース生成方式（a03_rag_qa_coverage_improved.py）"
+        "description": "ルールベース生成方式（a03_rag_qa_coverage_improved.py）",
+        "type": "qa"
     },
     {
         "csv_file": "qa_output/a10_qa_pairs_cc_news.csv",
         "collection": "qa_cc_news_a10_hybrid",
         "generation_method": "a10_hybrid",
         "domain": "cc_news",
-        "description": "ハイブリッド生成方式（a10_qa_optimized_hybrid_batch.py）"
+        "description": "ハイブリッド生成方式（a10_qa_optimized_hybrid_batch.py）",
+        "type": "qa"
+    },
+    {
+        "csv_file": "qa_output/a02_qa_pairs_livedoor.csv",
+        "collection": "qa_livedoor_a02_20_llm",
+        "generation_method": "a02_make_qa",
+        "domain": "livedoor",
+        "description": "LLM生成方式（a02_make_qa.py）- livedoorデータ",
+        "type": "qa"
+    },
+    {
+        "csv_file": "qa_output/a03_qa_pairs_livedoor.csv",
+        "collection": "qa_livedoor_a03_rule",
+        "generation_method": "a03_coverage",
+        "domain": "livedoor",
+        "description": "ルールベース生成方式（a03_rag_qa_coverage_improved.py）- livedoorデータ",
+        "type": "qa"
+    },
+    {
+        "csv_file": "qa_output/a10_qa_pairs_livedoor.csv",
+        "collection": "qa_livedoor_a10_hybrid",
+        "generation_method": "a10_hybrid",
+        "domain": "livedoor",
+        "description": "ハイブリッド生成方式（a10_qa_optimized_hybrid_batch.py）- livedoorデータ",
+        "type": "qa"
+    },
+    {
+        "csv_file": "OUTPUT/cc_news.txt",
+        "collection": "raw_cc_news",
+        "generation_method": "raw_text",
+        "domain": "cc_news",
+        "description": "生テキストデータ（cc_news）",
+        "type": "raw"
+    },
+    {
+        "csv_file": "OUTPUT/livedoor.txt",
+        "collection": "raw_livedoor",
+        "generation_method": "raw_text",
+        "domain": "livedoor",
+        "description": "生テキストデータ（livedoor）",
+        "type": "raw"
     }
 ]
 
@@ -155,12 +198,84 @@ def embed_texts_openai(texts: List[str], model: str, client: Optional[OpenAI] = 
     return [d.embedding for d in resp.data]
 
 def embed_texts(texts: List[str], model: str, batch_size: int = 128) -> List[List[float]]:
+    """
+    テキストをバッチ処理でEmbeddingに変換
+    OpenAIの8192トークン制限を考慮して動的にバッチサイズを調整
+
+    Note: batch_size引数は後方互換性のために残しているが、実際にはトークン数のみで制御
+    """
     if hrag and hasattr(hrag, "embed_texts"):
         return hrag.embed_texts(texts, model=model, batch_size=batch_size)
-    vecs: List[List[float]] = []
+
+    import tiktoken
+
+    enc = tiktoken.get_encoding("cl100k_base")
     client = get_openai_client()
-    for chunk in batched(texts, batch_size):
-        vecs.extend(embed_texts_openai(chunk, model=model, client=client))
+
+    # OpenAI Embeddingの最大トークン数（安全マージン込み）
+    MAX_TOKENS_PER_REQUEST = 8000  # 8192から余裕を持たせて8000
+
+    # ★ 空文字列・空白のみの文字列を除外し、インデックスマッピングを保持
+    valid_texts = []
+    valid_indices = []
+    for i, text in enumerate(texts):
+        if text and text.strip():  # 空文字列と空白のみを除外
+            valid_texts.append(text)
+            valid_indices.append(i)
+
+    # 全て空文字列の場合はダミーベクトルを返す
+    if not valid_texts:
+        print(f"\r   [WARN] 全てのテキストが空文字列です。ダミーベクトルを返します。", flush=True)
+        return [[0.0] * 1536] * len(texts)
+
+    # 有効なテキストのみで埋め込み生成
+    valid_vecs: List[List[float]] = []
+    current_batch = []
+    current_tokens = 0
+    batch_count = 0
+
+    for i, text in enumerate(valid_texts):
+        text_tokens = len(enc.encode(text))
+
+        # 単一チャンクが制限を超える場合はエラー
+        if text_tokens > MAX_TOKENS_PER_REQUEST:
+            raise ValueError(
+                f"Single text at index {valid_indices[i]} has {text_tokens} tokens, "
+                f"which exceeds MAX_TOKENS_PER_REQUEST ({MAX_TOKENS_PER_REQUEST}). "
+                f"Please reduce chunk_size when creating chunks."
+            )
+
+        # 追加前にチェック：制限を超える場合は先にバッチを送信
+        if current_tokens + text_tokens > MAX_TOKENS_PER_REQUEST:
+            # 現在のバッチがあれば送信
+            if current_batch:
+                batch_count += 1
+                print(f"\r   埋め込み生成中: バッチ{batch_count} ({len(current_batch)}件, {current_tokens}トークン)... ", end="", flush=True)
+                valid_vecs.extend(embed_texts_openai(current_batch, model=model, client=client))
+                current_batch = []
+                current_tokens = 0
+
+        # バッチに追加
+        current_batch.append(text)
+        current_tokens += text_tokens
+
+    # 残りのバッチを処理
+    if current_batch:
+        batch_count += 1
+        print(f"\r   埋め込み生成中: バッチ{batch_count} ({len(current_batch)}件, {current_tokens}トークン)... ", end="", flush=True)
+        valid_vecs.extend(embed_texts_openai(current_batch, model=model, client=client))
+
+    # 元のインデックスに合わせてベクトルを再配置（空文字列はゼロベクトル）
+    vecs: List[List[float]] = []
+    valid_vec_idx = 0
+    for i in range(len(texts)):
+        if i in valid_indices:
+            vecs.append(valid_vecs[valid_vec_idx])
+            valid_vec_idx += 1
+        else:
+            # 空文字列の場合はゼロベクトル
+            vecs.append([0.0] * 1536)
+
     return vecs
 
 # ------------------ 入力テキスト構築 ------------------
@@ -190,6 +305,262 @@ def load_csv(path: str, required=("question", "answer"), limit: int = 0) -> pd.D
         df = df.head(limit).copy()
     return df
 
+# ------------------ TXTロード（生テキスト） ------------------
+def detect_language(text: str) -> str:
+    """
+    テキストの言語を判定（日本語 or 英語）
+
+    Args:
+        text: 判定するテキスト
+
+    Returns:
+        "ja" (日本語) or "en" (英語)
+    """
+    # 日本語文字（ひらがな、カタカナ、漢字）の検出
+    japanese_chars = len([c for c in text if '\u3040' <= c <= '\u309F' or  # ひらがな
+                                            '\u30A0' <= c <= '\u30FF' or  # カタカナ
+                                            '\u4E00' <= c <= '\u9FFF'])    # 漢字
+
+    total_chars = len([c for c in text if not c.isspace()])
+
+    # 日本語文字が30%以上なら日本語と判定
+    if total_chars > 0 and japanese_chars / total_chars > 0.3:
+        return "ja"
+    return "en"
+
+def chunk_japanese_text(text: str, max_tokens: int = 500) -> List[str]:
+    """
+    日本語テキストをセマンティックにチャンク分割
+    段落→文単位で意味を保持しながら分割
+    単一文が大きすぎる場合は強制的に固定長分割
+
+    Args:
+        text: 分割する日本語テキスト
+        max_tokens: チャンクの最大トークン数
+
+    Returns:
+        チャンクのリスト
+    """
+    import tiktoken
+    import re
+
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    # 段落で分割（空行区切り）
+    paragraphs = re.split(r'\n\s*\n', text)
+
+    chunks = []
+    current_chunk = ""
+    current_tokens = 0
+
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+
+        para_tokens = len(enc.encode(para))
+
+        # 現在のチャンクに追加できるか確認
+        if current_tokens + para_tokens <= max_tokens:
+            if current_chunk:
+                current_chunk += "\n\n"
+            current_chunk += para
+            current_tokens += para_tokens
+        else:
+            # 現在のチャンクを保存
+            if current_chunk:
+                chunks.append(current_chunk)
+
+            # 段落が大きすぎる場合は文単位で分割
+            if para_tokens > max_tokens:
+                # 日本語の句点で文分割
+                sentences = re.split(r'([。！？\n])', para)
+                temp_chunk = ""
+                temp_tokens = 0
+
+                for i in range(0, len(sentences), 2):
+                    sent = sentences[i]
+                    if i + 1 < len(sentences):
+                        sent += sentences[i + 1]
+
+                    sent_tokens = len(enc.encode(sent))
+
+                    # 単一文が大きすぎる場合は強制分割
+                    if sent_tokens > max_tokens:
+                        # 現在のtemp_chunkを保存
+                        if temp_chunk:
+                            chunks.append(temp_chunk.strip())
+                            temp_chunk = ""
+                            temp_tokens = 0
+
+                        # 長文を固定長で強制分割
+                        sent_enc = enc.encode(sent)
+                        for chunk_start in range(0, len(sent_enc), max_tokens):
+                            chunk_tokens = sent_enc[chunk_start:chunk_start + max_tokens]
+                            chunk_text = enc.decode(chunk_tokens).strip()
+                            # 空文字列チェック
+                            if chunk_text:
+                                chunks.append(chunk_text)
+                    elif temp_tokens + sent_tokens <= max_tokens:
+                        temp_chunk += sent
+                        temp_tokens += sent_tokens
+                    else:
+                        if temp_chunk:
+                            chunks.append(temp_chunk.strip())
+                        temp_chunk = sent
+                        temp_tokens = sent_tokens
+
+                if temp_chunk:
+                    current_chunk = temp_chunk
+                    current_tokens = temp_tokens
+                else:
+                    current_chunk = ""
+                    current_tokens = 0
+            else:
+                current_chunk = para
+                current_tokens = para_tokens
+
+    # 最後のチャンク
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
+def chunk_english_text(text: str, max_tokens: int = 500) -> List[str]:
+    """
+    英語テキストをセマンティックにチャンク分割
+    段落→文単位で意味を保持しながら分割
+    単一文が大きすぎる場合は強制的に固定長分割
+
+    Args:
+        text: 分割する英語テキスト
+        max_tokens: チャンクの最大トークン数
+
+    Returns:
+        チャンクのリスト
+    """
+    import tiktoken
+    import re
+
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    # 段落で分割（空行区切り）
+    paragraphs = re.split(r'\n\s*\n', text)
+
+    chunks = []
+    current_chunk = ""
+    current_tokens = 0
+
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+
+        para_tokens = len(enc.encode(para))
+
+        # 現在のチャンクに追加できるか確認
+        if current_tokens + para_tokens <= max_tokens:
+            if current_chunk:
+                current_chunk += "\n\n"
+            current_chunk += para
+            current_tokens += para_tokens
+        else:
+            # 現在のチャンクを保存
+            if current_chunk:
+                chunks.append(current_chunk)
+
+            # 段落が大きすぎる場合は文単位で分割
+            if para_tokens > max_tokens:
+                # 英語の文分割（ピリオド+スペース+大文字で分割、略語を考慮）
+                sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', para)
+                temp_chunk = ""
+                temp_tokens = 0
+
+                for sent in sentences:
+                    sent_tokens = len(enc.encode(sent))
+
+                    # 単一文が大きすぎる場合は強制分割
+                    if sent_tokens > max_tokens:
+                        # 現在のtemp_chunkを保存
+                        if temp_chunk:
+                            chunks.append(temp_chunk.strip())
+                            temp_chunk = ""
+                            temp_tokens = 0
+
+                        # 長文を固定長で強制分割
+                        sent_enc = enc.encode(sent)
+                        for chunk_start in range(0, len(sent_enc), max_tokens):
+                            chunk_tokens = sent_enc[chunk_start:chunk_start + max_tokens]
+                            chunk_text = enc.decode(chunk_tokens).strip()
+                            # 空文字列チェック
+                            if chunk_text:
+                                chunks.append(chunk_text)
+                    elif temp_tokens + sent_tokens <= max_tokens:
+                        if temp_chunk:
+                            temp_chunk += " "
+                        temp_chunk += sent
+                        temp_tokens += sent_tokens
+                    else:
+                        if temp_chunk:
+                            chunks.append(temp_chunk.strip())
+                        temp_chunk = sent
+                        temp_tokens = sent_tokens
+
+                if temp_chunk:
+                    current_chunk = temp_chunk
+                    current_tokens = temp_tokens
+                else:
+                    current_chunk = ""
+                    current_tokens = 0
+            else:
+                current_chunk = para
+                current_tokens = para_tokens
+
+    # 最後のチャンク
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
+def load_txt(path: str, limit: int = 0, chunk_size: int = 500) -> pd.DataFrame:
+    """
+    テキストファイルを読み込み、セマンティックチャンクに分割してDataFrameに変換
+    言語を自動判定し、適切な方法でチャンク分割する
+
+    Args:
+        path: テキストファイルパス
+        limit: チャンク数の上限（0=無制限）
+        chunk_size: チャンクの最大トークン数（デフォルト500）
+
+    Returns:
+        チャンクを含むDataFrame
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"TXT not found: {path}")
+
+    with open(path, "r", encoding="utf-8") as f:
+        full_text = f.read()
+
+    # 言語判定
+    lang = detect_language(full_text[:1000])  # 先頭1000文字で判定
+    print(f"   言語判定: {'日本語' if lang == 'ja' else '英語'}")
+
+    # 言語に応じたチャンク分割
+    if lang == "ja":
+        chunks = chunk_japanese_text(full_text, max_tokens=chunk_size)
+    else:
+        chunks = chunk_english_text(full_text, max_tokens=chunk_size)
+
+    print(f"   チャンク数: {len(chunks):,}件（最大{chunk_size}トークン/チャンク）")
+
+    if limit and limit > 0:
+        chunks = chunks[:limit]
+        print(f"   制限適用後: {len(chunks):,}件")
+
+    # DataFrameに変換（textカラムのみ）
+    df = pd.DataFrame({"text": chunks})
+    return df
+
 # ------------------ Qdrant: コレクション作成（Named Vectors対応） ------------------
 def create_or_recreate_collection(client: QdrantClient, name: str, recreate: bool,
                                   embeddings_cfg: Dict[str, Dict[str, Any]]):
@@ -214,17 +585,17 @@ def create_or_recreate_collection(client: QdrantClient, name: str, recreate: boo
             client.create_collection(collection_name=name, vectors_config=vectors_config)
     # よく使うpayloadの索引（任意）
     try:
-        client.create_payload_index(name, field_name="domain", field_type="keyword")
+        client.create_payload_index(name, field_name="domain", field_schema=models.PayloadSchemaType.KEYWORD)
     except Exception:
         pass
     try:
-        client.create_payload_index(name, field_name="generation_method", field_type="keyword")
+        client.create_payload_index(name, field_name="generation_method", field_schema=models.PayloadSchemaType.KEYWORD)
     except Exception:
         pass
 
 # ------------------ ポイント構築（Named Vectors対応） ------------------
 def build_points(df: pd.DataFrame, vectors_by_name: Dict[str, List[List[float]]], domain: str, source_file: str,
-                 generation_method: str = None) -> List[models.PointStruct]:
+                 generation_method: str = None, data_type: str = "qa") -> List[models.PointStruct]:
     # vectors_by_name: name -> list[vec]
     n = len(df)
     for name, vecs in vectors_by_name.items():
@@ -232,18 +603,33 @@ def build_points(df: pd.DataFrame, vectors_by_name: Dict[str, List[List[float]]]
             raise ValueError(f"vectors length mismatch for '{name}': df={n}, vecs={len(vecs)}")
     now_iso = datetime.now(timezone.utc).isoformat()
     points: List[models.PointStruct] = []
+
     for i, row in enumerate(df.itertuples(index=False)):
-        payload = {
-            "domain": domain,
-            "generation_method": generation_method or "unknown",
-            "question": getattr(row, "question"),
-            "answer": getattr(row, "answer"),
-            "source": os.path.basename(source_file),
-            "created_at": now_iso,
-            "schema": "qa:v1",
-        }
+        if data_type == "qa":
+            # Q&Aペア用のペイロード
+            payload = {
+                "domain": domain,
+                "generation_method": generation_method or "unknown",
+                "question": getattr(row, "question"),
+                "answer": getattr(row, "answer"),
+                "source": os.path.basename(source_file),
+                "created_at": now_iso,
+                "schema": "qa:v1",
+            }
+        else:  # raw text
+            # 生テキスト用のペイロード
+            payload = {
+                "domain": domain,
+                "generation_method": generation_method or "unknown",
+                "text": getattr(row, "text"),
+                "source": os.path.basename(source_file),
+                "created_at": now_iso,
+                "schema": "raw:v1",
+            }
+
         # Qdrant requires point IDs to be UUID or unsigned integer
-        pid = hash(f"{domain}-{generation_method}-{i}") & 0x7FFFFFFF  # Convert to positive 32-bit integer
+        # ソースファイル名も含めてユニークなIDを生成
+        pid = abs(hash(f"{domain}-{generation_method}-{source_file}-{i}")) & 0x7FFFFFFFFFFFFFFF  # Convert to positive 64-bit integer
         if len(vectors_by_name) == 1:
             # 単一ベクトル
             vec = list(vectors_by_name.values())[0][i]
@@ -388,11 +774,18 @@ def main():
         # コレクション作成
         create_or_recreate_collection(client, collection_name, args.recreate, embeddings_cfg)
 
-        # CSVロード
-        df = load_csv(csv_file, limit=args.limit)
-        print(f"   データ件数: {len(df):,}件")
-
-        texts = build_inputs(df, include_answer=args.include_answer)
+        # データタイプに応じてロード
+        data_type = mapping.get("type", "qa")
+        if data_type == "raw":
+            # 生テキストファイルをロード
+            df = load_txt(csv_file, limit=args.limit)
+            print(f"   データ件数: {len(df):,}件")
+            texts = df["text"].tolist()
+        else:
+            # Q&A CSVをロード
+            df = load_csv(csv_file, limit=args.limit)
+            print(f"   データ件数: {len(df):,}件")
+            texts = build_inputs(df, include_answer=args.include_answer)
 
         # 埋め込み生成
         vectors_by_name: Dict[str, List[List[float]]] = {}
@@ -402,7 +795,7 @@ def main():
             print("✓")
 
         # ポイント構築とアップサート
-        points = build_points(df, vectors_by_name, domain, csv_file, generation_method)
+        points = build_points(df, vectors_by_name, domain, csv_file, generation_method, data_type=data_type)
         print(f"   アップサート中... ", end="", flush=True)
         n = upsert_points(client, collection_name, points, batch_size=args.batch_size)
         print(f"✓ {n:,}件")
@@ -411,6 +804,14 @@ def main():
 
     print("\n" + "=" * 80)
     print(f"✅ 完了: 総登録件数 {total:,}件")
+
+    # 登録されたコレクション一覧を表示
+    print(f"\n[INFO] 登録されたコレクション一覧:")
+    print("-" * 80)
+    all_collections = client.get_collections()
+    for col in all_collections.collections:
+        print(f"  • {col.name}")
+    print("-" * 80)
 
     # 検証検索
     print(f"\n[INFO] 検証検索を実行中...")

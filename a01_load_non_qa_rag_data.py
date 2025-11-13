@@ -10,7 +10,8 @@ a01_load_non_qa_rag_data.py - 非Q&A型RAGデータ処理ツール
 ✅ 日本語・英語データセットの処理
    - Wikipedia日本語版（動作確認済み）
    - CC100日本語（動作確認済み）
-   - CC-News英語ニュース（動作確認済み）
+   - CC-News英語ニュース（動作確認済み、7,376件）
+   - Livedoorニュースコーパス（動作確認済み、7,376件）
 ✅ データ検証・品質チェック
 ✅ RAG用テキスト抽出・前処理
 ✅ トークン使用量推定
@@ -19,13 +20,18 @@ a01_load_non_qa_rag_data.py - 非Q&A型RAGデータ処理ツール
 【対応データセット】
 1. wikipedia_ja: Wikipedia日本語版（百科事典的知識）
 2. japanese_text: CC100日本語（Webテキストコーパス）
-3. cc_news: CC-News（英語ニュース記事）
+3. cc_news: CC-News（英語ニュース記事、7,376件）
+4. livedoor: Livedoorニュースコーパス（日本語ニュース9カテゴリ、7,376件）
 """
 
 import streamlit as st
 import pandas as pd
 import json
 import io
+import os
+import urllib.request
+import tarfile
+import glob
 from datetime import datetime
 from pathlib import Path
 import logging
@@ -106,6 +112,22 @@ class NonQARAGConfig:
             "text_field"      : "text",
             "title_field"     : "title",
             "sample_size"     : 500
+        },
+
+        # Livedoorニュースコーパス - 日本語ニュース記事
+        "livedoor": {
+            "name"            : "Livedoorニュースコーパス",
+            "icon"            : "📰",
+            "required_columns": ["url", "title", "content", "category"],
+            "description"     : "Livedoorニュース日本語記事（9カテゴリ）",
+            "hf_dataset"      : None,  # 直接ダウンロード
+            "download_url"    : "https://www.rondhuit.com/download/ldcc-20140209.tar.gz",
+            "hf_config"       : None,
+            "split"           : None,
+            "streaming"       : False,
+            "text_field"      : "content",
+            "title_field"     : "title",
+            "sample_size"     : 7376  # 全記事数
         }
     }
 
@@ -306,6 +328,113 @@ def validate_stackoverflow_data_specific(df: pd.DataFrame) -> List[str]:
         issues.append(f"💡 技術キーワード含む: {has_tech}件 ({percentage:.1f}%)")
 
     return issues
+
+
+# ===================================================================
+# Livedoorコーパス用関数
+# ===================================================================
+
+def download_livedoor_corpus(save_dir: str = "datasets") -> str:
+    """Livedoorニュースコーパスをダウンロード
+
+    Args:
+        save_dir: ダウンロード先ディレクトリ
+
+    Returns:
+        解凍先ディレクトリのパス
+    """
+    save_path = Path(save_dir)
+    save_path.mkdir(exist_ok=True)
+
+    # ダウンロードURL
+    url = "https://www.rondhuit.com/download/ldcc-20140209.tar.gz"
+    tar_filename = "ldcc-20140209.tar.gz"
+    tar_path = save_path / tar_filename
+
+    # ダウンロード
+    if not tar_path.exists():
+        logger.info(f"Livedoorニュースコーパスをダウンロード中: {url}")
+        urllib.request.urlretrieve(url, tar_path)
+        logger.info(f"ダウンロード完了: {tar_path}")
+
+    # 解凍
+    extract_dir = save_path / "livedoor"
+    text_dir = extract_dir / "text"
+
+    if not text_dir.exists():
+        logger.info(f"アーカイブを解凍中: {tar_path}")
+        with tarfile.open(tar_path, 'r:gz') as tar:
+            # セキュリティ: filterパラメータを追加
+            tar.extractall(extract_dir, filter='data')
+        logger.info(f"解凍完了: {extract_dir}")
+
+    return str(extract_dir)
+
+
+def load_livedoor_corpus(data_dir: str) -> pd.DataFrame:
+    """Livedoorニュースコーパスを読み込み
+
+    Args:
+        data_dir: Livedoorコーパスの解凍ディレクトリ
+
+    Returns:
+        記事データのDataFrame
+    """
+    # カテゴリリスト
+    categories = [
+        'dokujo-tsushin',
+        'it-life-hack',
+        'kaden-channel',
+        'livedoor-homme',
+        'movie-enter',
+        'peachy',
+        'smax',
+        'sports-watch',
+        'topic-news'
+    ]
+
+    articles = []
+    text_dir = Path(data_dir) / "text"
+
+    for category in categories:
+        category_path = text_dir / category
+        if not category_path.exists():
+            logger.warning(f"カテゴリディレクトリが見つかりません: {category_path}")
+            continue
+
+        # カテゴリ内の全txtファイルを取得
+        txt_files = list(category_path.glob("*.txt"))
+
+        for file_path in txt_files:
+            # LICENSE.txtなどを除外
+            if file_path.name in ['LICENSE.txt', 'README.txt']:
+                continue
+
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+
+                # ファイル形式: 1行目=URL, 2行目=日付, 3行目=タイトル, 4行目以降=本文
+                if len(lines) >= 3:
+                    url = lines[0].strip()
+                    date = lines[1].strip() if len(lines) > 1 else ""
+                    title = lines[2].strip() if len(lines) > 2 else ""
+                    content = ''.join(lines[3:]).strip() if len(lines) > 3 else ""
+
+                    articles.append({
+                        'url': url,
+                        'date': date,
+                        'title': title,
+                        'content': content,
+                        'category': category
+                    })
+            except Exception as e:
+                logger.error(f"ファイル読み込みエラー {file_path}: {e}")
+
+    df = pd.DataFrame(articles)
+    logger.info(f"Livedoorコーパス読み込み完了: {len(df)}記事")
+
+    return df
 
 
 # ===================================================================
@@ -578,8 +707,25 @@ def main():
                         # ストリーミングモードで確実にロード
                         samples = []
 
+                        # Livedoorコーパスの特別処理
+                        if selected_dataset == "livedoor":
+                            st.info("📥 Livedoorニュースコーパスをダウンロード中...")
+
+                            # ダウンロードと解凍
+                            with st.spinner("ダウンロードと解凍中..."):
+                                data_dir = download_livedoor_corpus("datasets")
+
+                            # データ読み込み
+                            with st.spinner("データを読み込み中..."):
+                                df = load_livedoor_corpus(data_dir)
+
+                            # サンプリング（必要に応じて）
+                            if sample_size < len(df):
+                                df = df.sample(n=sample_size, random_state=42)
+                                st.info(f"📊 {len(df)}件にサンプリングしました")
+
                         # 動作確認済みのデータセットのみ処理
-                        if dataset_name == "wikimedia/wikipedia" or dataset_name == "wikipedia":
+                        elif dataset_name == "wikimedia/wikipedia" or dataset_name == "wikipedia":
                             # Wikipedia日本語版
                             actual_dataset = "wikimedia/wikipedia"
                             actual_config = config_name if config_name else "20231101.ja"
@@ -587,10 +733,32 @@ def main():
                             st.info(f"📥 {actual_dataset}をロード中 (config: {actual_config})...")
                             dataset = hf_load_dataset(actual_dataset, actual_config, split=split_name, streaming=True)
 
+                            # サンプリング
+                            progress_bar = st.progress(0)
+                            for i, item in enumerate(dataset):
+                                if i >= sample_size:
+                                    break
+                                samples.append(item)
+                                progress_bar.progress((i + 1) / sample_size)
+
+                            df = pd.DataFrame(samples)
+                            progress_bar.empty()
+
                         elif dataset_name == "range3/cc100-ja":
                             # CC100日本語
                             st.info(f"📥 {dataset_name}をロード中...")
                             dataset = hf_load_dataset(dataset_name, split=split_name, streaming=True)
+
+                            # サンプリング
+                            progress_bar = st.progress(0)
+                            for i, item in enumerate(dataset):
+                                if i >= sample_size:
+                                    break
+                                samples.append(item)
+                                progress_bar.progress((i + 1) / sample_size)
+
+                            df = pd.DataFrame(samples)
+                            progress_bar.empty()
 
                         elif dataset_name == "cc_news":
                             # CC-News（動作確認済み）
@@ -600,6 +768,17 @@ def main():
                             else:
                                 dataset = hf_load_dataset(dataset_name, split=split_name, streaming=True)
 
+                            # サンプリング
+                            progress_bar = st.progress(0)
+                            for i, item in enumerate(dataset):
+                                if i >= sample_size:
+                                    break
+                                samples.append(item)
+                                progress_bar.progress((i + 1) / sample_size)
+
+                            df = pd.DataFrame(samples)
+                            progress_bar.empty()
+
                         else:
                             # その他のデータセット（非推奨）
                             st.warning("⚠️ このデータセットは動作保証外です")
@@ -608,16 +787,16 @@ def main():
                             else:
                                 dataset = hf_load_dataset(dataset_name, split=split_name, streaming=True)
 
-                        # サンプリング
-                        progress_bar = st.progress(0)
-                        for i, item in enumerate(dataset):
-                            if i >= sample_size:
-                                break
-                            samples.append(item)
-                            progress_bar.progress((i + 1) / sample_size)
+                            # サンプリング
+                            progress_bar = st.progress(0)
+                            for i, item in enumerate(dataset):
+                                if i >= sample_size:
+                                    break
+                                samples.append(item)
+                                progress_bar.progress((i + 1) / sample_size)
 
-                        df = pd.DataFrame(samples)
-                        progress_bar.empty()
+                            df = pd.DataFrame(samples)
+                            progress_bar.empty()
 
                     # datasetsフォルダに保存
                     if df is not None and len(df) > 0:
@@ -717,7 +896,7 @@ def main():
 
             if selected_dataset == "wikipedia_ja":
                 specific_issues = validate_wikipedia_data_specific(df)
-            elif selected_dataset in ["japanese_text", "cc_news"]:
+            elif selected_dataset in ["japanese_text", "cc_news", "livedoor"]:
                 specific_issues = validate_news_data_specific(df, selected_dataset)
             else:
                 # その他のデータセットの検証

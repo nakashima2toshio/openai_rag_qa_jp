@@ -233,6 +233,13 @@ DATASET_CONFIGS = {
         "text_column": "Combined_Text",
         "title_column": "title",
         "lang": "ja"
+    },
+    "livedoor": {
+        "name": "ライブドアニュース",
+        "text_column": "Combined_Text",
+        "title_column": "title",
+        "category_column": "category",
+        "lang": "ja"
     }
 }
 
@@ -599,10 +606,16 @@ def process_with_improved_methods(
     """
     all_qas = []
 
-    # SemanticCoverage初期化
+    # SemanticCoverage初期化（段落優先のセマンティック分割）
     analyzer = SemanticCoverage(embedding_model="text-embedding-3-small")
-    chunks = analyzer.create_semantic_chunks(document_text, verbose=False)
-    logger.info(f"チャンク作成完了: {len(chunks)}個")
+    chunks = analyzer.create_semantic_chunks(
+        document=document_text,
+        max_tokens=200,  # チャンクの最大トークン数
+        min_tokens=50,   # 最小トークン数（小さすぎるチャンクは自動マージ）
+        prefer_paragraphs=True,  # 段落優先モード（セマンティック境界を重視）
+        verbose=False
+    )
+    logger.info(f"チャンク作成完了: {len(chunks)}個（段落優先のセマンティック分割）")
 
     # カバレッジ戦略の設定
     total_chunks = len(chunks)
