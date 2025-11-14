@@ -1,8 +1,319 @@
 # a02_make_qa.py - Q&Aペア自動生成システム
 
+## 目次
+- [概要](#概要)
+- [実行環境の準備](#実行環境の準備)
+- [実行方法](#実行方法)
+- [システムアーキテクチャ](#システムアーキテクチャ)
+- [主要機能](#主要機能)
+- [パフォーマンス特性](#パフォーマンス特性)
+- [トラブルシューティング](#トラブルシューティング)
+
+---
+
 ## 概要
 
 `a02_make_qa.py`は、preprocessedされた文書データから自動的にQ&A（質問・回答）ペアを生成するシステムです。OpenAI APIを活用して高品質な学習用Q&Aペアを生成し、生成されたQ&Aペアの文書カバレージを分析します。
+
+---
+
+## 実行環境の準備
+
+### 1. システム要件
+
+- **Python**: 3.9以上推奨
+- **OS**: Linux、macOS、Windows（WSL推奨）
+- **メモリ**: 最小2GB、推奨4GB以上
+- **ストレージ**: 1GB以上の空き容量
+
+### 2. Pythonパッケージのインストール
+
+プロジェクトルートディレクトリで以下のコマンドを実行：
+
+```bash
+# 依存パッケージをインストール
+pip install -r requirements.txt
+```
+
+#### 主要な依存パッケージ：
+- `openai>=2.6.1` - OpenAI API クライアント
+- `pandas>=2.3.1` - データ処理
+- `numpy>=2.3.2` - 数値計算
+- `tiktoken>=0.11.0` - トークンカウント
+- `pydantic>=2.11.7` - データバリデーション
+- `python-dotenv>=1.1.1` - 環境変数管理
+- `scikit-learn>=1.7.2` - 類似度計算
+- `mecab-python3>=1.0.10` - 日本語形態素解析（オプション）
+
+### 3. 環境変数の設定
+
+プロジェクトルートに `.env` ファイルを作成し、以下の内容を設定：
+
+```bash
+# OpenAI API Key (必須)
+OPENAI_API_KEY=sk-proj-YOUR_API_KEY_HERE
+
+# Optional: Qdrant URL (デフォルト: http://localhost:6333)
+QDRANT_URL=http://localhost:6333
+
+# Optional: PostgreSQL接続文字列
+PG_CONN_STR=postgresql://user:pass@localhost:5432/dbname
+```
+
+**重要**:
+- OpenAI APIキーは必須です。[OpenAI Platform](https://platform.openai.com/)で取得してください。
+- APIキーは絶対に公開リポジトリにコミットしないでください。
+
+### 4. データの準備
+
+処理対象の preprocessed データファイルが `OUTPUT/` ディレクトリに存在することを確認：
+
+```bash
+# 必要なファイル（いずれか）
+OUTPUT/preprocessed_cc_news.csv        # CC-News英語ニュース
+OUTPUT/preprocessed_japanese_text.csv  # 日本語Webテキスト
+OUTPUT/preprocessed_wikipedia_ja.csv   # Wikipedia日本語版
+```
+
+各CSVファイルには以下のカラムが必要：
+- `Combined_Text`: 文書の本文
+- `title`: 文書タイトル（オプション、データセットによる）
+
+**データの生成方法**:
+```bash
+# a01_load_set_rag_data.py でデータを準備（前処理）
+python a01_load_set_rag_data.py --dataset cc_news
+```
+
+### 5. MeCabのインストール（オプション、日本語処理の精度向上）
+
+MeCabは日本語の形態素解析に使用されます。インストールしない場合は自動的に正規表現ベースの処理にフォールバックします。
+
+#### Ubuntu/Debian:
+```bash
+sudo apt-get update
+sudo apt-get install mecab libmecab-dev mecab-ipadic-utf8
+pip install mecab-python3
+```
+
+#### macOS:
+```bash
+brew install mecab mecab-ipadic
+pip install mecab-python3
+```
+
+#### Windows:
+- [MeCab公式サイト](https://taku910.github.io/mecab/)からインストーラーをダウンロード
+- インストール後、`pip install mecab-python3`
+
+**確認方法**:
+```python
+# Pythonで確認
+import MeCab
+tagger = MeCab.Tagger()
+print(tagger.parse("テスト"))  # 正常に動作すればOK
+```
+
+### 6. 出力ディレクトリの作成
+
+```bash
+# 出力ディレクトリを作成
+mkdir -p qa_output/a02
+```
+
+---
+
+## 実行方法
+
+### 基本的な使い方
+
+```bash
+# 最小構成での実行
+python a02_make_qa.py --dataset cc_news
+
+# カバレージ分析を含む実行
+python a02_make_qa.py --dataset cc_news --analyze-coverage
+
+# テスト実行（最初の10文書のみ処理）
+python a02_make_qa.py --dataset cc_news --max-docs 10 --analyze-coverage
+```
+
+### コマンドラインオプション
+
+#### 必須オプション
+
+| オプション | 説明 | デフォルト | 選択肢 |
+|----------|------|-----------|--------|
+| `--dataset` | 処理するデータセット | `cc_news` | `cc_news`, `japanese_text`, `wikipedia_ja` |
+
+#### 推奨オプション
+
+| オプション | 説明 | デフォルト | 推奨値 |
+|----------|------|-----------|--------|
+| `--analyze-coverage` | カバレージ分析を実行 | `False` | 常に有効化推奨 |
+| `--batch-chunks` | 1回のAPIで処理するチャンク数 | `3` | `3`（品質重視）〜`5`（効率重視） |
+| `--merge-chunks` | 小さいチャンクを統合 | `True` | 有効推奨 |
+
+#### 詳細設定オプション
+
+| オプション | 説明 | デフォルト | 範囲 |
+|----------|------|-----------|------|
+| `--model` | 使用するOpenAIモデル | `gpt-5-mini` | `gpt-4`, `gpt-5-mini` など |
+| `--output` | 出力ディレクトリ | `qa_output/a02` | 任意のパス |
+| `--max-docs` | 処理する最大文書数（テスト用） | `None`（全件） | 整数値 |
+| `--min-tokens` | 統合対象の最小トークン数 | `150` | `100`〜`200` |
+| `--max-tokens` | 統合後の最大トークン数 | `400` | `300`〜`500` |
+| `--no-merge-chunks` | チャンク統合を無効化 | - | - |
+
+### 実行例
+
+#### 1. 本番運用向け（推奨設定）
+
+```bash
+# 高品質なQ&A生成とカバレージ分析
+python a02_make_qa.py \
+    --dataset cc_news \
+    --batch-chunks 3 \
+    --merge-chunks \
+    --min-tokens 100 \
+    --max-tokens 300 \
+    --model gpt-5-mini \
+    --analyze-coverage
+```
+
+**処理時間の見積もり（497文書の場合）**:
+- 処理文書数: 497件
+- チャンク数: 約1,825個 → 統合後 約1,820個
+- API呼び出し: 約365回（バッチサイズ3）
+- 推定実行時間: 60-75分
+- カバレージ分析: +3-5分
+- **合計**: 約65-80分
+
+#### 2. テスト実行（開発・検証用）
+
+```bash
+# 最初の10文書のみ処理
+python a02_make_qa.py \
+    --dataset cc_news \
+    --max-docs 10 \
+    --analyze-coverage
+```
+
+**処理時間**: 約2-3分
+
+#### 3. 日本語テキスト処理
+
+```bash
+# 日本語Webテキストの処理
+python a02_make_qa.py \
+    --dataset japanese_text \
+    --model gpt-5-mini \
+    --analyze-coverage \
+    --max-docs 10
+
+# Wikipedia日本語版の処理
+python a02_make_qa.py \
+    --dataset wikipedia_ja \
+    --model gpt-5-mini \
+    --analyze-coverage \
+    --max-docs 10
+```
+
+#### 4. 高速処理（効率重視）
+
+```bash
+# バッチサイズを大きくして高速化（品質は若干低下）
+python a02_make_qa.py \
+    --dataset cc_news \
+    --batch-chunks 5 \
+    --merge-chunks \
+    --model gpt-5-mini \
+    --analyze-coverage
+```
+
+### 出力ファイル
+
+実行が完了すると、`qa_output/a02/` ディレクトリに以下のファイルが生成されます：
+
+```
+qa_output/a02/
+├── qa_pairs_cc_news_20251114_123045.json      # Q&Aペア（JSON形式）
+├── qa_pairs_cc_news_20251114_123045.csv       # Q&Aペア（CSV形式）
+├── coverage_cc_news_20251114_123045.json      # カバレージ分析結果
+└── summary_cc_news_20251114_123045.json       # サマリー情報
+```
+
+#### ファイルの内容
+
+**1. qa_pairs_{dataset}_{timestamp}.json**
+```json
+[
+  {
+    "question": "What is the main topic of the article?",
+    "answer": "The article discusses...",
+    "question_type": "fact",
+    "source_chunk_id": "cc_news_0_chunk_0",
+    "doc_id": "cc_news_0",
+    "dataset_type": "cc_news",
+    "chunk_idx": 0
+  }
+]
+```
+
+**2. coverage_{dataset}_{timestamp}.json**
+```json
+{
+  "coverage_rate": 0.706,
+  "covered_chunks": 1285,
+  "total_chunks": 1820,
+  "multi_threshold": {
+    "strict": {"threshold": 0.80, "coverage_rate": 0.543},
+    "standard": {"threshold": 0.70, "coverage_rate": 0.706},
+    "lenient": {"threshold": 0.60, "coverage_rate": 0.891}
+  },
+  "chunk_analysis": {
+    "by_length": {...},
+    "by_position": {...}
+  }
+}
+```
+
+**3. summary_{dataset}_{timestamp}.json**
+```json
+{
+  "dataset_type": "cc_news",
+  "dataset_name": "CC-News英語ニュース",
+  "generated_at": "20251114_123045",
+  "total_qa_pairs": 4646,
+  "coverage_rate": 0.706,
+  "covered_chunks": 1285,
+  "total_chunks": 1820
+}
+```
+
+### 実行ログの見方
+
+```
+2025-11-14 12:30:00 - INFO - =====================================
+2025-11-14 12:30:00 - INFO - Q/Aペア生成開始
+2025-11-14 12:30:00 - INFO - =====================================
+2025-11-14 12:30:00 - INFO - データセット: CC-News英語ニュース
+2025-11-14 12:30:00 - INFO - モデル: gpt-5-mini
+2025-11-14 12:30:00 - INFO -
+2025-11-14 12:30:05 - INFO - [1/4] データ読み込み...
+2025-11-14 12:30:07 - INFO - 読み込み完了: 497件のデータ
+2025-11-14 12:30:07 - INFO - [2/4] チャンク作成...
+2025-11-14 12:30:10 - INFO - チャンク作成完了: 1825個のチャンク
+2025-11-14 12:30:10 - INFO - [3/4] Q/Aペア生成...
+2025-11-14 12:30:10 - INFO - バッチ 1/365 処理中 (3チャンク)...
+...
+2025-11-14 13:45:00 - INFO - Q/Aペア生成完了: 4646個
+2025-11-14 13:45:00 - INFO - [4/4] カバレージ分析...
+2025-11-14 13:50:00 - INFO - カバレージ分析完了
+2025-11-14 13:50:05 - INFO - 処理完了
+```
+
+---
 
 ## システムアーキテクチャ（処理フロー図）
 ### 詳細内容
@@ -585,12 +896,271 @@ for attempt in range(max_retries):
 
 ---
 
+## トラブルシューティング
+
+### よくあるエラーと解決方法
+
+#### 1. OpenAI APIキーエラー
+
+**エラーメッセージ**:
+```
+ERROR - OPENAI_API_KEYが設定されていません
+```
+
+**解決方法**:
+1. `.env` ファイルが存在することを確認
+2. `OPENAI_API_KEY=sk-proj-...` の形式で設定されているか確認
+3. APIキーが有効であることを確認（[OpenAI Platform](https://platform.openai.com/)）
+4. 環境変数が正しく読み込まれているか確認:
+   ```bash
+   python -c "from dotenv import load_dotenv; import os; load_dotenv(); print(os.getenv('OPENAI_API_KEY'))"
+   ```
+
+#### 2. データファイルが見つからない
+
+**エラーメッセージ**:
+```
+FileNotFoundError: ファイルが見つかりません: OUTPUT/preprocessed_cc_news.csv
+```
+
+**解決方法**:
+1. `OUTPUT/` ディレクトリが存在することを確認
+2. preprocessed データファイルを生成:
+   ```bash
+   python a01_load_set_rag_data.py --dataset cc_news
+   ```
+3. ファイル名が正しいことを確認:
+   ```bash
+   ls -la OUTPUT/preprocessed_*.csv
+   ```
+
+#### 3. MeCabインストールエラー
+
+**エラーメッセージ**:
+```
+RuntimeError: MeCab initialization failed
+```
+
+**解決方法**:
+1. MeCabをインストール（オプションなので、なくても動作します）
+2. 正規表現モードで動作することを確認（自動フォールバック）
+3. ログで以下のメッセージを確認:
+   ```
+   ⚠️ MeCabが利用できません（正規表現モード）
+   ```
+
+#### 4. メモリ不足エラー
+
+**エラーメッセージ**:
+```
+MemoryError: Unable to allocate array
+```
+
+**解決方法**:
+1. `--max-docs` オプションで処理文書数を制限:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --max-docs 100
+   ```
+2. `--batch-chunks` を小さくする（3 → 1）
+3. システムメモリを増やす
+
+#### 5. API レート制限エラー
+
+**エラーメッセージ**:
+```
+RateLimitError: Rate limit exceeded
+```
+
+**解決方法**:
+1. スクリプトは自動的にリトライします（3回まで）
+2. `--batch-chunks` を小さくして API 呼び出しを分散:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --batch-chunks 1
+   ```
+3. OpenAI のレート制限を確認し、アップグレードを検討
+
+#### 6. カバレージ分析が遅い
+
+**症状**:
+カバレージ分析に非常に長い時間がかかる
+
+**解決方法**:
+1. `--analyze-coverage` オプションを省略してQ&A生成のみ実行
+2. 処理文書数を制限: `--max-docs 50`
+3. カバレージ分析は別途実行する
+
+#### 7. 生成されるQ&A数が少ない
+
+**症状**:
+期待よりも少ないQ&Aペアしか生成されない
+
+**解決方法**:
+1. ログで API エラーがないか確認
+2. `--batch-chunks` を小さくする（5 → 3）
+3. チャンク統合を無効化: `--no-merge-chunks`
+4. データセット設定の `qa_per_chunk` を確認
+
+#### 8. 出力ディレクトリ作成エラー
+
+**エラーメッセージ**:
+```
+PermissionError: [Errno 13] Permission denied: 'qa_output/a02'
+```
+
+**解決方法**:
+1. ディレクトリを手動で作成:
+   ```bash
+   mkdir -p qa_output/a02
+   ```
+2. 書き込み権限を確認:
+   ```bash
+   chmod 755 qa_output/a02
+   ```
+3. 別の出力パスを指定:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --output /tmp/qa_output
+   ```
+
+### パフォーマンス最適化のヒント
+
+#### 処理時間を短縮する
+
+1. **バッチサイズを増やす**（品質とのトレードオフ）:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --batch-chunks 5
+   ```
+
+2. **チャンク統合を最適化**:
+   ```bash
+   python a02_make_qa.py \
+       --dataset cc_news \
+       --merge-chunks \
+       --min-tokens 100 \
+       --max-tokens 300
+   ```
+
+3. **カバレージ分析をスキップ**:
+   ```bash
+   python a02_make_qa.py --dataset cc_news  # --analyze-coverageなし
+   ```
+
+4. **処理文書数を制限**:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --max-docs 100
+   ```
+
+#### カバレージを向上させる
+
+1. **Q&A数を増やす**:
+   - コード内の `qa_per_chunk` を 5 → 7 に変更
+   - `determine_qa_count` 関数の上限を 8 → 10 に変更
+
+2. **バッチサイズを小さくする**（品質向上）:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --batch-chunks 3
+   ```
+
+3. **チャンク統合を調整**:
+   ```bash
+   python a02_make_qa.py \
+       --dataset cc_news \
+       --merge-chunks \
+       --min-tokens 100 \
+       --max-tokens 250
+   ```
+
+#### コストを削減する
+
+1. **安価なモデルを使用**:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --model gpt-4o-mini
+   ```
+
+2. **バッチサイズを最大化**（API呼び出し削減）:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --batch-chunks 5
+   ```
+
+3. **処理文書数を制限**:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --max-docs 50
+   ```
+
+### デバッグ方法
+
+#### ログレベルを変更
+
+```python
+# a02_make_qa.py の logging.basicConfig を変更
+logging.basicConfig(
+    level=logging.DEBUG,  # INFO → DEBUG
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+```
+
+#### 中間結果を確認
+
+```bash
+# 実行後、出力ファイルを確認
+ls -lh qa_output/a02/
+
+# JSON ファイルを確認
+cat qa_output/a02/summary_cc_news_*.json | python -m json.tool
+
+# カバレージ結果を確認
+cat qa_output/a02/coverage_cc_news_*.json | python -m json.tool | head -50
+```
+
+#### API呼び出しをモニタリング
+
+```bash
+# 実行中にログファイルをリアルタイムで確認
+python a02_make_qa.py --dataset cc_news --max-docs 10 2>&1 | tee execution.log
+
+# 別のターミナルで
+tail -f execution.log
+```
+
+---
+
 ## まとめ
 
 `a02_make_qa.py`は、**品質とカバレージのバランスを重視**したQ&Aペア生成システムです。動的Q&A数調整、チャンク統合、バッチ処理などの最適化により、70.6%のカバレージを達成しています。
 
 多段階カバレージ分析により、生成されたQ&Aの品質を詳細に評価でき、継続的な改善が可能な設計となっています。
 
+### 推奨ワークフロー
+
+1. **開発・テスト段階**:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --max-docs 10 --analyze-coverage
+   ```
+
+2. **本番実行前の検証**:
+   ```bash
+   python a02_make_qa.py --dataset cc_news --max-docs 50 --analyze-coverage
+   ```
+
+3. **本番運用**:
+   ```bash
+   python a02_make_qa.py \
+       --dataset cc_news \
+       --batch-chunks 3 \
+       --merge-chunks \
+       --min-tokens 100 \
+       --max-tokens 300 \
+       --model gpt-5-mini \
+       --analyze-coverage
+   ```
+
+### 関連ドキュメント
+
+- [CLAUDE.md](../CLAUDE.md) - プロジェクト全体の概要
+- [a03_rag_qa_coverage_improved.py](../a03_rag_qa_coverage_improved.py) - カバレージ分析のコア実装
+- [requirements.txt](../requirements.txt) - 依存パッケージ一覧
+
 ---
 
-*作成日: 2025年11月6日*
+**作成日**: 2025年11月6日
+**最終更新**: 2025年11月14日
+**バージョン**: 2.0
