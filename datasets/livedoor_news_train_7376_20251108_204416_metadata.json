@@ -1,0 +1,16 @@
+{
+  "dataset_name": "livedoor_news",
+  "dataset_type": "livedoor",
+  "config": "",
+  "split": "train",
+  "sample_size": 7376,
+  "actual_size": 7367,
+  "downloaded_at": "2025-11-08T20:44:16.397599",
+  "columns": [
+    "url",
+    "date",
+    "title",
+    "content",
+    "category"
+  ]
+}
