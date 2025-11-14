@@ -564,3 +564,54 @@ python a20_output_qa_csv.py
 ## お問い合わせ
 
 質問や提案がある場合は、GitHubのissueを作成してください。
+
+## Claude Codeでの開発
+
+このリポジトリはClaude Codeでの開発に対応しています。
+
+### 開発環境の同期
+
+コードは以下の3箇所に存在します：
+- **GitHub**: リモートリポジトリ（`nakashima2toshio/openai_rag_qa_jp`）
+- **ローカル環境**: MacBook AirのPyCharm
+- **Claude Code**: クラウド開発環境
+
+### 開発フロー
+
+1. **Claude Codeで開発**
+   - ブランチは自動的に作成されます（`claude/機能名-セッションID`形式）
+   - コードの変更・実装を行う
+
+2. **GitHubへの反映**
+   ```bash
+   # 変更内容を確認
+   git status
+   git diff
+
+   # 変更をステージング
+   git add .
+
+   # コミット
+   git commit -m "変更内容の説明"
+
+   # GitHubにpush
+   git push -u origin ブランチ名
+   ```
+
+3. **Pull Requestの作成**
+   - GitHubでPRを作成
+   - レビュー後にmainブランチにマージ
+
+4. **ローカル環境への反映**
+   ```bash
+   # MacBook AirのPyCharmで
+   git fetch origin
+   git checkout main
+   git pull origin main
+   ```
+
+### ブランチ戦略
+
+- Claude Codeのブランチ: `claude/機能名-セッションID`
+- 開発完了後はPRを作成してmainにマージ
+- ローカル環境では定期的に`git pull`で最新を取得
