@@ -4,15 +4,6 @@
 
 `a02_make_qa.py`は、preprocessedされた文書データから自動的にQ&A（質問・回答）ペアを生成するシステムです。OpenAI APIを活用して高品質な学習用Q&Aペアを生成し、生成されたQ&Aペアの文書カバレージを分析します。
 
-## 対応データセット
-
-以下の4種類のデータセットに対応しています:
-
-1. **cc_news**: CC-News英語ニュース（7,376件）
-2. **japanese_text**: 日本語Webテキスト
-3. **wikipedia_ja**: Wikipedia日本語版
-4. **livedoor**: Livedoorニュースコーパス（日本語、7,376件）
-
 ## システムアーキテクチャ（処理フロー図）
 ### 詳細内容
 
@@ -26,7 +17,6 @@
 - cc_news → 基本数5
 - japanese_text → 基本数2
 - wikipedia_ja → 基本数3
-- livedoor → 基本数4
 
 3. Q&A数決定の詳細プロセス
 
@@ -190,10 +180,9 @@ flowchart TD
 ### 主要機能
 
 1. **マルチデータセット対応**
-   - CC-News英語ニュース（7,376件）
+   - CC-News英語ニュース
    - 日本語Webテキスト
    - Wikipedia日本語版
-   - Livedoorニュースコーパス（日本語、7,376件）
 
 2. **インテリジェントな文書処理**
    - MeCabベースの文境界検出（日本語）
@@ -201,7 +190,7 @@ flowchart TD
    - 小さいチャンクの自動統合機能
 
 3. **高効率Q&Aペア生成**
-   - OpenAI APIを使用した自動生成（最新のResponses API使用）
+   - OpenAI APIを使用した自動生成
    - バッチ処理対応（3-5チャンクを同時処理）
    - 動的なQ&A数調整（チャンクサイズ・位置に基づく）
    - 4種類の質問タイプ（fact/reason/comparison/application）
@@ -364,24 +353,9 @@ question_types = """
 ```python
 OPTIMAL_THRESHOLDS = {
     "cc_news": {
-        "strict": 0.80,
-        "standard": 0.70,
-        "lenient": 0.60
-    },
-    "japanese_text": {
-        "strict": 0.75,
-        "standard": 0.65,
-        "lenient": 0.55
-    },
-    "wikipedia_ja": {
-        "strict": 0.85,
-        "standard": 0.75,
-        "lenient": 0.65
-    },
-    "livedoor": {
-        "strict": 0.78,
-        "standard": 0.68,
-        "lenient": 0.58
+        "strict": 0.80,    # 厳格: 高品質なマッチングのみ
+        "standard": 0.70,  # 標準: 実用的な基準
+        "lenient": 0.60    # 寛容: 緩い基準
     }
 }
 ```
@@ -450,12 +424,6 @@ DATASET_CONFIGS = {
         "chunk_size": 250,
         "qa_per_chunk": 3,
         "lang": "ja"
-    },
-    "livedoor": {
-        "name": "Livedoorニュースコーパス",
-        "chunk_size": 200,
-        "qa_per_chunk": 4,      # ニュース記事の情報密度を考慮
-        "lang": "ja"
     }
 }
 ```
@@ -476,17 +444,6 @@ python a02_make_qa.py \
     --max-tokens 300 \       # 400→300: 過度な統合防止
     --model gpt-5-mini \
     --analyze-coverage       # カバレージ分析有効
-
-# Livedoorニュースデータセット処理例（20文書、約33分）
-python a02_make_qa.py \
-    --dataset livedoor \
-    --batch-chunks 3 \
-    --merge-chunks \
-    --min-tokens 100 \
-    --max-tokens 300 \
-    --model gpt-5-mini \
-    --max-docs 20 \
-    --analyze-coverage
 ```
 
 ### 7.2 パラメータの影響
@@ -636,74 +593,4 @@ for attempt in range(max_retries):
 
 ---
 
----
-
-## API仕様
-
-### コマンドライン引数
-
-| 引数 | 型 | デフォルト | 説明 |
-|------|-----|-----------|------|
-| `--dataset` | str | cc_news | データセット選択（cc_news, japanese_text, wikipedia_ja, livedoor） |
-| `--model` | str | gpt-5-mini | 使用するOpenAIモデル |
-| `--output` | str | qa_output/a02 | 出力ディレクトリ |
-| `--max-docs` | int | None | 処理する最大文書数（テスト用） |
-| `--analyze-coverage` | flag | False | カバレージ分析を実行 |
-| `--batch-chunks` | int | 3 | 1回のAPIで処理するチャンク数（1-5） |
-| `--merge-chunks` | flag | True | 小さいチャンクを統合する |
-| `--no-merge-chunks` | flag | - | チャンク統合を無効化 |
-| `--min-tokens` | int | 150 | 統合対象の最小トークン数 |
-| `--max-tokens` | int | 400 | 統合後の最大トークン数 |
-
-### 出力ファイル形式
-
-実行後、以下の4つのファイルが出力されます:
-
-1. **Q/Aペア（JSON）**: `qa_pairs_{dataset}_{timestamp}.json`
-   - 全Q/Aペアの詳細情報
-   - メタデータ（source_chunk_id, doc_id, dataset_type, chunk_idx）を含む
-
-2. **Q/Aペア（CSV）**: `qa_pairs_{dataset}_{timestamp}.csv`
-   - スプレッドシートで開ける形式
-   - 質問タイプ別の分析に便利
-
-3. **カバレージ分析結果**: `coverage_{dataset}_{timestamp}.json`
-   - 多段階カバレージ評価（strict/standard/lenient）
-   - チャンク特性別分析（長さ別・位置別）
-   - 未カバーチャンクの詳細
-
-4. **サマリー**: `summary_{dataset}_{timestamp}.json`
-   - 処理の概要統計
-   - ファイルパス情報
-   - 基本メトリクス
-
-### 依存関係
-
-```python
-# 主要パッケージ
-openai>=1.100.2          # OpenAI API
-qdrant-client>=1.15.1    # ベクトルDB（カバレージ分析用）
-pandas>=2.0.0            # データ処理
-numpy>=1.24.0            # 数値計算
-tiktoken>=0.5.0          # トークンカウント
-pydantic>=2.0.0          # 構造化出力
-python-dotenv>=1.0.0     # 環境変数管理
-
-# オプション
-MeCab                    # 日本語形態素解析（推奨）
-```
-
-### 環境変数
-
-```bash
-# 必須
-OPENAI_API_KEY=your-openai-api-key
-
-# オプション
-QDRANT_URL=http://localhost:6333  # カバレージ分析用
-```
-
----
-
 *作成日: 2025年11月6日*
-*最終更新: 2025年11月12日*
