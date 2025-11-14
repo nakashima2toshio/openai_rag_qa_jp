@@ -53,20 +53,34 @@ def start_qdrant_server():
         return True
     except Exception:
         print("🐳 QdrantサーバーをDocker Composeで起動中...")
+
+        # Dockerコマンドの存在確認
+        try:
+            result = subprocess.run(["which", "docker"], capture_output=True, timeout=5)
+            if result.returncode != 0:
+                print("⚠️ Dockerコマンドが見つかりません。Qdrantの自動起動をスキップします。")
+                print("手動でQdrantを起動してください:")
+                print("  cd docker-compose && docker-compose up -d")
+                return False
+        except (subprocess.TimeoutExpired, Exception) as e:
+            print(f"⚠️ Docker確認中にエラー: {e}")
+            return False
+
         try:
             # Docker Composeを優先
             docker_compose_path = Path("docker-compose/docker-compose.yml")
             if docker_compose_path.exists():
                 subprocess.run([
-                    "docker-compose", "-f", str(docker_compose_path), 
+                    "docker-compose", "-f", str(docker_compose_path),
                     "up", "-d", "qdrant"
-                ], check=True, capture_output=True)
+                ], check=True, capture_output=True, timeout=30)
             else:
                 print("⚠️ docker-compose/docker-compose.yml が見つからないため、自動起動をスキップします")
-            
-            # 起動待機
+                return False
+
+            # 起動待機（最大10秒）
             import time
-            for _ in range(10):
+            for i in range(10):
                 try:
                     client = QdrantClient(url="http://localhost:6333", timeout=5)
                     client.get_collections()
@@ -74,8 +88,11 @@ def start_qdrant_server():
                     return True
                 except:
                     time.sleep(1)
-            
-            print("❌ Qdrantサーバーの起動に失敗（Docker Compose）")
+
+            print("❌ Qdrantサーバーの起動に失敗（タイムアウト）")
+            return False
+        except subprocess.TimeoutExpired:
+            print("❌ Docker起動がタイムアウトしました")
             return False
         except Exception as e:
             print(f"❌ DockerによるQdrant起動失敗: {e}")

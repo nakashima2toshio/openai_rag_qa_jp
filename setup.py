@@ -38,24 +38,41 @@ def check_qdrant_server():
 def start_qdrant_docker():
     """DockerでQdrantを起動"""
     print("🐳 Qdrantサーバーを起動中...")
+
+    # Dockerコマンドの存在確認
+    try:
+        result = subprocess.run(["which", "docker"], capture_output=True, timeout=5)
+        if result.returncode != 0:
+            print("⚠️ Dockerコマンドが見つかりません。Qdrantの自動起動をスキップします。")
+            print("手動でQdrantを起動してください:")
+            print("  docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant")
+            return False
+    except (subprocess.TimeoutExpired, Exception) as e:
+        print(f"⚠️ Docker確認中にエラー: {e}")
+        return False
+
     try:
         # Docker Composeで起動
         docker_compose_path = Path("docker-compose/docker-compose.yml")
         if docker_compose_path.exists():
-            subprocess.run(["docker-compose", "-f", str(docker_compose_path), "up", "-d", "qdrant"], check=True)
+            subprocess.run(["docker-compose", "-f", str(docker_compose_path), "up", "-d", "qdrant"],
+                         check=True, timeout=30, capture_output=True)
             print("✅ Qdrantがdocker-composeで起動しました")
         else:
             # 単独でDocker起動
             subprocess.run([
-                "docker", "run", "-d", 
-                "--name", "qdrant", 
+                "docker", "run", "-d",
+                "--name", "qdrant",
                 "-p", "6333:6333",
                 "-p", "6334:6334",
                 "-v", "qdrant_storage:/qdrant/storage",
                 "qdrant/qdrant"
-            ], check=True)
+            ], check=True, timeout=30, capture_output=True)
             print("✅ QdrantがDockerで起動しました")
         return True
+    except subprocess.TimeoutExpired:
+        print("❌ Qdrant起動がタイムアウトしました")
+        return False
     except subprocess.CalledProcessError as e:
         print(f"❌ Qdrant起動失敗: {e}")
         print("手動でQdrantを起動してください:")
