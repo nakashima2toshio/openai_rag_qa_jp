@@ -1,0 +1,32 @@
+# PyCharm JVM Options - CPU使用率最適化設定
+# メモリ使用量を制限し、ガベージコレクションを最適化
+
+# 初期ヒープサイズ（推奨: 750MB）
+-Xms750m
+
+# 最大ヒープサイズ（推奨: 2GB - 過剰なメモリ割り当てを防ぐ）
+-Xmx2048m
+
+# 予約済みコードキャッシュサイズ
+-XX:ReservedCodeCacheSize=512m
+
+# ソフトリファレンスの早期解放（メモリ圧迫を軽減）
+-XX:SoftRefLRUPolicyMSPerMB=50
+
+# G1ガベージコレクタの使用（CPU効率的）
+-XX:+UseG1GC
+
+# GCスレッド数の制限（CPUコア数の25%程度）
+-XX:ParallelGCThreads=2
+-XX:ConcGCThreads=2
+
+# インデックス作成のパフォーマンス調整
+-Didea.max.intellisense.filesize=2500
+
+# ファイル監視の最適化
+-Didea.filewatcher.disabled=false
+-Didea.filewatcher.autodetect=false
+
+# パワーセーブモード向けの設定（必要に応じてコメントアウトを解除）
+# -Didea.performance.watcher.enabled=false
+# -Didea.max.content.load.filesize=20000

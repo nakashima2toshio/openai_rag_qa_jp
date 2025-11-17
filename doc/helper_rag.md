@@ -1,0 +1,835 @@
+# helper_rag.py 仕様書
+
+作成日: 2024-10-29
+
+## 概要
+
+RAGシステムのデータ前処理とStreamlitインターフェースを支援するヘルパーモジュール。OpenAI RAGシステムにおけるデータ管理とUI構築を担当。
+
+## ファイル情報
+
+- **ファイル名**: helper_rag.py
+- **行数**: 808行
+- **主な機能**: データ前処理とUI支援
+- **依存ライブラリ**: pandas、streamlit
+
+## 主な機能
+
+### 1. 設定管理
+- AppConfig: アプリケーション全体設定
+- RAGConfig: データセット固有設定
+- TokenManager: トークン数管理
+
+### 2. データ処理
+- テキストクリーニング
+- 列の結合処理
+- データ検証
+- 重複削除
+
+### 3. UI支援
+- モデル選択UI
+- 統計情報表示
+- 使用量推定表示
+
+### 4. ファイル操作
+- OUTPUT ディレクトリ作成
+- CSV/TXT保存
+- メタデータ保存
+
+## アーキテクチャ
+
+### 階層構造
+
+```
+AppConfig (L27-98)
+   └── モデル定義
+   └── 価格設定
+   └── 制限設定
+
+RAGConfig (L103-182)
+   └── データセット設定
+   └── 列の定義
+   └── テンプレート
+
+TokenManager (L187-210)
+   └── トークン計算
+   └── コスト推定
+```
+
+## 主要クラス
+
+### 1. AppConfig (L27-98)
+
+アプリケーション全体の設定管理クラス。
+
+#### 利用可能モデル定義 (L31-47)
+
+```python
+AVAILABLE_MODELS = [
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-5",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4o-audio-preview",
+    "gpt-4o-mini-audio-preview",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "o1",
+    "o1-mini",
+    "o3",
+    "o3-mini",
+    "o4",
+    "o4-mini"
+]
+
+DEFAULT_MODEL = "gpt-5-mini"
+```
+
+#### 価格設定 (L52-68)
+
+1000トークンあたりのUSD価格：
+
+| モデル | 入力 | 出力 | 特徴 |
+|--------|------|------|------|
+| **gpt-5** | $0.01 | $0.03 | 最新型 |
+| **gpt-5-mini** ⭐ | $0.0001 | $0.0004 | RAG推奨 |
+| **gpt-5-nano** | $0.00005 | $0.0002 | 超軽量 |
+| **gpt-4o** | $0.005 | $0.015 | 高性能バランス |
+| **gpt-4o-mini** ⭐ | $0.00015 | $0.0006 | RAG推奨 |
+| **gpt-4.1** | $0.0025 | $0.01 | 改良版 |
+| **gpt-4.1-mini** ⭐ | $0.0001 | $0.0004 | RAG推奨 |
+| **o1** | $0.015 | $0.06 | 推論型 |
+| **o1-mini** | $0.003 | $0.012 | 軽量推論 |
+| **o3** | $0.03 | $0.12 | 上級推論 |
+| **o3-mini** | $0.006 | $0.024 | 中級推論 |
+| **o4** | $0.05 | $0.20 | 最上級推論 |
+| **o4-mini** | $0.01 | $0.04 | 高度推論 |
+
+#### モデル制限設定 (L71-87)
+
+```python
+MODEL_LIMITS = {
+    "gpt-5": {"max_tokens": 256000, "max_output": 8192},
+    "gpt-5-mini": {"max_tokens": 128000, "max_output": 4096},
+    "gpt-4o": {"max_tokens": 128000, "max_output": 4096},
+    "o3": {"max_tokens": 200000, "max_output": 100000},
+    "o4": {"max_tokens": 256000, "max_output": 128000},
+    # ...
+}
+```
+
+#### 主要メソッド
+
+**get_model_limits() (L90-92)**
+```python
+@classmethod
+def get_model_limits(cls, model: str) -> Dict[str, int]:
+    return cls.MODEL_LIMITS.get(model, {"max_tokens": 128000, "max_output": 4096})
+```
+
+**get_model_pricing() (L94-97)**
+```python
+@classmethod
+def get_model_pricing(cls, model: str) -> Dict[str, float]:
+    return cls.MODEL_PRICING.get(model, {"input": 0.00015, "output": 0.0006})
+```
+
+### 2. RAGConfig (L103-182)
+
+RAGシステムのデータセット設定管理。
+
+#### データセット設定 (L106-156)
+
+**1. customer_support_faq** (L108-115)
+```python
+{
+    "name": "カスタマーサポートFAQ",
+    "icon": "🎧",
+    "required_columns": ["question", "answer"],
+    "description": "カスタマーサポートのFAQデータセット",
+    "combine_template": "{question} {answer}",
+    "port": 8501
+}
+```
+
+**2. medical_qa** (L118-125)
+```python
+{
+    "name": "医療QAデータセット",
+    "icon": "⚕️",
+    "required_columns": ["Question", "Complex_CoT", "Response"],
+    "description": "医療関連の質問回答データセット",
+    "combine_template": "{question} {complex_cot} {response}",
+    "port": 8503
+}
+```
+
+**3. sciq_qa** (L128-135)
+```python
+{
+    "name": "科学QAデータセット（SciQ）",
+    "icon": "🔬",
+    "required_columns": ["question", "correct_answer"],
+    "description": "科学分野の質問回答データセット",
+    "combine_template": "{question} {correct_answer}",
+    "port": 8504
+}
+```
+
+**4. legal_qa** (L138-145)
+```python
+{
+    "name": "法律関連QA",
+    "icon": "⚖️",
+    "required_columns": ["question", "answer"],
+    "description": "法律関連の質問回答データセット",
+    "combine_template": "{question} {answer}",
+    "port": 8505
+}
+```
+
+**5. trivia_qa** (L148-155)
+```python
+{
+    "name": "雑学QAデータセット（TriviaQA）",
+    "icon": "📚",
+    "required_columns": ["question", "answer"],
+    "description": "一般雑学の質問回答データセット",
+    "combine_template": "{question} {answer} {entity_pages} {search_results}",
+    "port": 8506
+}
+```
+
+#### 主要メソッド
+
+**get_config() (L158-168)**
+```python
+@classmethod
+def get_config(cls, dataset_type: str) -> Dict[str, Any]:
+    return cls.DATASET_CONFIGS.get(dataset_type, {
+        "name": "不明なデータセット",
+        "icon": "📁",
+        "required_columns": [],
+        "description": "不明なデータセット",
+        "combine_template": "{}",
+        "port": 8500
+    })
+```
+
+**get_all_datasets() (L170-173)**
+```python
+@classmethod
+def get_all_datasets(cls) -> List[str]:
+    return list(cls.DATASET_CONFIGS.keys())
+```
+
+**get_dataset_by_port() (L175-181)**
+```python
+@classmethod
+def get_dataset_by_port(cls, port: int) -> Optional[str]:
+    for dataset_type, config in cls.DATASET_CONFIGS.items():
+        if config.get("port") == port:
+            return dataset_type
+    return None
+```
+
+### 3. TokenManager (L187-210)
+
+トークン数の推定と管理を行うクラス。
+
+#### count_tokens() (L191-202)
+
+```python
+@staticmethod
+def count_tokens(text: str, model: str = None) -> int:
+    """テキストのトークン数を推定（簡易版）"""
+    if not text:
+        return 0
+
+    # 簡易推定: 日本語文字は0.5トークン、英数字は0.25トークン
+    japanese_chars = len([c for c in text if ord(c) > 127])
+    english_chars = len(text) - japanese_chars
+    estimated_tokens = int(japanese_chars * 0.5 + english_chars * 0.25)
+
+    return max(1, estimated_tokens)
+```
+
+**推定ルール**:
+- 日本語文字: 0.5トークン
+- 英数字: 0.25トークン
+- 最小値1トークン
+
+#### estimate_cost() (L204-210)
+
+```python
+@staticmethod
+def estimate_cost(input_tokens: int, output_tokens: int, model: str) -> float:
+    """API使用料金の推定"""
+    pricing = AppConfig.get_model_pricing(model)
+    input_cost = (input_tokens / 1000) * pricing["input"]
+    output_cost = (output_tokens / 1000) * pricing["output"]
+    return input_cost + output_cost
+```
+
+## 主要関数
+
+### 1. エラーハンドリング
+
+**safe_execute() (L216-228)**
+
+```python
+def safe_execute(func):
+    """安全実行デコレーター"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in {func.__name__}: {str(e)}")
+            st.error(f"エラーが発生しました: {str(e)}")
+            return None
+    return wrapper
+```
+
+### 2. UI支援関数
+
+**select_model() (L234-252)**
+
+```python
+def select_model(key: str = "model_selection") -> str:
+    """モデル選択UI"""
+    models = AppConfig.AVAILABLE_MODELS
+    default_model = AppConfig.DEFAULT_MODEL
+
+    selected = st.sidebar.selectbox(
+        "🤖 モデル選択",
+        models,
+        index=default_index,
+        key=key,
+        help="利用するOpenAIモデルを選択してください"
+    )
+
+    return selected
+```
+
+**show_model_info() (L255-303)**
+
+```python
+def show_model_info(selected_model: str) -> None:
+    """選択されたモデルの情報を表示"""
+    limits = AppConfig.get_model_limits(selected_model)
+    pricing = AppConfig.get_model_pricing(selected_model)
+
+    with st.sidebar.expander("🔍 モデル詳細情報", expanded=False):
+        # 基本情報表示
+        # 制限事項表示
+        # 価格帯表示
+        # RAG使用推奨度表示
+```
+
+表示内容：
+- 最大入力/出力トークン数
+- 入力/出力価格
+- 価格帯（低価格/標準/高価格）
+- RAG使用推奨度
+
+**estimate_token_usage() (L306-341)**
+
+```python
+def estimate_token_usage(df_processed: pd.DataFrame, selected_model: str) -> None:
+    """データセットのトークン使用量推定"""
+    # サンプルテキストのトークン数計算
+    # 全体のトークン数推定
+    # embedding使用コスト推定
+```
+
+### 3. データ処理関数
+
+**clean_text() (L347-368)**
+
+```python
+def clean_text(text: str) -> str:
+    """テキストのクリーニング"""
+    if pd.isna(text) or text == "":
+        return ""
+
+    text = str(text)
+
+    # 改行文字の統一
+    text = text.replace('\n', ' ').replace('\r', ' ')
+
+    # 連続する空白文字を単一スペースに置換
+    text = re.sub(r'\s+', ' ', text)
+
+    # 前後の空白を削除
+    text = text.strip()
+
+    # 特殊文字の正規化
+    text = text.replace('"', '"').replace('"', '"')
+    text = text.replace(''', "'").replace(''', "'")
+
+    return text
+```
+
+**combine_columns() (L371-405)**
+
+```python
+def combine_columns(row: pd.Series, dataset_type: str) -> str:
+    """複数列を単一のテキストに結合（データセット別処理）"""
+    config_data = RAGConfig.get_config(dataset_type)
+    required_columns = config_data["required_columns"]
+
+    # 各テキストをクリーニング
+    cleaned_values = []
+    for col in required_columns:
+        if col in row.index:
+            value = row.get(col, '')
+            cleaned_text = clean_text(str(value))
+            if cleaned_text:
+                cleaned_values.append(cleaned_text)
+
+    # 医療QAの特別処理
+    if dataset_type == "medical_qa":
+        # 特定列の優先順位付け
+        medical_cols = {}
+        # ...
+        medical_values = [v for v in medical_cols.values() if v]
+        if medical_values:
+            return " ".join(medical_values).strip()
+
+    # 通常の結合
+    combined = " ".join(cleaned_values)
+    return combined.strip()
+```
+
+**validate_data() (L408-457)**
+
+```python
+def validate_data(df: pd.DataFrame, dataset_type: str = None) -> List[str]:
+    """データの検証"""
+    issues = []
+
+    # 基本統計
+    issues.append(f"行数: {len(df):,}")
+    issues.append(f"列数: {len(df.columns)}")
+
+    # 必須列チェック
+    if dataset_type:
+        config_data = RAGConfig.get_config(dataset_type)
+        required_columns = config_data["required_columns"]
+        # 特定列の優先順位チェック
+        # 欠損値確認
+
+    # 空値チェック
+    # 重複行チェック
+
+    return issues
+```
+
+**load_dataset() (L461-470)**
+
+```python
+@safe_execute
+def load_dataset(uploaded_file, dataset_type: str = None) -> Tuple[pd.DataFrame, List[str]]:
+    """データセットの読み込みと基本検証"""
+    df = pd.read_csv(uploaded_file)
+    validation_results = validate_data(df, dataset_type)
+    logger.info(f"データセット読み込み完了: {len(df):,}行, {len(df.columns)}列")
+    return df, validation_results
+```
+
+**process_rag_data() (L474-519)**
+
+```python
+@safe_execute
+def process_rag_data(df: pd.DataFrame, dataset_type: str, combine_columns_option: bool = True) -> pd.DataFrame:
+    """RAGデータの前処理"""
+    df_processed = df.copy()
+
+    # 重複行削除
+    initial_rows = len(df_processed)
+    df_processed = df_processed.drop_duplicates()
+    duplicates_removed = initial_rows - len(df_processed)
+
+    # 空行削除（全列がNAの行）
+    df_processed = df_processed.dropna(how='all')
+    empty_rows_removed = initial_rows - duplicates_removed - len(df_processed)
+
+    # インデックスのリセット
+    df_processed = df_processed.reset_index(drop=True)
+
+    # データクリーニング
+    # 列の結合（オプション）
+    if combine_columns_option:
+        df_processed['Combined_Text'] = df_processed.apply(
+            lambda row: combine_columns(row, dataset_type),
+            axis=1
+        )
+
+    return df_processed
+```
+
+### 4. ファイル保存関数
+
+**create_output_directory() (L586-607)**
+
+```python
+def create_output_directory() -> Path:
+    """OUTPUTディレクトリの作成"""
+    output_dir = Path("OUTPUT")
+    output_dir.mkdir(exist_ok=True)
+
+    # 書き込み権限の確認
+    test_file = output_dir / ".test_write"
+    try:
+        test_file.write_text("test", encoding='utf-8')
+        if test_file.exists():
+            test_file.unlink()
+            logger.info("書き込み権限確認: OK")
+    except Exception as e:
+        raise PermissionError(f"書き込み権限がありません: {e}")
+
+    return output_dir
+```
+
+**save_files_to_output() (L611-663)**
+
+```python
+@safe_execute
+def save_files_to_output(df_processed, dataset_type: str, csv_data: str, text_data: str = None) -> Dict[str, str]:
+    """処理済みデータをOUTPUTフォルダに保存"""
+    output_dir = create_output_directory()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    saved_files = {}
+
+    # CSVファイルの保存
+    csv_filename = f"preprocessed_{dataset_type}.csv"
+    csv_path = output_dir / csv_filename
+    # ...
+
+    # テキストファイルの保存
+    txt_filename = f"{dataset_type}.txt"
+    txt_path = output_dir / txt_filename
+    # ...
+
+    # メタデータファイルの保存
+    metadata = {
+        "dataset_type": dataset_type,
+        "processed_rows": len(df_processed),
+        "processing_timestamp": timestamp,
+        "created_at": datetime.now().isoformat(),
+        # ...
+    }
+    metadata_filename = f"metadata_{dataset_type}.json"
+    # ...
+
+    return saved_files
+```
+
+保存されるファイル：
+1. **CSVファイル**: `preprocessed_{dataset_type}.csv`
+2. **テキストファイル**: `{dataset_type}.txt`
+3. **メタデータ**: `metadata_{dataset_type}.json`
+
+### 5. UI表示関数
+
+**display_statistics() (L544-580)**
+
+```python
+def display_statistics(df_original: pd.DataFrame, df_processed: pd.DataFrame, dataset_type: str = None) -> None:
+    """処理統計の表示"""
+    # 基本統計（行数/列数）
+    # 結合テキストの平均長/最大長/最小長
+    # 分位数表示（25%/50%/75%）
+```
+
+**show_usage_instructions() (L669-735)**
+
+```python
+def show_usage_instructions(dataset_type: str) -> None:
+    """使用方法の説明を表示（データセット別）"""
+    # 基本的な使用方法
+    # RAGシステム説明
+    # 推奨設定
+    # データセット特有の注意事項
+```
+
+**setup_page_config() (L741-753)**
+```python
+def setup_page_config(dataset_type: str) -> None:
+    """ページ設定の初期化"""
+    config_data = RAGConfig.get_config(dataset_type)
+    st.set_page_config(
+        page_title=f"{config_data['name']}前処理ツール",
+        page_icon=config_data['icon'],
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+```
+
+## データフロー
+
+### 基本処理フロー
+
+```mermaid
+graph TD
+    A[CSVアップロード] --> B[load_dataset]
+    B --> C[validate_data]
+    C --> D[process_rag_data]
+    D --> E[clean_text]
+    E --> F[combine_columns]
+    F --> G[重複削除]
+    G --> H[display_statistics]
+    H --> I[create_download_data]
+    I --> J[save_files_to_output]
+```
+
+### データセット別処理
+
+```mermaid
+graph TD
+    A[dataset_type選択] --> B{データセット種類}
+    B -->|customer_support| C[question + answer]
+    B -->|medical_qa| D[Question + CoT + Response]
+    B -->|sciq_qa| E[question + correct_answer]
+    B -->|legal_qa| F[question + answer]
+    B -->|trivia_qa| G[question + answer + pages]
+    C --> H[Combined_Text]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+```
+
+## 使用例
+
+### 例1: モデル選択と情報表示
+
+```python
+import streamlit as st
+from helper_rag import select_model, show_model_info
+
+# モデル選択
+selected_model = select_model(key="my_model")
+
+# モデル情報表示
+show_model_info(selected_model)
+```
+
+### 例2: データ読み込みと処理
+
+```python
+from helper_rag import load_dataset, process_rag_data, create_download_data
+
+# データ読み込み
+df, validation_results = load_dataset(uploaded_file, dataset_type="medical_qa")
+
+# 前処理実行
+df_processed = process_rag_data(df, dataset_type="medical_qa", combine_columns_option=True)
+
+# ダウンロード用データ作成
+csv_data, text_data = create_download_data(df_processed, include_combined=True)
+```
+
+### 例3: ファイル保存
+
+```python
+from helper_rag import save_files_to_output
+
+# ファイル保存
+saved_files = save_files_to_output(
+    df_processed,
+    dataset_type="customer_support_faq",
+    csv_data=csv_data,
+    text_data=text_data
+)
+
+print(f"保存ファイル: {saved_files}")
+# {'csv': 'OUTPUT/preprocessed_customer_support_faq.csv',
+#  'txt': 'OUTPUT/customer_support_faq.txt',
+#  'metadata': 'OUTPUT/metadata_customer_support_faq.json'}
+```
+
+### 例4: トークン管理
+
+```python
+from helper_rag import TokenManager
+
+# トークン数計算
+text = "これはテストテキストです"
+token_count = TokenManager.count_tokens(text, model="gpt-5-mini")
+
+# コスト推定
+cost = TokenManager.estimate_cost(
+    input_tokens=1000,
+    output_tokens=500,
+    model="gpt-5-mini"
+)
+print(f"推定コスト: ${cost:.4f}")
+```
+
+## 注意事項
+
+### safe_execute デコレーター
+
+```python
+@safe_execute
+def my_function():
+    # 処理内容
+    pass
+```
+
+- エラーを自動キャッチ
+- ログ記録
+- Streamlitエラー表示
+- None返却
+
+### ファイル保存時の権限
+
+```python
+try:
+    output_dir = create_output_directory()
+except PermissionError as e:
+    st.error(f"書き込み権限エラー: {e}")
+```
+
+## RAG使用推奨モデル
+
+### 高速・低コスト（推奨）
+- **gpt-4o-mini**: $0.00015 / $0.0006
+- **gpt-4.1-mini**: $0.0001 / $0.0004
+- **gpt-5-mini**: $0.0001 / $0.0004
+
+### バランス型（中価格）
+- **gpt-4o**: $0.005 / $0.015
+- **gpt-4.1**: $0.0025 / $0.01
+
+### 推論型（RAG使用には高価）
+- **o1-mini**: $0.003 / $0.012
+- **o3-mini**: $0.006 / $0.024
+- **o4-mini**: $0.01 / $0.04
+
+## パフォーマンス最適化
+
+### 1. サンプリング処理
+
+```python
+# 大量データの場合はサンプリングでトークン数計算
+sample_size = min(10, len(df_processed))
+sample_texts = df_processed['Combined_Text'].head(sample_size).tolist()
+```
+
+### 2. ベクトル化
+
+```python
+# apply関数でベクトル化処理
+df_processed['Combined_Text'] = df_processed.apply(
+    lambda row: combine_columns(row, dataset_type),
+    axis=1
+)
+```
+
+### 3. キャッシュ活用
+
+```python
+# Streamlitキャッシュの活用
+@st.cache_data
+def load_large_dataset():
+    # ...
+```
+
+## 制限事項
+
+1. **データセット判定**: 自動判定はdataset_type依存
+2. **文字エンコーディング**: UTF-8前提
+3. **メモリ制限**: 大規模データセットは分割処理推奨
+4. **特定列依存**: 列名の大文字小文字区別なし
+5. **OUTPUT権限**: 書き込み権限必須
+
+## トラブルシューティング
+
+### 問題1: 必須列が見つからない
+
+**症状**: "必須列が見つかりません"
+**解決策**:
+- 列名の大文字小文字確認
+- 欠損値の有無をチェック
+- CSVファイルのエンコーディング確認
+
+### 問題2: OUTPUT書き込みエラー
+
+**症状**: PermissionError
+**解決策**:
+```bash
+# ディレクトリの権限確認
+ls -la OUTPUT
+
+# 権限付与
+chmod 755 OUTPUT
+```
+
+### 問題3: トークン数推定誤差
+
+**症状**: 実際のトークン数と推定値の乖離
+**解決策**: 簡易推定のため、正確な値が必要な場合はtiktoken利用
+
+## エクスポート定義
+
+```python
+__all__ = [
+    # 設定クラス
+    'AppConfig',
+    'RAGConfig',
+    'TokenManager',
+
+    # デコレーター
+    'safe_execute',
+
+    # UI関数
+    'select_model',
+    'show_model_info',
+    'estimate_token_usage',
+
+    # データ処理関数
+    'clean_text',
+    'combine_columns',
+    'validate_data',
+    'load_dataset',
+    'process_rag_data',
+    'create_download_data',
+    'display_statistics',
+
+    # ファイル保存関数
+    'create_output_directory',
+    'save_files_to_output',
+
+    # 使用方法・設定関数
+    'show_usage_instructions',
+    'setup_page_config',
+    'setup_page_header',
+    'setup_sidebar_header',
+]
+```
+
+## まとめ
+
+helper_rag.pyはRAGシステムの前処理を担う重要なヘルパーモジュールです。
+
+### 主要な特徴
+
+1. **統一的な設定管理**: 5種のデータセットと16種のモデル対応
+2. **柔軟なデータ処理**: データセット別の最適化処理
+3. **充実したUI支援**: Streamlitベースの直感的なUI
+4. **堅牢なエラーハンドリング**: safe_executeデコレーターによる安全実行
+
+### 推奨用途
+
+- Streamlitベースのデータ前処理ツール
+- 複数データセット形式のRAG準備処理
+- モデル選択とコスト見積もり
+- ファイル保存と管理
+
+---
+作成日: 2024-10-29
+作成者: OpenAI RAG Q/A JP Development Team
