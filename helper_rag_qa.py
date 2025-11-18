@@ -1868,6 +1868,48 @@ class SemanticCoverage:
             print(f"埋め込み生成エラー: {e}")
             return np.zeros(1536)
 
+    def generate_embeddings_batch(self, texts: List[str], batch_size: int = 2048) -> np.ndarray:
+        """
+        複数テキストの埋め込みを一括生成（バッチAPI最適化版）
+
+        Args:
+            texts: テキストのリスト
+            batch_size: 1リクエストあたりのテキスト数（デフォルト: 2048、OpenAI上限）
+
+        Returns:
+            埋め込みベクトルの配列 (len(texts), 1536)
+        """
+        if not self.has_api_key:
+            print("⚠️  OpenAI APIキーが設定されていません。埋め込み生成をスキップします。")
+            return np.zeros((len(texts), 1536))
+
+        embeddings = []
+
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+
+            try:
+                # OpenAI Embeddings API: 最大2048テキスト/リクエスト
+                response = self.client.embeddings.create(
+                    model=self.embedding_model,
+                    input=batch
+                )
+
+                # 埋め込みベクトルを取得して正規化
+                for embedding_data in response.data:
+                    embedding = np.array(embedding_data.embedding)
+                    # L2正規化
+                    embedding = embedding / np.linalg.norm(embedding)
+                    embeddings.append(embedding)
+
+            except Exception as e:
+                print(f"バッチ埋め込み生成エラー (バッチ {i//batch_size + 1}): {e}")
+                # エラー時はゼロベクトルを追加
+                for _ in batch:
+                    embeddings.append(np.zeros(1536))
+
+        return np.array(embeddings)
+
     def cosine_similarity(self, doc_emb: np.ndarray, qa_emb: np.ndarray) -> float:
         """
         コサイン類似度を計算

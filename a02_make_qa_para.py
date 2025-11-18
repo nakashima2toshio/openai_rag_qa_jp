@@ -32,7 +32,7 @@ Celeryによる非同期並列処理をサポート（複数ワーカーで同�
 redis-cli FLUSHDB
 
 # ワーカーを再起動
-./start_celery.sh restart -w 4
+./start_celery.sh restart -w 8
 
 # ワーカーの動作確認
 python test_celery.py
@@ -40,9 +40,9 @@ python test_celery.py
 2. 少数でテスト実行（進捗表示付き）
 
 python a02_make_qa_para.py \
---dataset livedoor \
+--dataset cc_news \
 --use-celery \
---celery-workers 4 \
+--celery-workers 8 \
 --batch-chunks 3 \
 --merge-chunks \
 --min-tokens 100 \
@@ -50,6 +50,21 @@ python a02_make_qa_para.py \
 --model gpt-5-mini \
 --max-docs 2 \
 --analyze-coverage
+
+ーーーー
+推奨コマンド
+
+python a02_make_qa_para.py \
+  --dataset cc_news \
+  --use-celery \
+  --celery-workers 8 \
+  --batch-chunks 3 \
+  --merge-chunks \
+  --min-tokens 150 \
+  --max-tokens 400 \
+  --coverage-threshold 0.58 \
+  --model gpt-5-mini \
+  --analyze-coverage
 
 3. 問題診断
 
@@ -764,13 +779,15 @@ Output in JSON format:
             max_output_tokens=4000  # バッチ処理のため増加（3チャンク対応）
         )
 
-        # レスポンスの解析
+        # レスポンスの解析（空レスポンスチェック追加）
+        parsed_count = 0
         for output in response.output:
             if output.type == "message":
                 for item in output.content:
                     if item.type == "output_text" and item.parsed:
                         # パース済みデータを取得
                         parsed_data = item.parsed
+                        parsed_count += 1
 
                         # 生成されたQ/Aペアを各チャンクに分配
                         # 各チャンクに期待される数だけQ/Aを割り当て
@@ -795,10 +812,17 @@ Output in JSON format:
                                     all_qa_pairs.append(qa)
                                     qa_index += 1
 
+        # 空レスポンスチェック
+        if parsed_count == 0:
+            logger.error("OpenAI APIから解析可能なレスポンスが返されませんでした")
+            raise ValueError("No parseable response from OpenAI API")
+
         return all_qa_pairs
 
     except Exception as e:
         logger.error(f"バッチQ/A生成エラー: {e}")
+        import traceback
+        logger.debug(f"スタックトレース: {traceback.format_exc()}")
         # フォールバック: 個別処理
         logger.info("フォールバック: チャンクを個別処理します")
         for chunk in chunks:
@@ -961,14 +985,16 @@ Output in JSON format:
             max_output_tokens=1000  # 出力トークン数を制限
         )
 
-        # レスポンスの解析
+        # レスポンスの解析（空レスポンスチェック追加）
         qa_pairs = []
+        parsed_count = 0
         for output in response.output:
             if output.type == "message":
                 for item in output.content:
                     if item.type == "output_text" and item.parsed:
                         # パース済みデータを取得
                         parsed_data = item.parsed
+                        parsed_count += 1
 
                         for qa_data in parsed_data.qa_pairs:
                             qa = {
@@ -981,10 +1007,18 @@ Output in JSON format:
                                 "chunk_idx": chunk.get('chunk_idx', 0)
                             }
                             qa_pairs.append(qa)
+
+        # 空レスポンスチェック
+        if parsed_count == 0:
+            logger.error(f"OpenAI APIから解析可能なレスポンスが返されませんでした (chunk {chunk.get('id', 'unknown')})")
+            raise ValueError("No parseable response from OpenAI API")
+
         return qa_pairs
 
     except Exception as e:
         logger.error(f"Q/A生成エラー (chunk {chunk.get('id', 'unknown')}): {e}")
+        import traceback
+        logger.debug(f"スタックトレース: {traceback.format_exc()}")
         return []
 
 
@@ -1083,6 +1117,71 @@ def generate_qa_for_dataset(
     """)
 
     return all_qa_pairs
+
+
+# ==========================================
+# Celeryワーカー管理
+# ==========================================
+
+def check_celery_workers(required_workers: int = 8) -> bool:
+    """Celeryワーカーの状態を確認（リトライ機能付き）
+    Args:
+        required_workers: 必要なワーカー数
+    Returns:
+        ワーカーが正常に稼働している場合True
+    """
+    try:
+        from celery_tasks import app as celery_app
+
+        # ワーカーのstats情報を取得（最大3回リトライ）
+        inspect = celery_app.control.inspect(timeout=2.0)
+        stats = None
+
+        for attempt in range(3):
+            stats = inspect.stats()
+            if stats:
+                break
+            if attempt < 2:
+                logger.debug(f"ワーカー確認リトライ {attempt + 1}/3...")
+                time.sleep(1)
+
+        if not stats:
+            logger.warning("⚠️  Celeryワーカーが起動していません")
+            logger.info("以下のコマンドでワーカーを起動してください:")
+            logger.info(f"  ./start_celery.sh start -w {required_workers}")
+            logger.info("\nまたは:")
+            logger.info(f"  redis-cli FLUSHDB")
+            logger.info(f"  ./start_celery.sh restart -w {required_workers}")
+            return False
+
+        # ワーカープロセス数をカウント
+        worker_count = 0
+        for worker_name, worker_stats in stats.items():
+            # 各ワーカーのプール情報から実際のワーカー数を取得
+            pool_size = worker_stats.get('pool', {}).get('max-concurrency', 1)
+            worker_count += pool_size
+
+        if worker_count == 0:
+            # フォールバック: ワーカー名の数をカウント
+            worker_count = len(stats)
+
+        if worker_count < required_workers:
+            logger.warning(f"⚠️  ワーカー数不足: {worker_count}/{required_workers}個稼働中")
+            logger.info(f"推奨: ./start_celery.sh restart -w {required_workers}")
+            # ワーカー数が少なくても続行可能
+            return True
+
+        logger.info(f"✓ Celeryワーカー確認完了: {worker_count}個稼働中")
+        return True
+
+    except ImportError as e:
+        logger.error(f"celery_tasks モジュールのインポートに失敗しました: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"ワーカー確認エラー: {e}")
+        logger.info("Celeryワーカーが起動していない可能性があります")
+        logger.info(f"起動コマンド: ./start_celery.sh start -w {required_workers}")
+        return False
 
 
 # ==========================================
@@ -1270,28 +1369,28 @@ def analyze_chunk_characteristics_coverage(chunks: List[Dict], coverage_matrix: 
     return results
 
 
-def analyze_coverage(chunks: List[Dict], qa_pairs: List[Dict], dataset_type: str = "wikipedia_ja") -> Dict:
+def analyze_coverage(chunks: List[Dict], qa_pairs: List[Dict], dataset_type: str = "wikipedia_ja",
+                     custom_threshold: Optional[float] = None) -> Dict:
     """生成されたQ/Aペアのカバレージを分析（多段階カバレージ分析対応）
     Args:
         chunks: チャンクリスト
         qa_pairs: Q/Aペアリスト
         dataset_type: データセットタイプ（閾値自動設定に使用）
+        custom_threshold: カスタム閾値（指定時はこれを使用）
     Returns:
         カバレージ分析結果（多段階評価、チャンク特性分析を含む）
     """
     analyzer = SemanticCoverage()
 
-    # 埋め込み生成
+    # 埋め込み生成（バッチAPI最適化版）
     logger.info("埋め込みベクトル生成中...")
+
+    # チャンクの埋め込み生成（既存メソッド使用）
     doc_embeddings = analyzer.generate_embeddings(chunks)
 
-    qa_embeddings = []
-    for qa in qa_pairs:
-        qa_text = f"{qa['question']} {qa['answer']}"
-        embedding = analyzer.generate_embedding(qa_text)
-        qa_embeddings.append(embedding)
-
-    qa_embeddings = np.array(qa_embeddings) if qa_embeddings else np.array([])
+    # Q&Aペアの埋め込み生成（バッチAPI使用で高速化）
+    qa_texts = [f"{qa['question']} {qa['answer']}" for qa in qa_pairs]
+    qa_embeddings = analyzer.generate_embeddings_batch(qa_texts, batch_size=2048)
 
     if len(qa_embeddings) == 0:
         return {
@@ -1313,7 +1412,13 @@ def analyze_coverage(chunks: List[Dict], qa_pairs: List[Dict], dataset_type: str
 
     # データセット別最適閾値を取得
     thresholds = get_optimal_thresholds(dataset_type)
-    standard_threshold = thresholds["standard"]
+
+    # カスタム閾値が指定されている場合は上書き
+    if custom_threshold is not None:
+        standard_threshold = custom_threshold
+        logger.info(f"カスタム閾値を使用: {custom_threshold}")
+    else:
+        standard_threshold = thresholds["standard"]
 
     # 基本カバレージ（標準閾値）
     max_similarities = coverage_matrix.max(axis=1)
@@ -1551,6 +1656,12 @@ def main():
         default=4,
         help="Celeryワーカー数（デフォルト: 4）"
     )
+    parser.add_argument(
+        "--coverage-threshold",
+        type=float,
+        default=None,
+        help="カバレージ判定の類似度閾値（デフォルト: データセット別最適値）"
+    )
 
     args = parser.parse_args()
 
@@ -1588,6 +1699,11 @@ def main():
         logger.info("\n[3/4] Q/Aペア生成...")
 
         if args.use_celery:
+            # Celeryワーカーの状態確認
+            if not check_celery_workers(args.celery_workers):
+                logger.error("Celeryワーカーを起動してから再実行してください")
+                sys.exit(1)
+
             logger.info(f"Celery並列処理モード: ワーカー数={args.celery_workers}")
             logger.info(f"オプション: バッチサイズ={args.batch_chunks}, チャンク統合={'有効' if args.merge_chunks else '無効'}")
 
@@ -1607,8 +1723,10 @@ def main():
                 processed_chunks, config, args.model, args.batch_chunks
             )
 
-            # 結果収集
-            qa_pairs = collect_results(tasks)
+            # 結果収集（タイムアウト: タスク数 × 60秒、最低600秒）
+            timeout_seconds = max(len(tasks) * 60, 600)
+            logger.info(f"結果収集タイムアウト: {timeout_seconds}秒（{len(tasks)}タスク）")
+            qa_pairs = collect_results(tasks, timeout=timeout_seconds)
         else:
             logger.info("通常処理モード")
             logger.info(f"オプション: バッチサイズ={args.batch_chunks}, チャンク統合={'有効' if args.merge_chunks else '無効'}")
@@ -1629,7 +1747,10 @@ def main():
         coverage_results = {}
         if args.analyze_coverage and qa_pairs:
             logger.info("\n[4/4] カバレージ分析...")
-            coverage_results = analyze_coverage(chunks, qa_pairs, args.dataset)
+            coverage_results = analyze_coverage(
+                chunks, qa_pairs, args.dataset,
+                custom_threshold=args.coverage_threshold
+            )
 
             logger.info(f"""
             カバレージ分析結果:

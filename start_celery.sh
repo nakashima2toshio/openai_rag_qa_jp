@@ -49,6 +49,18 @@ check_redis() {
     fi
 }
 
+# Celeryワーカーの完全クリーンアップ
+cleanup_workers() {
+    # 古いPIDファイルを削除
+    if [ -f /tmp/celery_qa.pid ]; then
+        rm -f /tmp/celery_qa.pid
+    fi
+
+    # 全てのCeleryワーカープロセスを強制終了
+    pkill -9 -f "celery.*worker" 2>/dev/null
+    sleep 1
+}
+
 # Celeryワーカーの起動
 start_workers() {
     echo -e "${YELLOW}Celeryワーカーを起動中...${NC}"
@@ -56,8 +68,8 @@ start_workers() {
     # 既存のワーカーをチェック
     if pgrep -f "celery.*worker.*qa_generation" > /dev/null; then
         echo -e "${YELLOW}既にワーカーが起動しています${NC}"
-        echo "再起動する場合は: $0 restart"
-        return 1
+        echo -e "${YELLOW}クリーンアップして再起動します...${NC}"
+        cleanup_workers
     fi
 
     # Celeryワーカーを起動

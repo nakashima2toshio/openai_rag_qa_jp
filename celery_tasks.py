@@ -188,26 +188,52 @@ Output in JSON format:
         logger.info(f"OpenAI API呼び出し開始: モデル={model}")
 
         try:
-            # 標準的なChat Completions APIを使用
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
+            # モデルに応じて適切なパラメータを選択
+            # GPT-5, O-シリーズ（o1, o3, o4など）は max_completion_tokens を使用
+            # GPT-4oシリーズ、GPT-4.1などは max_tokens を使用
+            is_new_model = any(model.startswith(prefix) for prefix in ["gpt-5", "o1", "o3", "o4"])
+
+            api_params = {
+                "model": model,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1000,
-                response_format={"type": "json_object"}  # JSON形式を強制
-            )
+                "response_format": {"type": "json_object"}  # JSON形式を強制
+            }
+
+            # モデルに応じてパラメータを追加
+            if is_new_model:
+                # GPT-5/O-シリーズ: temperatureは指定不可（デフォルトの1のみ）
+                api_params["max_completion_tokens"] = 1000
+            else:
+                # GPT-4シリーズ: 通常のパラメータ
+                api_params["temperature"] = 0.7
+                api_params["max_tokens"] = 1000
+
+            # 標準的なChat Completions APIを使用
+            response = client.chat.completions.create(**api_params)
 
             logger.info(f"OpenAI API呼び出し成功")
 
-            # レスポンス解析
+            # レスポンス解析（空レスポンス対策）
             import json
             response_text = response.choices[0].message.content
+
+            # 空レスポンスチェック
+            if not response_text or response_text.strip() == "":
+                logger.error(f"OpenAI APIが空のレスポンスを返しました")
+                raise ValueError("Empty response from OpenAI API")
+
             logger.debug(f"API応答（最初の200文字）: {response_text[:200]}...")
 
-            parsed_data = json.loads(response_text)
+            # JSON解析前の検証
+            try:
+                parsed_data = json.loads(response_text)
+            except json.JSONDecodeError as json_err:
+                logger.error(f"JSON解析エラー: {json_err}")
+                logger.error(f"レスポンステキスト全文: {response_text}")
+                raise ValueError(f"Invalid JSON response: {json_err}")
             qa_pairs = []
 
             for qa_data in parsed_data.get('qa_pairs', []):
@@ -446,8 +472,8 @@ def submit_parallel_qa_generation(chunks: List[Dict], config: Dict, model: str =
         for i in range(0, len(chunks), batch_size):
             batch = chunks[i:i+batch_size]
             task = generate_qa_for_batch_async.apply_async(
-                args=[batch, config, model]
-                # queue引数を削除 - デフォルトキューを使用
+                args=[batch, config, model],
+                queue='qa_generation'  # ワーカーが監視しているキューを指定
             )
             tasks.append(task)
             logger.debug(f"タスク投入: {task.id} - {len(batch)}チャンク")
@@ -455,8 +481,8 @@ def submit_parallel_qa_generation(chunks: List[Dict], config: Dict, model: str =
         # 個別処理の場合
         for chunk in chunks:
             task = generate_qa_for_chunk_async.apply_async(
-                args=[chunk, config, model]
-                # queue引数を削除
+                args=[chunk, config, model],
+                queue='qa_generation'  # ワーカーが監視しているキューを指定
             )
             tasks.append(task)
 
