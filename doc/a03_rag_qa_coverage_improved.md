@@ -1,5 +1,99 @@
 # a03_rag_qa_coverage_improved.py - セマンティックカバレッジ分析とQ/A生成システム（改良版）
 
+1. comprehensive型（包括的Q/A）
+
+戦略：チャンク全体の内容を要約的に問う質問を生成
+
+実装箇所：335-345行目
+
+例：
+- 質問（英語）: "What information is discussed in this section?"
+- 質問（日本語）: "このセクションにはどのような情報が含まれていますか？"
+- 回答: チャンク全体のテキスト（最大500文字）
+
+特徴：チャンク全体を俯瞰する包括的な理解を促す
+
+---
+2. factual_detailed型（詳細な事実確認）
+
+戦略：各文に対して具体的な事実を問う詳細な質問を生成
+
+実装箇所：352-372行目（英語）、412-417行目（日本語）
+
+例（英語）：
+- 固有名詞"Tesla"が文中にある場合
+- 質問: "What specific information is provided about Tesla?"
+- 回答: 該当文 + 次の文（文脈付与）
+
+例（日本語）：
+元の文: 「量子コンピュータは従来のコンピュータとは異なる原理で動作します。」
+質問: 「量子コンピュータは従来のコンピュータとは異なる原理で動作します」について詳しく説明してください。
+回答: 量子コンピュータは従来のコンピュータとは異なる原理で動作します。量子ビットを使用して計算を行います。
+
+特徴：事実情報の正確な抽出を目的とした質問
+
+---
+3. contextual型（文脈関連型）
+
+戦略：前の文と現在の文の関連性を問う質問を生成
+
+実装箇所：374-394行目
+
+例（英語）：
+前の文: "Apple released a new iPhone model."
+現在の文: "The device features advanced AI capabilities."
+
+質問: "How does The device relate to Apple?"
+回答: "Apple released a new iPhone model. The device features advanced AI capabilities."
+
+特徴：文間の論理的つながりや因果関係の理解を促す
+
+---
+4. keyword_based型（キーワード抽出型）
+
+戦略：固有名詞や重要語句をキーワードとして抽出し、それに関する質問を生成
+
+実装箇所：396-407行目（英語）、419-431行目（日本語）
+
+例（英語）：
+文: "Google announced new privacy features for Android users."
+キーワード: "Google"
+
+質問: "What is mentioned about Google?"
+回答: "Google announced new privacy features for Android users."
+
+例（日本語）：
+文: 「東京オリンピックは多くの競技が開催された。」
+キーワード: 「東京オリンピック」（MeCabで抽出）
+
+質問: 「東京オリンピック」について何が述べられていますか？
+回答: 東京オリンピックは多くの競技が開催された。
+
+特徴：MeCab（日本語）や正規表現（英語）でキーワードを自動抽出し、特定トピックに焦点を当てた質問を生成
+
+---
+5. thematic型（テーマ型）
+
+戦略：チャンク全体の主要テーマや中心概念を問う質問を生成
+
+実装箇所：433-474行目
+
+例（英語）：
+チャンク先頭: "Climate change poses significant challenges..."
+抽出された主要概念: "Climate change"
+
+質問: "What is the main theme related to Climate change?"
+回答: チャンク全体のテキスト（最大400文字）
+
+例（日本語）：
+チャンク: 「人工知能技術が医療分野で活用され始めています。診断支援...」
+抽出されたキーワード: 「人工知能」
+
+質問: 「人工知能」に関する主要テーマは何ですか？
+回答: チャンク全体のテキスト（最大400文字）
+
+特徴：チャンクの中心的なテーマや論点を理解さ
+
 ## 目次
 
 1. [概要](#1-概要)

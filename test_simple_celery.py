@@ -24,7 +24,8 @@ def test_simple():
 
     print("タスクを投入中...")
     task = generate_qa_for_chunk_async.apply_async(
-        args=[chunk_data, config, "gpt-4o-mini"]
+        args=[chunk_data, config, "gpt-4o-mini"],
+        queue='qa_generation'  # 正しいキューを指定
     )
 
     print(f"タスクID: {task.id}")

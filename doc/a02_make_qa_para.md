@@ -1,9 +1,9 @@
-# a02_make_qa_para.py - Q/Aペア生成システム（Celery並列・バッチ処理版）
+# a02_make_qa_para.py - 改善版Q/Aペア自動生成システム
 
 ## 目次
 
 1. [概要](#1-概要)
-2. [最新の改善点](#2-最新の改善点)
+2. [プロンプト改善機能（2024年11月追加）](#2-プロンプト改善機能2024年11月追加)
 3. [クイックスタート](#3-クイックスタート)
 4. [システムアーキテクチャ](#4-システムアーキテクチャ)
 5. [Celery非同期並列処理](#5-celery非同期並列処理)
@@ -39,9 +39,96 @@
 
 ---
 
-## 2. 最新の改善点
+## 2. プロンプト改善機能（2024年11月追加）
 
-### 2.1 JSONDecodeError対策（celery_tasks.py）
+### 2.1 質問タイプの階層化
+
+システムは11種類の質問タイプを3つの階層に分類して管理します：
+
+#### 基礎レベル (basic)
+- **definition**: 定義型（〜とは何ですか？）
+- **identification**: 識別型（〜の例を挙げてください）
+- **enumeration**: 列挙型（〜の種類/要素は？）
+
+#### 理解レベル (understanding)
+- **cause_effect**: 因果関係型（〜の結果/影響は？）
+- **process**: プロセス型（〜はどのように行われますか？）
+- **mechanism**: メカニズム型（〜の仕組みは？）
+- **comparison**: 比較型（〜と〜の違いは？）
+
+#### 応用レベル (application)
+- **synthesis**: 統合型（〜を組み合わせるとどうなりますか？）
+- **evaluation**: 評価型（〜の長所と短所は？）
+- **prediction**: 予測型（〜の場合どうなりますか？）
+- **practical**: 実践型（〜はどのように活用されますか？）
+
+### 2.2 チャンク複雑度分析
+
+各チャンクの複雑度を自動分析し、プロンプトを動的調整：
+
+```python
+def analyze_chunk_complexity(chunk_text: str, lang: str = "ja") -> Dict:
+    """
+    以下の指標で複雑度を分析:
+    - 専門用語の密度
+    - 平均文長
+    - 概念密度
+    - トークン数
+    """
+```
+
+**複雑度レベル:**
+- **high**: 専門的な内容（概念密度 > 5% or 平均文長 > 30）
+- **medium**: 一般的な内容（概念密度 > 2% or 平均文長 > 20）
+- **low**: 基本的な内容
+
+### 2.3 動的Q/A数調整
+
+チャンクの特性に応じて生成Q/A数を自動調整：
+
+| トークン数 | 基本Q/A数 | 備考 |
+|-----------|----------|------|
+| < 50 | 2個 | 短いチャンクでも最低2個生成 |
+| 50-100 | 3個 | Shortチャンク強化 |
+| 100-200 | base_count + 1 | Mediumチャンク |
+| 200-300 | base_count + 2 | Longチャンク |
+| > 300 | base_count + 3 | 超長文（上限8個） |
+
+※文書後半（6番目以降のチャンク）は+1個追加
+
+### 2.4 拡張データモデル
+
+```python
+class QAPair(BaseModel):
+    question: str                    # 質問文
+    answer: str                      # 回答文
+    question_type: str              # 質問タイプ（11種類）
+    difficulty_level: str           # 難易度 (easy/medium/hard)
+    question_category: str          # カテゴリ (basic/understanding/application)
+    source_chunk_id: Optional[str]  # ソースチャンクID
+    dataset_type: Optional[str]     # データセットタイプ
+    auto_generated: bool            # 自動生成フラグ
+    confidence_score: Optional[float]  # 生成の確信度
+    quality_score: Optional[float]     # 品質スコア
+```
+
+### 2.5 改善されたプロンプトテンプレート
+
+#### システムプロンプト（日本語版）
+```
+あなたは教育コンテンツ作成の専門家です。
+与えられた日本語テキストから、学習効果の高いQ&Aペアを生成してください。
+
+生成ルール:
+1. 質問は明確で具体的に
+2. 回答は簡潔で正確に（1-2文程度）
+3. テキストの内容に忠実に
+4. 多様な観点から質問を作成
+```
+
+## 3. 技術的な改善点
+
+### 3.1 JSONDecodeError対策（celery_tasks.py）
 
 **問題**: OpenAI APIが空のレスポンスを返すことがあり、`json.loads()`が失敗していました。
 
@@ -112,7 +199,7 @@ brew services start redis  # macOS
 redis-cli FLUSHDB
 
 # 3. Celeryワーカーを起動
-./start_celery.sh restart -w 8
+./start_celery.sh restart -w 24
 ```
 
 ### 3.2 テスト実行（2文書のみ）
@@ -121,7 +208,7 @@ redis-cli FLUSHDB
 python a02_make_qa_para.py \
   --dataset cc_news \
   --use-celery \
-  --celery-workers 8 \
+  --celery-workers 24 \
   --batch-chunks 3 \
   --merge-chunks \
   --model gpt-5-mini \
@@ -135,7 +222,7 @@ python a02_make_qa_para.py \
 python a02_make_qa_para.py \
   --dataset cc_news \
   --use-celery \
-  --celery-workers 8 \
+  --celery-workers 24 \
   --batch-chunks 3 \
   --merge-chunks \
   --min-tokens 150 \
@@ -235,7 +322,7 @@ redis-cli INFO clients
 #### 再起動（推奨）
 ```bash
 redis-cli FLUSHDB  # タスクキューをクリア
-./start_celery.sh restart -w 8
+./start_celery.sh restart -w 24
 ```
 
 ### 5.4 Celery設定（celery_tasks.py）
@@ -408,7 +495,7 @@ python a02_make_qa_para.py \
 python a02_make_qa_para.py \
   --dataset livedoor \
   --use-celery \
-  --celery-workers 4 \
+  --celery-workers 24 \
   --batch-chunks 3 \
   --merge-chunks \
   --model gpt-5-mini \
@@ -422,7 +509,7 @@ python a02_make_qa_para.py \
 python a02_make_qa_para.py \
   --dataset cc_news \
   --use-celery \
-  --celery-workers 8 \
+  --celery-workers 24 \
   --batch-chunks 5 \
   --merge-chunks \
   --model gpt-5-mini \
@@ -526,7 +613,9 @@ app.conf.update(
 | 同期処理 | 500件 | 1800回 | 180分 | 1.0x |
 | Celery 4ワーカー | 500件 | 1800回 | 45分 | 4.0x |
 | Celery 8ワーカー | 500件 | 1800回 | 23分 | 7.8x |
-| **ハイブリッド 8ワーカー** | **500件** | **600回** | **8分** | **22.5x** |
+| Celery 24ワーカー | 500件 | 1800回 | 8分 | 22.5x |
+| ハイブリッド 8ワーカー | 500件 | 600回 | 8分 | 22.5x |
+| **ハイブリッド 24ワーカー** | **500件** | **600回** | **3分** | **60.0x** |
 
 ### 10.2 コスト試算
 
@@ -577,13 +666,13 @@ app.conf.update(
 ```bash
 # Celeryワーカー起動
 redis-cli FLUSHDB
-./start_celery.sh restart -w 8
+./start_celery.sh restart -w 24
 
 # Q/A生成実行
 python a02_make_qa_para.py \
   --dataset cc_news \
   --use-celery \
-  --celery-workers 8 \
+  --celery-workers 24 \
   --batch-chunks 3 \
   --merge-chunks \
   --model gpt-5-mini \

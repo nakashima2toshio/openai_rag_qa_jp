@@ -1,19 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 r"""
-a02_make_qa_para.py - preprocessedファイルからQ/Aペア生成（並列処理版）
+a02_make_qa_para.py - 改善版Q/Aペア自動生成システム
 =========================================================================
-OUTPUTフォルダ内のpreprocessedファイルから自動的にQ/Aペアを生成
+OUTPUTフォルダ内のpreprocessedファイルから高品質なQ/Aペアを自動生成
 バッチ処理による並列化でAPI呼び出し回数を大幅削減（最大1/5）
 Celeryによる非同期並列処理をサポート（複数ワーカーで同時実行可能）
 
-特徴:
+主要機能:
 - セマンティック分割によるチャンク作成（段落境界を優先）
 - バッチ処理による並列Q/A生成（1-5チャンク同時処理）
 - Celeryによる非同期並列処理（オプション）
 - 小チャンク自動統合による効率化
 - 多段階カバレージ分析（strict/standard/lenient）
 - チャンク特性別カバレージ分析（長さ別・位置別）
+
+プロンプト改善機能（2024年11月追加）:
+- 質問タイプの階層化（基礎/理解/応用の3階層、計11タイプ）
+- チャンク複雑度分析による動的プロンプト調整
+- キーワード・専門用語の自動抽出と活用
+- 難易度レベル（easy/medium/hard）の自動判定
+- 品質スコアと確信度スコアの付与
 
 対応データセット:
 - cc_news: CC-News英語ニュース（7,376件）
@@ -32,7 +39,7 @@ Celeryによる非同期並列処理をサポート（複数ワーカーで同�
 redis-cli FLUSHDB
 
 # ワーカーを再起動
-./start_celery.sh restart -w 8
+./start_celery.sh restart -w 24
 
 # ワーカーの動作確認
 python test_celery.py
@@ -40,16 +47,16 @@ python test_celery.py
 2. 少数でテスト実行（進捗表示付き）
 
 python a02_make_qa_para.py \
---dataset cc_news \
---use-celery \
---celery-workers 8 \
---batch-chunks 3 \
---merge-chunks \
---min-tokens 100 \
---max-tokens 300 \
---model gpt-5-mini \
---max-docs 2 \
---analyze-coverage
+  --dataset cc_news \
+  --use-celery \
+  --celery-workers 24 \
+  --batch-chunks 3 \
+  --merge-chunks \
+  --min-tokens 150 \
+  --max-tokens 400 \
+  --coverage-threshold 0.58 \
+  --model gpt-5-nano \
+  --analyze-coverage
 
 ーーーー
 推奨コマンド
@@ -57,13 +64,13 @@ python a02_make_qa_para.py \
 python a02_make_qa_para.py \
   --dataset cc_news \
   --use-celery \
-  --celery-workers 8 \
+  --celery-workers 24 \
   --batch-chunks 3 \
   --merge-chunks \
   --min-tokens 150 \
   --max-tokens 400 \
   --coverage-threshold 0.58 \
-  --model gpt-5-mini \
+  --model gpt-5-nano \
   --analyze-coverage
 
 3. 問題診断
@@ -89,7 +96,7 @@ redis-cli INFO clients
 redis-cli LLEN celery
 
 # ワーカーの再起動（並列度を下げる）
-./start_celery.sh restart -w 2
+./start_celery.sh restart -w 24
 
 
 ===================================
@@ -206,19 +213,47 @@ logger = logging.getLogger(__name__)
 # ==========================================
 
 class QAPair(BaseModel):
-    """Q/Aペアのデータモデル"""
+    """Q/Aペアのデータモデル（拡張版）"""
     question: str
     answer: str
     question_type: str
+    difficulty_level: Optional[str] = "medium"  # easy/medium/hard
+    question_category: Optional[str] = "understanding"  # basic/understanding/application
     source_chunk_id: Optional[str] = None
     dataset_type: Optional[str] = None
     auto_generated: bool = False
+    confidence_score: Optional[float] = None  # 生成の確信度
+    quality_score: Optional[float] = None  # 品質スコア
 
 
 class QAPairsResponse(BaseModel):
     """Q/Aペア生成レスポンス"""
     qa_pairs: List[QAPair]
 
+
+# ==========================================
+# 質問タイプ階層構造の定義
+# ==========================================
+
+QUESTION_TYPES_HIERARCHY = {
+    "basic": {
+        "definition": "定義型（〜とは何ですか？）",
+        "identification": "識別型（〜の例を挙げてください）",
+        "enumeration": "列挙型（〜の種類/要素は？）"
+    },
+    "understanding": {
+        "cause_effect": "因果関係型（〜の結果/影響は？）",
+        "process": "プロセス型（〜はどのように行われますか？）",
+        "mechanism": "メカニズム型（〜の仕組みは？）",
+        "comparison": "比較型（〜と〜の違いは？）"
+    },
+    "application": {
+        "synthesis": "統合型（〜を組み合わせるとどうなりますか？）",
+        "evaluation": "評価型（〜の長所と短所は？）",
+        "prediction": "予測型（〜の場合どうなりますか？）",
+        "practical": "実践型（〜はどのように活用されますか？）"
+    }
+}
 
 # ==========================================
 # データセット設定
@@ -396,6 +431,83 @@ def get_keyword_extractor() -> KeywordExtractor:
         _keyword_extractor = KeywordExtractor()
     return _keyword_extractor
 
+
+# ==========================================
+# 複雑度分析とキーワード抽出
+# ==========================================
+
+def analyze_chunk_complexity(chunk_text: str, lang: str = "ja") -> Dict:
+    """チャンクの複雑度を分析
+
+    Args:
+        chunk_text: 分析対象テキスト
+        lang: 言語
+
+    Returns:
+        複雑度指標の辞書
+    """
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+
+    # 基本メトリクス
+    sentences = chunk_text.split('。') if lang == 'ja' else chunk_text.split('.')
+    tokens = tokenizer.encode(chunk_text)
+
+    # 専門用語の検出（簡易版）
+    if lang == 'ja':
+        # カタカナ語、漢字複合語を専門用語候補とする
+        technical_pattern = r'[ァ-ヴー]{4,}|[一-龥]{4,}'
+        technical_terms = re.findall(technical_pattern, chunk_text)
+    else:
+        # 大文字で始まる複合語、長い単語を専門用語候補とする
+        technical_pattern = r'[A-Z][a-z]+(?:[A-Z][a-z]+)+|\b\w{10,}\b'
+        technical_terms = re.findall(technical_pattern, chunk_text)
+
+    # 文の複雑度（平均文長）
+    avg_sentence_length = len(tokens) / max(len(sentences), 1)
+
+    # 概念密度（専門用語の頻度）
+    concept_density = len(technical_terms) / max(len(tokens), 1) * 100
+
+    # 複雑度レベルの判定
+    if concept_density > 5 or avg_sentence_length > 30:
+        complexity_level = "high"
+    elif concept_density > 2 or avg_sentence_length > 20:
+        complexity_level = "medium"
+    else:
+        complexity_level = "low"
+
+    return {
+        "complexity_level": complexity_level,
+        "technical_terms": list(set(technical_terms))[:10],  # 上位10個
+        "avg_sentence_length": avg_sentence_length,
+        "concept_density": concept_density,
+        "sentence_count": len(sentences),
+        "token_count": len(tokens)
+    }
+
+def extract_key_concepts(chunk_text: str, lang: str = "ja", top_n: int = 5) -> List[str]:
+    """チャンクから主要概念を抽出
+
+    Args:
+        chunk_text: テキスト
+        lang: 言語
+        top_n: 抽出する概念数
+
+    Returns:
+        主要概念のリスト
+    """
+    # KeywordExtractorを使用
+    extractor = get_keyword_extractor()
+    keywords = extractor.extract(chunk_text, top_n=top_n)
+
+    # 複雑度分析から専門用語も追加
+    complexity = analyze_chunk_complexity(chunk_text, lang)
+    technical_terms = complexity.get("technical_terms", [])
+
+    # 重複を除いて統合
+    all_concepts = list(set(keywords + technical_terms[:3]))
+
+    return all_concepts[:top_n]
 
 # ==========================================
 # セマンティックチャンク作成関数
@@ -1523,10 +1635,18 @@ def save_results(
     with open(qa_file, 'w', encoding='utf-8') as f:
         json.dump(qa_pairs, f, ensure_ascii=False, indent=2)
 
-    # Q/Aペアを保存（CSV）
+    # Q/Aペアを保存（CSV - 全カラム）
     qa_csv_file = output_path / f"qa_pairs_{dataset_type}_{timestamp}.csv"
     qa_df = pd.DataFrame(qa_pairs)
     qa_df.to_csv(qa_csv_file, index=False, encoding='utf-8')
+
+    # Q/Aペアを保存（CSV - question/answerのみの統一フォーマット）
+    qa_simple_file = Path("qa_output") / f"a02_qa_pairs_{dataset_type}.csv"
+    qa_simple_file.parent.mkdir(parents=True, exist_ok=True)
+    if 'question' in qa_df.columns and 'answer' in qa_df.columns:
+        qa_simple_df = qa_df[['question', 'answer']]
+        qa_simple_df.to_csv(qa_simple_file, index=False, encoding='utf-8')
+        logger.info(f"統一フォーマットCSV保存: {qa_simple_file} ({len(qa_simple_df)}件)")
 
     # カバレージ分析結果を保存
     coverage_file = output_path / f"coverage_{dataset_type}_{timestamp}.json"

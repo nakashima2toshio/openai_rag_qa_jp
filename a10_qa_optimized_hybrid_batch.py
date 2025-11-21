@@ -507,7 +507,7 @@ def save_batch_results(
     with open(summary_file, 'w', encoding='utf-8') as f:
         json.dump(generation_results['summary'], f, ensure_ascii=False, indent=2)
 
-    # 2. Q/Aペア（CSV）
+    # 2. Q/Aペア（CSV - 全カラム）
     qa_data = []
     for doc_result in generation_results['results']:
         doc_id = doc_result['doc_id']
@@ -524,6 +524,14 @@ def save_batch_results(
         qa_df = pd.DataFrame(qa_data)
         qa_csv = output_path / f"batch_qa_pairs_{dataset_name}_{model_suffix}_b{batch_size}_{timestamp}.csv"
         qa_df.to_csv(qa_csv, index=False, encoding='utf-8')
+
+        # Q/Aペアを保存（CSV - question/answerのみの統一フォーマット）
+        qa_simple_file = Path("qa_output") / f"a10_qa_pairs_{dataset_name}.csv"
+        qa_simple_file.parent.mkdir(parents=True, exist_ok=True)
+        if 'question' in qa_df.columns and 'answer' in qa_df.columns:
+            qa_simple_df = qa_df[['question', 'answer']]
+            qa_simple_df.to_csv(qa_simple_file, index=False, encoding='utf-8')
+            logger.info(f"統一フォーマットCSV保存: {qa_simple_file} ({len(qa_simple_df)}件)")
     else:
         qa_csv = None
 

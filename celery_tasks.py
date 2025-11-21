@@ -184,73 +184,97 @@ Output in JSON format:
   ]
 }}"""
 
-        # OpenAI Chat Completions API呼び出し（標準的な方法）
+        # OpenAI API呼び出し（構造化出力API - Structured Outputs）
         logger.info(f"OpenAI API呼び出し開始: モデル={model}")
 
+        qa_pairs = []
+
+        # 構造化出力API（client.responses.parse）を使用
         try:
-            # モデルに応じて適切なパラメータを選択
-            # GPT-5, O-シリーズ（o1, o3, o4など）は max_completion_tokens を使用
-            # GPT-4oシリーズ、GPT-4.1などは max_tokens を使用
-            is_new_model = any(model.startswith(prefix) for prefix in ["gpt-5", "o1", "o3", "o4"])
+            # プロンプトを結合
+            combined_input = f"{system_prompt}\n\n{user_prompt}"
 
-            api_params = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                "response_format": {"type": "json_object"}  # JSON形式を強制
-            }
+            # 最新のresponses.parse APIを使用
+            response = client.responses.parse(
+                input=combined_input,
+                model=model,
+                text_format=QAPairsResponse,  # Pydanticモデルを直接指定
+                max_output_tokens=1000
+            )
 
-            # モデルに応じてパラメータを追加
-            if is_new_model:
-                # GPT-5/O-シリーズ: temperatureは指定不可（デフォルトの1のみ）
-                api_params["max_completion_tokens"] = 1000
-            else:
-                # GPT-4シリーズ: 通常のパラメータ
-                api_params["temperature"] = 0.7
-                api_params["max_tokens"] = 1000
+            logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
 
-            # 標準的なChat Completions APIを使用
-            response = client.chat.completions.create(**api_params)
+            # レスポンスから解析済みデータを取得
+            for output in response.output:
+                if output.type == "message":
+                    for item in output.content:
+                        if item.type == "output_text" and item.parsed:
+                            parsed_response = item.parsed
 
-            logger.info(f"OpenAI API呼び出し成功")
+                            if not parsed_response:
+                                logger.error(f"OpenAI APIが空のレスポンスを返しました")
+                                raise ValueError("Empty response from OpenAI API")
 
-            # レスポンス解析（空レスポンス対策）
-            import json
-            response_text = response.choices[0].message.content
+                            for qa_data in parsed_response.qa_pairs:
+                                qa = {
+                                    "question": qa_data.question,
+                                    "answer": qa_data.answer,
+                                    "question_type": qa_data.question_type,
+                                    "source_chunk_id": chunk_data.get('id', ''),
+                                    "doc_id": chunk_data.get('doc_id', ''),
+                                    "dataset_type": chunk_data.get('dataset_type', ''),
+                                    "chunk_idx": chunk_data.get('chunk_idx', 0)
+                                }
+                                qa_pairs.append(qa)
 
-            # 空レスポンスチェック
-            if not response_text or response_text.strip() == "":
-                logger.error(f"OpenAI APIが空のレスポンスを返しました")
-                raise ValueError("Empty response from OpenAI API")
+        except Exception as e:
+            logger.error(f"構造化出力API呼び出しエラー: {str(e)}")
+            logger.info("フォールバック: 通常のChat Completions APIを使用")
 
-            logger.debug(f"API応答（最初の200文字）: {response_text[:200]}...")
-
-            # JSON解析前の検証
+            # フォールバック処理
             try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+
+                logger.info(f"OpenAI API呼び出し成功（フォールバック）")
+
+                # レスポンス解析（空レスポンス対策）
+                import json
+                response_text = response.choices[0].message.content
+
+                # 空レスポンスチェック
+                if not response_text or response_text.strip() == "":
+                    logger.error(f"OpenAI APIが空のレスポンスを返しました")
+                    raise ValueError("Empty response from OpenAI API")
+
+                logger.debug(f"API応答（最初の200文字）: {response_text[:200]}...")
+
+                # JSON解析前の検証
                 parsed_data = json.loads(response_text)
-            except json.JSONDecodeError as json_err:
-                logger.error(f"JSON解析エラー: {json_err}")
-                logger.error(f"レスポンステキスト全文: {response_text}")
-                raise ValueError(f"Invalid JSON response: {json_err}")
-            qa_pairs = []
 
-            for qa_data in parsed_data.get('qa_pairs', []):
-                qa = {
-                    "question": qa_data.get('question', ''),
-                    "answer": qa_data.get('answer', ''),
-                    "question_type": qa_data.get('question_type', 'fact'),
-                    "source_chunk_id": chunk_data.get('id', ''),
-                    "doc_id": chunk_data.get('doc_id', ''),
-                    "dataset_type": chunk_data.get('dataset_type', ''),
-                    "chunk_idx": chunk_data.get('chunk_idx', 0)
-                }
-                qa_pairs.append(qa)
+                for qa_data in parsed_data.get('qa_pairs', []):
+                    qa = {
+                        "question": qa_data.get('question', ''),
+                        "answer": qa_data.get('answer', ''),
+                        "question_type": qa_data.get('question_type', 'fact'),
+                        "source_chunk_id": chunk_data.get('id', ''),
+                        "doc_id": chunk_data.get('doc_id', ''),
+                        "dataset_type": chunk_data.get('dataset_type', ''),
+                        "chunk_idx": chunk_data.get('chunk_idx', 0)
+                    }
+                    qa_pairs.append(qa)
 
-        except Exception as api_error:
-            logger.error(f"OpenAI API呼び出しエラー: {str(api_error)}")
-            raise
+            except Exception as api_error:
+                logger.error(f"フォールバックAPIも失敗: {str(api_error)}")
+                raise
 
         logger.info(f"タスク完了: チャンク {chunk_data.get('id')} - {len(qa_pairs)}個のQ/A生成")
 
@@ -388,43 +412,100 @@ Output in JSON format:
   ]
 }}"""
 
-        # OpenAI API呼び出し
-        combined_input = f"{system_prompt}\n\n{user_prompt}"
+        # OpenAI API呼び出し（構造化出力API - Structured Outputs）
+        logger.info(f"OpenAI API呼び出し開始: モデル={model}")
 
-        response = client.responses.parse(
-            input=combined_input,
-            model=model,
-            text_format=QAPairsResponse,
-            max_output_tokens=4000
-        )
+        # 構造化出力API（client.responses.parse）を使用
+        try:
+            # プロンプトを結合
+            combined_input = f"{system_prompt}\n\n{user_prompt}"
 
-        # レスポンス解析とQ/Aペア分配
-        for output in response.output:
-            if output.type == "message":
-                for item in output.content:
-                    if item.type == "output_text" and item.parsed:
-                        parsed_data = item.parsed
+            # 最新のresponses.parse APIを使用
+            response = client.responses.parse(
+                input=combined_input,
+                model=model,
+                text_format=QAPairsResponse,  # Pydanticモデルを直接指定
+                max_output_tokens=2000
+            )
 
-                        # 各チャンクにQ/Aを割り当て
-                        qa_index = 0
-                        for i, chunk in enumerate(chunks, 1):
-                            chunk_key = f"chunk_{i}"
-                            expected_pairs = chunks_data[chunk_key]["num_pairs"]
+            logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
 
-                            for _ in range(expected_pairs):
-                                if qa_index < len(parsed_data.qa_pairs):
-                                    qa_data = parsed_data.qa_pairs[qa_index]
-                                    qa = {
-                                        "question": qa_data.question,
-                                        "answer": qa_data.answer,
-                                        "question_type": qa_data.question_type,
-                                        "source_chunk_id": chunk.get('id', ''),
-                                        "doc_id": chunk.get('doc_id', ''),
-                                        "dataset_type": chunk.get('dataset_type', ''),
-                                        "chunk_idx": chunk.get('chunk_idx', 0)
-                                    }
-                                    all_qa_pairs.append(qa)
-                                    qa_index += 1
+            # レスポンスから解析済みデータを取得
+            for output in response.output:
+                if output.type == "message":
+                    for item in output.content:
+                        if item.type == "output_text" and item.parsed:
+                            parsed_response = item.parsed
+
+                            if not parsed_response:
+                                logger.error(f"OpenAI APIが空のレスポンスを返しました")
+                                raise ValueError("Empty response from OpenAI API")
+
+                            # レスポンス解析とQ/Aペア分配
+                            qa_index = 0
+                            for i, chunk in enumerate(chunks, 1):
+                                chunk_key = f"chunk_{i}"
+                                expected_pairs = chunks_data[chunk_key]["num_pairs"]
+
+                                for _ in range(expected_pairs):
+                                    if qa_index < len(parsed_response.qa_pairs):
+                                        qa_data = parsed_response.qa_pairs[qa_index]
+                                        qa = {
+                                            "question": qa_data.question,
+                                            "answer": qa_data.answer,
+                                            "question_type": qa_data.question_type,
+                                            "source_chunk_id": chunk.get('id', ''),
+                                            "doc_id": chunk.get('doc_id', ''),
+                                            "dataset_type": chunk.get('dataset_type', ''),
+                                            "chunk_idx": chunk.get('chunk_idx', 0)
+                                        }
+                                        all_qa_pairs.append(qa)
+                                        qa_index += 1
+
+        except Exception as e:
+            logger.error(f"構造化出力API呼び出しエラー: {str(e)}")
+            logger.info("フォールバック: 通常のChat Completions APIを使用")
+
+            # フォールバック処理
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7,
+                max_tokens=2000
+            )
+
+            import json
+            response_text = response.choices[0].message.content
+
+            if not response_text or response_text.strip() == "":
+                raise ValueError("Empty response from OpenAI API")
+
+            parsed_data = json.loads(response_text)
+
+            # レスポンス解析とQ/Aペア分配
+            qa_index = 0
+            for i, chunk in enumerate(chunks, 1):
+                chunk_key = f"chunk_{i}"
+                expected_pairs = chunks_data[chunk_key]["num_pairs"]
+
+                for _ in range(expected_pairs):
+                    if qa_index < len(parsed_data.get('qa_pairs', [])):
+                        qa_data = parsed_data['qa_pairs'][qa_index]
+                        qa = {
+                            "question": qa_data.get('question', ''),
+                            "answer": qa_data.get('answer', ''),
+                            "question_type": qa_data.get('question_type', 'fact'),
+                            "source_chunk_id": chunk.get('id', ''),
+                            "doc_id": chunk.get('doc_id', ''),
+                            "dataset_type": chunk.get('dataset_type', ''),
+                            "chunk_idx": chunk.get('chunk_idx', 0)
+                        }
+                        all_qa_pairs.append(qa)
+                        qa_index += 1
 
         logger.info(f"バッチタスク完了: {len(chunks)}チャンク - {len(all_qa_pairs)}個のQ/A生成")
 

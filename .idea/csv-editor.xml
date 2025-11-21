@@ -31,20 +31,6 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/qa_output/a02/qa_pairs_livedoor_20251117_113110.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/qa_output/a02/qa_pairs_livedoor_20251117_183846.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="/qa_output/a02_qa_pairs_cc_news.csv">
           <value>
             <Attribute>

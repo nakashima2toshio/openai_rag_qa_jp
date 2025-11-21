@@ -1345,10 +1345,18 @@ def save_results(
     with open(qa_file, 'w', encoding='utf-8') as f:
         json.dump(qa_pairs, f, ensure_ascii=False, indent=2)
 
-    # Q/Aペアを保存（CSV）
+    # Q/Aペアを保存（CSV - 全カラム）
     qa_csv_file = output_path / f"qa_pairs_{dataset_type}_{timestamp}.csv"
     qa_df = pd.DataFrame(qa_pairs)
     qa_df.to_csv(qa_csv_file, index=False, encoding='utf-8')
+
+    # Q/Aペアを保存（CSV - question/answerのみの統一フォーマット）
+    qa_simple_file = Path("qa_output") / f"a02_qa_pairs_{dataset_type}.csv"
+    qa_simple_file.parent.mkdir(parents=True, exist_ok=True)
+    if 'question' in qa_df.columns and 'answer' in qa_df.columns:
+        qa_simple_df = qa_df[['question', 'answer']]
+        qa_simple_df.to_csv(qa_simple_file, index=False, encoding='utf-8')
+        logger.info(f"統一フォーマットCSV保存: {qa_simple_file} ({len(qa_simple_df)}件)")
 
     # カバレージ分析結果を保存
     coverage_file = output_path / f"coverage_{dataset_type}_{timestamp}.json"
