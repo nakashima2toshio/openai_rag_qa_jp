@@ -31,6 +31,55 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/data/RAG-Evaluation-Dataset-JA.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/data/qa_pairs_by_domain/qa_pairs_finance.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/data/qa_pairs_by_domain/qa_pairs_it.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/data/qa_pairs_by_domain/qa_pairs_public.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/data/qa_pairs_by_domain/qa_pairs_retail.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/data/qa_pairs_full.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/data/qa_pairs_simple.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/qa_output/a02_qa_pairs_cc_news.csv">
           <value>
             <Attribute>
@@ -81,6 +130,20 @@
           </value>
         </entry>
         <entry key="/qa_output/a10_qa_pairs_livedoor.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/qa_pairs_upload_20251122_182325.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/qa_pairs_upload_20251122_182355.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />

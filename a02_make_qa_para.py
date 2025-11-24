@@ -34,17 +34,15 @@ Celeryによる非同期並列処理をサポート（複数ワーカーで同�
 使用手順
 
 1. Celeryワーカーの確認と再起動
-
-# 既存のタスクをクリア
-redis-cli FLUSHDB
-
-# ワーカーを再起動
-./start_celery.sh restart -w 24
-
 # ワーカーの動作確認
 python test_celery.py
-
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
 2. 少数でテスト実行（進捗表示付き）
+# 1. Celeryワーカーを再起動
+  redis-cli FLUSHDB && ./start_celery.sh restart -w 24
+
+# 2. デバッグモードでテスト実行（1チャンクのみ）
+python a02_make_qa_para.py --dataset cc_news --use-celery --celery-workers 24 --batch-chunks 1 --max-docs 1 --model gpt-4o-mini
 
 python a02_make_qa_para.py \
   --dataset cc_news \
@@ -55,7 +53,21 @@ python a02_make_qa_para.py \
   --min-tokens 150 \
   --max-tokens 400 \
   --coverage-threshold 0.58 \
-  --model gpt-5-nano \
+  --model gpt-4o-mini \
+  --analyze-coverage
+
+
+python a02_make_qa_para.py \
+  --input-file qa_output/qa_pairs_upload_20251122_182355.csv\
+  --use-celery \
+  --celery-workers 24 \
+  --batch-chunks 3 \
+  --max-docs 10 \
+  --merge-chunks \
+  --min-tokens 150 \
+  --max-tokens 400 \
+  --coverage-threshold 0.58 \
+  --model gpt-4o-mini \
   --analyze-coverage
 
 ーーーー
@@ -70,7 +82,7 @@ python a02_make_qa_para.py \
   --min-tokens 150 \
   --max-tokens 400 \
   --coverage-threshold 0.58 \
-  --model gpt-5-nano \
+  --model gpt-4o-mini \
   --analyze-coverage
 
 3. 問題診断
@@ -109,7 +121,7 @@ python a02_make_qa_para.py \
     --merge-chunks \
     --min-tokens 100 \
     --max-tokens 300 \
-    --model gpt-5-mini \
+    --model gpt-4o-mini \
     --max-docs 20 \
     --analyze-coverage
 
@@ -134,7 +146,7 @@ python a02_make_qa_para.py \
     --merge-chunks \
     --min-tokens 100 \
     --max-tokens 300 \
-    --model gpt-5-mini \
+    --model gpt-4o-mini \
     --max-docs 20 \
     --analyze-coverage
 
@@ -169,11 +181,11 @@ python a02_make_qa_para.py \
  ----------------------------------------------------------
     python a02_make_qa_para.py --dataset cc_news --batch-chunks 5 --merge-chunks --analyze-coverage
 
-    # データセット別テスト実行
-    python a02_make_qa_para.py --dataset cc_news --model gpt-5-mini --batch-chunks 5  --analyze-coverage --max-docs 10
-    python a02_make_qa_para.py --dataset wikipedia_ja --model gpt-5-mini  --analyze-coverage --max-docs 10
-    python a02_make_qa_para.py --dataset japanese_text --model gpt-5-mini  --analyze-coverage --max-docs 10
-    python a02_make_qa_para.py --dataset livedoor --model gpt-5-mini --analyze-coverage --max-docs 100
+    # データセット別テスト実行（推奨: gpt-4o-miniモデルを使用）
+    python a02_make_qa_para.py --dataset cc_news --model gpt-4o-mini --batch-chunks 5  --analyze-coverage --max-docs 10
+    python a02_make_qa_para.py --dataset wikipedia_ja --model gpt-4o-mini  --analyze-coverage --max-docs 10
+    python a02_make_qa_para.py --dataset japanese_text --model gpt-4o-mini  --analyze-coverage --max-docs 10
+    python a02_make_qa_para.py --dataset livedoor --model gpt-4o-mini --analyze-coverage --max-docs 100
 """
 
 import os
@@ -571,6 +583,165 @@ def create_semantic_chunks(text: str, lang: str = "ja", max_tokens: int = 200, c
 # データ読み込み・前処理
 # ==========================================
 
+def load_uploaded_file(file_path: str) -> pd.DataFrame:
+    """
+    ローカルファイルを読み込み（a00_rag.pyと同等）
+
+    CSV/TXT/JSON/JSONL形式に対応し、Combined_Textカラムを自動生成
+
+    Args:
+        file_path: ファイルパス
+
+    Returns:
+        Combined_Textカラムを含むDataFrame
+    """
+    from helper_rag import clean_text
+
+    file_path_obj = Path(file_path)
+    if not file_path_obj.exists():
+        raise FileNotFoundError(f"ファイルが見つかりません: {file_path}")
+
+    file_extension = file_path_obj.suffix.lower().lstrip('.')
+
+    logger.info(f"ローカルファイル読み込み中: {file_path} (形式: {file_extension})")
+
+    try:
+        if file_extension == 'csv':
+            # CSVファイル
+            df = pd.read_csv(file_path)
+
+        elif file_extension in ['txt', 'text']:
+            # テキストファイル（1行1ドキュメント）
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            df = pd.DataFrame({'text': lines})
+
+        elif file_extension == 'json':
+            # JSONファイル
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict):
+                df = pd.DataFrame([data])
+            else:
+                raise ValueError("JSONファイルはリストまたはオブジェクトである必要があります")
+
+        elif file_extension == 'jsonl':
+            # JSON Linesファイル
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = [json.loads(line) for line in f if line.strip()]
+            df = pd.DataFrame(lines)
+
+        else:
+            raise ValueError(f"未対応のファイル形式: {file_extension}")
+
+        logger.info(f"  ✅ {len(df)} 件のデータを読み込みました")
+
+        # Combined_Textカラムの作成
+        if 'Combined_Text' not in df.columns:
+            # テキストフィールドを探す
+            text_candidates = ['text', 'content', 'body', 'document', 'answer', 'question']
+            found_field = None
+
+            for field in text_candidates:
+                if field in df.columns:
+                    found_field = field
+                    break
+
+            if found_field:
+                df['Combined_Text'] = df[found_field].apply(
+                    lambda x: clean_text(str(x)) if x is not None else ""
+                )
+                logger.info(f"  ✅ '{found_field}' カラムからCombined_Textを生成")
+            else:
+                # 全カラムを結合
+                df['Combined_Text'] = df.apply(
+                    lambda row: " ".join([str(v) for v in row.values if v is not None]),
+                    axis=1
+                )
+                logger.info(f"  ✅ 全カラムを結合してCombined_Textを生成")
+
+        # 空のテキストを除外
+        before_len = len(df)
+        df = df[df['Combined_Text'].str.strip() != '']
+        removed = before_len - len(df)
+        if removed > 0:
+            logger.info(f"  📊 空データ除外: {removed} 件を除外（残り {len(df)} 件）")
+
+        df = df.reset_index(drop=True)
+        logger.info(f"読み込み完了: {len(df)}件のデータ")
+
+        return df
+
+    except Exception as e:
+        logger.error(f"ファイル読み込みエラー: {e}")
+        raise
+
+
+def load_local_qa_file(file_path: str) -> pd.DataFrame:
+    """ローカルのQ/A CSVファイルを読み込み（後方互換性のため維持）
+
+    Args:
+        file_path: CSVファイルのパス
+
+    Returns:
+        question, answerカラムを含むDataFrame
+    """
+    if not Path(file_path).exists():
+        raise FileNotFoundError(f"ファイルが見つかりません: {file_path}")
+
+    logger.info(f"ローカルQ/Aファイル読み込み中: {file_path}")
+    df = pd.read_csv(file_path)
+
+    # question, answerカラムを探す
+    question_col = None
+    answer_col = None
+
+    for col in df.columns:
+        col_lower = col.lower()
+        if 'question' in col_lower and not question_col:
+            question_col = col
+        if 'answer' in col_lower and not answer_col:
+            answer_col = col
+
+    # question, answerカラムがない場合はエラー
+    if not question_col or not answer_col:
+        raise ValueError(f"question または answer カラムが見つかりません。カラム: {df.columns.tolist()}")
+
+    logger.info(f"  ✅ questionカラム: {question_col}")
+    logger.info(f"  ✅ answerカラム: {answer_col}")
+
+    # question, answerのみ抽出
+    df_qa = df[[question_col, answer_col]].copy()
+    df_qa.columns = ['question', 'answer']  # カラム名を統一
+
+    # 空のデータを除外
+    before_len = len(df_qa)
+    df_qa = df_qa.dropna(subset=['question', 'answer'])
+    df_qa = df_qa[
+        (df_qa['question'].str.strip() != '') &
+        (df_qa['answer'].str.strip() != '')
+    ]
+    removed = before_len - len(df_qa)
+    if removed > 0:
+        logger.info(f"📊 空データ除外: {removed} 件を除外（残り {len(df_qa)} 件）")
+
+    # 重複除去
+    before_len = len(df_qa)
+    df_qa = df_qa.drop_duplicates()
+    removed = before_len - len(df_qa)
+    if removed > 0:
+        logger.info(f"📊 重複除去: {removed} 件を除外（残り {len(df_qa)} 件）")
+
+    df_qa = df_qa.reset_index(drop=True)
+    logger.info(f"読み込み完了: {len(df_qa)}件のQ/Aペア")
+
+    return df_qa
+
+
 def load_preprocessed_data(dataset_type: str) -> pd.DataFrame:
     """preprocessedデータを読み込み
     Args:
@@ -601,16 +772,21 @@ def load_preprocessed_data(dataset_type: str) -> pd.DataFrame:
     return df
 
 
-def create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Optional[int] = None) -> List[Dict]:
+def create_document_chunks(df: pd.DataFrame, dataset_type: str, max_docs: Optional[int] = None, config: Optional[Dict] = None) -> List[Dict]:
     """DataFrameから文書チャンクを作成（セマンティック分割）
     Args:
         df: データフレーム
         dataset_type: データセットタイプ
         max_docs: 処理する最大文書数
+        config: データセット設定（指定がない場合はDATASET_CONFIGSから取得）
     Returns:
         チャンクのリスト
     """
-    config = DATASET_CONFIGS[dataset_type]
+    if config is None:
+        config = DATASET_CONFIGS.get(dataset_type)
+        if not config:
+            raise ValueError(f"未対応のデータセット: {dataset_type}")
+
     text_col = config["text_column"]
     title_col = config.get("title_column")
     chunk_size = config["chunk_size"]
@@ -1141,7 +1317,8 @@ def generate_qa_for_dataset(
     chunk_batch_size: int = 3,
     merge_chunks: bool = True,
     min_tokens: int = 150,
-    max_tokens: int = 400
+    max_tokens: int = 400,
+    config: Optional[Dict] = None
 ) -> List[Dict]:
     """データセット全体のQ/Aペア生成（改善版）
     Args:
@@ -1152,10 +1329,15 @@ def generate_qa_for_dataset(
         merge_chunks: 小さいチャンクを統合するか
         min_tokens: 統合対象の最小トークン数
         max_tokens: 統合後の最大トークン数
+        config: データセット設定（指定がない場合はDATASET_CONFIGSから取得）
     Returns:
         生成されたQ/Aペアのリスト
     """
-    config = DATASET_CONFIGS[dataset_type]
+    if config is None:
+        config = DATASET_CONFIGS.get(dataset_type)
+        if not config:
+            raise ValueError(f"未対応のデータセット: {dataset_type}")
+
     client = OpenAI()
     all_qa_pairs = []
 
@@ -1666,9 +1848,10 @@ def save_results(
         json.dump(coverage_save, f, ensure_ascii=False, indent=2)
 
     # サマリー情報を保存
+    dataset_name = DATASET_CONFIGS.get(dataset_type, {}).get("name", dataset_type)
     summary = {
         "dataset_type": dataset_type,
-        "dataset_name": DATASET_CONFIGS[dataset_type]["name"],
+        "dataset_name": dataset_name,
         "generated_at": timestamp,
         "total_qa_pairs": len(qa_pairs),
         "coverage_rate": coverage_results['coverage_rate'],
@@ -1708,8 +1891,14 @@ def main():
         "--dataset",
         type=str,
         choices=list(DATASET_CONFIGS.keys()),
-        default="cc_news",
-        help="処理するデータセット"
+        default=None,
+        help="処理するデータセット（--input-fileとは排他）"
+    )
+    parser.add_argument(
+        "--input-file",
+        type=str,
+        default=None,
+        help="ローカルQ/A CSVファイルのパス（question, answerカラム必須）"
     )
     parser.add_argument(
         "--model",
@@ -1791,11 +1980,45 @@ def main():
         logger.error("OPENAI_API_KEYが設定されていません")
         sys.exit(1)
 
+    # --dataset と --input-file の排他チェック
+    if args.dataset and args.input_file:
+        logger.error("--dataset と --input-file は同時に指定できません")
+        sys.exit(1)
+
+    if not args.dataset and not args.input_file:
+        logger.error("--dataset または --input-file のいずれかを指定してください")
+        sys.exit(1)
+
+    # ローカルファイル処理の場合はdataset_typeとconfigを動的に生成
+    if args.input_file:
+        dataset_type = "custom_upload"
+        # ファイル名からベース名を取得
+        file_basename = Path(args.input_file).stem
+
+        # 言語を推定（簡易版：ファイル名やデータから判定）
+        # TODO: より精密な言語判定が必要な場合は後で実装
+        lang = "ja"  # デフォルトは日本語
+
+        config = {
+            "name": f"ローカルファイル ({file_basename})",
+            "text_column": "Combined_Text",
+            "title_column": None,
+            "lang": lang,
+            "chunk_size": 300,  # デフォルト値
+            "qa_per_chunk": 3,
+        }
+
+        dataset_name = config['name']
+    else:
+        dataset_type = args.dataset
+        config = DATASET_CONFIGS[dataset_type]
+        dataset_name = config['name']
+
     logger.info(f"""
     =====================================
     Q/Aペア生成開始
     =====================================
-    データセット: {DATASET_CONFIGS[args.dataset]['name']}
+    データセット: {dataset_name}
     モデル: {args.model}
     出力先: {args.output}
     最大文書数: {args.max_docs if args.max_docs else '制限なし'}
@@ -1805,11 +2028,24 @@ def main():
     try:
         # 1. データ読み込み
         logger.info("\n[1/4] データ読み込み...")
-        df = load_preprocessed_data(args.dataset)
+
+        if args.input_file:
+            # ローカルファイル読み込み
+            df = load_uploaded_file(args.input_file)
+
+            # max_docs制限を適用
+            if args.max_docs and len(df) > args.max_docs:
+                df = df.head(args.max_docs)
+                logger.info(f"  📊 最大文書数制限: {len(df)} 件に制限")
+        else:
+            # 既存のpreprocessedデータ読み込み
+            df = load_preprocessed_data(dataset_type)
 
         # 2. チャンク作成
         logger.info("\n[2/4] チャンク作成...")
-        chunks = create_document_chunks(df, args.dataset, args.max_docs)
+        # ローカルファイルの場合、max_docsは読み込み時に適用済み
+        max_docs_for_chunks = None if args.input_file else args.max_docs
+        chunks = create_document_chunks(df, dataset_type, max_docs_for_chunks, config=config)
 
         if not chunks:
             logger.error("チャンクが作成されませんでした")
@@ -1830,8 +2066,7 @@ def main():
             # Celeryタスクのインポート
             from celery_tasks import submit_parallel_qa_generation, collect_results
 
-            # チャンクの前処理
-            config = DATASET_CONFIGS[args.dataset]
+            # チャンクの前処理（configは既に定義済み）
             if args.merge_chunks:
                 from a02_make_qa_para import merge_small_chunks
                 processed_chunks = merge_small_chunks(chunks, args.min_tokens, args.max_tokens)
@@ -1852,12 +2087,13 @@ def main():
             logger.info(f"オプション: バッチサイズ={args.batch_chunks}, チャンク統合={'有効' if args.merge_chunks else '無効'}")
             qa_pairs = generate_qa_for_dataset(
                 chunks,
-                args.dataset,
+                dataset_type,
                 args.model,
                 chunk_batch_size=args.batch_chunks,
                 merge_chunks=args.merge_chunks,
                 min_tokens=args.min_tokens,
-                max_tokens=args.max_tokens
+                max_tokens=args.max_tokens,
+                config=config
             )
 
         if not qa_pairs:
@@ -1868,7 +2104,7 @@ def main():
         if args.analyze_coverage and qa_pairs:
             logger.info("\n[4/4] カバレージ分析...")
             coverage_results = analyze_coverage(
-                chunks, qa_pairs, args.dataset,
+                chunks, qa_pairs, dataset_type,
                 custom_threshold=args.coverage_threshold
             )
 
@@ -1889,7 +2125,7 @@ def main():
 
         # 5. 結果保存
         logger.info("\n結果を保存中...")
-        saved_files = save_results(qa_pairs, coverage_results, args.dataset, args.output)
+        saved_files = save_results(qa_pairs, coverage_results, dataset_type, args.output)
 
         # 完了メッセージ
         logger.info(f"""

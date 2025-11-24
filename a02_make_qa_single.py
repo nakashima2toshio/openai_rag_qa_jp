@@ -19,24 +19,26 @@ OUTPUTフォルダ内のpreprocessedファイルから自動的にQ/Aペアを�
 実行コマンド：
 python a02_make_qa_para.py \
     --dataset cc_news \
-    --batch-chunks 3 \     # 5→3: より丁寧な処理
+    --batch-chunks 3 \
     --merge-chunks \
-    --min-tokens 100 \     # 150→100: 小チャンク削減
-    --max-tokens 300 \     # 400→300: 過度な統合防止
-    --model gpt-5-mini \
+    --min-tokens 100 \
+    --max-tokens 300 \
+    --model gpt-4o-mini \
     --analyze-coverage
 
 # 全7,352文書の処理は約212時間（8.8日）かかると予測されます。
 # 実用上は--max-docsで制限するか、データを分割して実行することを強く推奨します。
-# 以下で、33分：
-python a02_make_qa_para.py \
+# 以下で、3.3分：
+redis-cli FLUSHDB && ./start_celery.sh restart -w 24
+
+python a02_make_qa_single.py \
   --dataset livedoor \
   --batch-chunks 3 \
   --merge-chunks \
   --min-tokens 100 \
   --max-tokens 300 \
-  --model gpt-5-mini \
-  --max-docs 20 \
+  --model gpt-4o-mini \
+  --max-docs 2 \
   --analyze-coverage
 
 
@@ -47,7 +49,7 @@ python a02_make_qa_para.py \
       --merge-chunks \
       --min-tokens 150 \
       --max-tokens 400 \
-      --model gpt-5-mini \
+      --model gpt-4o-mini \
       --analyze-coverage
 
 
@@ -75,10 +77,10 @@ python a02_make_qa_para.py \
     python a02_make_qa_para.py --dataset cc_news --batch-chunks 5 --merge-chunks --analyze-coverage
 
     # データセット別テスト実行
-    python a02_make_qa_para.py --dataset cc_news --model gpt-5-mini --batch-chunks 5  --analyze-coverage --max-docs 10
-    python a02_make_qa_para.py --dataset wikipedia_ja --model gpt-5-mini  --analyze-coverage --max-docs 10
-    python a02_make_qa_para.py --dataset japanese_text --model gpt-5-mini  --analyze-coverage --max-docs 10
-    python a02_make_qa_para.py --dataset livedoor --model gpt-5-mini --analyze-coverage --max-docs 100
+    python a02_make_qa_para.py --dataset cc_news --model gpt-4o-mini --batch-chunks 5  --analyze-coverage --max-docs 10
+    python a02_make_qa_para.py --dataset wikipedia_ja --model gpt-4o-mini  --analyze-coverage --max-docs 10
+    python a02_make_qa_para.py --dataset japanese_text --model gpt-4o-mini  --analyze-coverage --max-docs 10
+    python a02_make_qa_para.py --dataset livedoor --model gpt-4o-mini --analyze-coverage --max-docs 100
 """
 
 import os
@@ -559,7 +561,7 @@ def determine_qa_count(chunk: Dict, config: Dict) -> int:
 def generate_qa_pairs_for_batch(
     chunks: List[Dict],
     config: Dict,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-4o-mini",
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """複数チャンクから一度にQ/Aペアを生成（3チャンクバッチ処理対応）
@@ -740,7 +742,7 @@ Output in JSON format:
 def generate_qa_pairs_for_chunk(
     chunk: Dict,
     config: Dict,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-4o-mini",
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """単一チャンクからQ/Aペアを生成（後方互換性のため維持）
@@ -918,7 +920,7 @@ Output in JSON format:
 def generate_qa_for_dataset(
     chunks: List[Dict],
     dataset_type: str,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-4o-mini",
     chunk_batch_size: int = 3,
     merge_chunks: bool = True,
     min_tokens: int = 150,

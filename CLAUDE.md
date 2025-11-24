@@ -121,3 +121,111 @@ Main packages:
 - The codebase uses Japanese variable names and comments in some places
 - Old implementations are archived in the `old_code/` directory
 - Qdrant must be running before using any data registration or search functionality
+
+---
+
+# ⚠️ CRITICAL RULES - MUST READ BEFORE ANY MODIFICATION ⚠️
+
+## 1. OpenAI Model Names - NEVER CREATE MAPPINGS
+
+**ALL these models are REAL and VALID:**
+- `gpt-5-nano`, `gpt-5-mini`, `gpt-5` ← Real GPT-5 series models
+- `gpt-4.1`, `gpt-4.1-mini` ← Real GPT-4.1 models
+- `o3`, `o3-mini`, `o4`, `o4-mini` ← Real O-series models
+
+**❌ NEVER create model name mappings like:**
+```python
+MODEL_MAPPING = {"gpt-5-nano": "gpt-4o-mini"}  # ← WRONG! DO NOT DO THIS
+```
+
+**✅ Use model names directly as they are defined in `helper_rag.py` lines 28-87**
+
+---
+
+## 2. OpenAI API Methods - TWO CORRECT APIS
+
+**Both APIs exist and are correct:**
+
+### Structured Outputs API (Recommended for Q/A generation)
+```python
+response = client.responses.parse(
+    input=combined_input,
+    model=model,
+    text_format=QAPairsResponse,  # Pydantic model for type-safe output
+    max_output_tokens=1000
+)
+```
+- **Purpose**: Type-safe output with Pydantic models
+- **Used in**: `celery_tasks.py:202-207, 429-434`
+- **Documentation**: `doc/helper_api.md` line 14
+
+### Responses API (Standard text generation)
+```python
+response = client.responses.create(
+    input=input_messages,
+    model=model,
+    max_output_tokens=1000
+)
+```
+- **Purpose**: Standard text generation
+- **Used in**: `helper_api.py:743`
+- **Documentation**: `doc/helper_api.md` line 12
+
+**⚠️ Both `.parse()` and `.create()` are CORRECT - use according to purpose**
+
+---
+
+## 3. Mandatory Verification Before Changes
+
+**BEFORE modifying any OpenAI API code, you MUST:**
+
+1. ✅ Read `doc/helper_api.md` (complete API documentation)
+2. ✅ Read `helper_api.py` lines 715-758 (actual implementations)
+3. ✅ Read `helper_rag.py` lines 28-87 (model list)
+4. ✅ Ask yourself: "What does the documentation say?"
+5. ✅ If uncertain → **ASK THE USER FIRST**
+
+---
+
+## 4. Common Mistakes to AVOID
+
+**❌ Mistake 1: Assuming model names are wrong**
+```
+Wrong: "gpt-5-nano returns error, so it must not exist"
+Truth: gpt-5-nano IS a real model - investigate the ACTUAL error cause
+```
+
+**❌ Mistake 2: Confusing parse() and create()**
+```
+Wrong: "responses.parse() doesn't exist, I should use create()"
+Truth: BOTH exist - parse() is for structured output, create() for text
+```
+
+**❌ Mistake 3: "Helpful" mappings**
+```
+Wrong: "I'll create a mapping to translate old models to new ones"
+Truth: Models are already correct - DO NOT create mappings
+```
+
+---
+
+## 5. Emergency Checklist
+
+**Before committing changes, verify:**
+
+- [ ] Did I create a MODEL_MAPPING? (If YES → DELETE IT)
+- [ ] Did I change `responses.parse()` to `responses.create()`? (If YES → REVERT)
+- [ ] Did I read `doc/helper_api.md`? (If NO → READ IT NOW)
+- [ ] Am I certain this is correct? (If NO → ASK USER)
+
+---
+
+## 6. When Errors Occur
+
+**If you see "model not found" or "API error":**
+
+1. ❌ The error is NOT because model name is wrong
+2. ❌ The error is NOT because API method is wrong
+3. ✅ Check: API key, network, Celery workers, Redis connection
+4. ✅ Check: Actual error message and stack trace
+5. ✅ **NEVER "fix" model names or API method names as a first response**

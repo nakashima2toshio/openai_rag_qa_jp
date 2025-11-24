@@ -1,0 +1,202 @@
+{
+  "builder_name": "csv",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "rag-evaluation-dataset-ja",
+  "dataset_size": 5758710,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/allganize/RAG-Evaluation-Dataset-JA@c3a756711f108324d6f27f27093ad2c5eb53f7be/rag_evaluation_result.csv": {
+      "num_bytes": 5726787,
+      "checksum": null
+    }
+  },
+  "download_size": 5726787,
+  "features": {
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "target_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "target_file_name": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "target_page_no": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "domain": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "type": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4o_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4o_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4-turbo_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4-turbo_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4o-mini_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_gpt-4o-mini_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_claude-3.5-sonnet_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_claude-3.5-sonnet_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_alpha-ja-llama3_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "alli_alpha-ja-llama3_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "openai_assistant_gpt-4o_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "openai_assistant_gpt-4o_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "openai_assistant_gpt-4o-mini_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "openai_assistant_gpt-4o-mini_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "openai_assistant_gpt-4-turbo_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "openai_assistant_gpt-4-turbo_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "langchain_gpt-4-turbo_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "langchain_gpt-4-turbo_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "langchain_gpt-4_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "langchain_gpt-4_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "langchain_gpt-4o-mini_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "langchain_gpt-4o-mini_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "cohere_command-r_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "cohere_command-r_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "cohere_command-r-plus_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "cohere_command-r-plus_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4o_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4o_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4o-mini_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4o-mini_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4-turbo_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4-turbo_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "anything_llm_gpt-4_ox": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 11485497,
+  "splits": {
+    "test": {
+      "name": "test",
+      "num_bytes": 5758710,
+      "num_examples": 300,
+      "dataset_name": "rag-evaluation-dataset-ja"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

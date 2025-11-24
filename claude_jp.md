@@ -59,6 +59,22 @@ ruff format .
    - `helper_rag.py`: RAGデータ前処理、設定管理（AppConfigクラス）
    - `helper_st.py`: カスタマーサポートFAQ処理用Streamlitユーティリティ
 
+### OpenAI API リファレンス（重要）
+
+**このプロジェクトでOpenAI APIを扱う際は、必ず以下を参照してください：**
+- **`helper_api.py`**: OpenAI API呼び出しの実装とラッパー
+- **`doc/helper_api.md`**: サポートされているAPIとその使用方法の完全なドキュメント
+
+これらのファイルには、最新のOpenAI API実装パターンが含まれています：
+- **Responses API** (`client.responses.create()`) - developerロールを含む新しいメッセージ形式
+- **Chat Completions API** (`client.chat.completions.create()`) - JSON出力対応の標準チャット形式
+- **Structured Outputs API** (`client.responses.parse()`) - Pydanticモデルによる型安全な出力
+
+このプロジェクトで使用するOpenAIモデル：
+- GPT-4o、GPT-4.1、GPT-5シリーズ - 一般的なテキスト生成用
+- Oシリーズ（o1、o3、o4） - 推論重視のタスク用（temperatureパラメータ非対応）
+- Structured Outputs API - PydanticモデルによるQ&Aペア生成の型安全性
+
 3. **データ管理スクリプト**（aプレフィックス付きファイル）:
    - `a01_load_set_rag_data.py`: RAGデータのロードと設定
    - `a02_set_vector_store_vsid.py`: ベクトルストアIDの設定

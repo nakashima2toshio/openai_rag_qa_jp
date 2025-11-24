@@ -29,6 +29,12 @@ cc_newsドメインのQ&Aデータを、生成方法ごとに別々のコレク�
   # 3. 3つのコレクションにデータを登録
   python a42_qdrant_registration.py --recreate --include-answer
   # -------------------------------------------------------------
+# ローカルデータの登録：
+python a42_qdrant_registration.py \
+    --input-file qa_output/qa_pairs_upload_20251122_182355.csv \
+    --recreate \
+    --include-answer
+  # -------------------------------------------------------------
 
   # 4. 特定のコレクションのみ登録
   python a42_qdrant_registration.py --collection qa_cc_news_a02_llm --recreate
@@ -36,9 +42,16 @@ cc_newsドメインのQ&Aデータを、生成方法ごとに別々のコレク�
   # 5. 検索テスト（特定コレクション）
   python a42_qdrant_registration.py --search "気候変動" --collection qa_cc_news_a02_llm
 
+  # 6. ローカルファイル登録（カスタムアップロード）
+  python a42_qdrant_registration.py --input-file qa_output/qa_pairs_upload_20251122_182355.csv --recreate --include-answer
+
+  # 7. ローカルファイル登録（データ件数制限付き）
+  python a42_qdrant_registration.py --input-file data/my_qa_data.csv --limit 100 --include-answer
+
 主要引数：
   --recreate          : コレクション削除→新規作成
   --collection        : 特定コレクションのみ処理（指定なしで全コレクション）
+  --input-file        : ローカルファイルを登録（CSV/TXT/JSON/JSONL）
   --qdrant-url        : 既定は http://localhost:6333
   --batch-size        : Embeddings/Upsert バッチサイズ（既定 32）
   --limit             : データ件数上限（開発用、0=無制限）
@@ -704,6 +717,8 @@ def main():
                     help="Drop & create collection before upsert.")
     ap.add_argument("--collection", default=None,
                     help="特定コレクションのみ処理（指定なしで全コレクション）")
+    ap.add_argument("--input-file", default=None,
+                    help="ローカルファイルを登録（CSV/TXT/JSON/JSONL）")
     ap.add_argument("--qdrant-url", default=qdrant_url)
     ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--limit", type=int, default=0,
@@ -739,7 +754,57 @@ def main():
         return
 
     # 処理対象のコレクションを決定
-    if args.collection:
+    if args.input_file:
+        # ローカルファイル登録
+        if not os.path.exists(args.input_file):
+            print(f"[ERROR] ファイルが見つかりません: {args.input_file}")
+            return
+
+        # ファイル名からメタデータを自動生成
+        file_path = Path(args.input_file)
+        file_basename = file_path.stem  # 拡張子なしのファイル名
+        file_ext = file_path.suffix.lower().lstrip('.')  # 拡張子
+
+        # コレクション名を生成（例: qa_upload_20251122_182355）
+        # ファイル名から"qa_pairs_"などのプレフィックスを除去
+        clean_name = file_basename.replace('qa_pairs_', '').replace('a02_qa_pairs_', '').replace('a03_qa_pairs_', '').replace('a10_qa_pairs_', '')
+        collection_name = f"qa_{clean_name}"
+
+        # domainを推定（ファイル名から）
+        if 'cc_news' in file_basename.lower():
+            domain = 'cc_news'
+        elif 'livedoor' in file_basename.lower():
+            domain = 'livedoor'
+        elif 'upload' in file_basename.lower():
+            domain = 'custom_upload'
+        else:
+            domain = 'custom'
+
+        # データタイプを判定
+        if file_ext in ['txt', 'text']:
+            data_type = 'raw'
+            generation_method = 'raw_text'
+        else:
+            data_type = 'qa'
+            generation_method = 'custom_upload'
+
+        # 動的にマッピングを生成
+        target_mappings = [{
+            "csv_file": args.input_file,
+            "collection": collection_name,
+            "generation_method": generation_method,
+            "domain": domain,
+            "description": f"カスタムアップロード ({file_basename})",
+            "type": data_type
+        }]
+
+        print(f"\n[INFO] ローカルファイル登録モード")
+        print(f"  ファイル: {args.input_file}")
+        print(f"  コレクション: {collection_name}")
+        print(f"  ドメイン: {domain}")
+        print(f"  タイプ: {data_type}")
+
+    elif args.collection:
         # 特定コレクションのみ
         target_mappings = [m for m in COLLECTION_MAPPINGS if m["collection"] == args.collection]
         if not target_mappings:

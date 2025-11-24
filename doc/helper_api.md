@@ -1,6 +1,51 @@
 # helper_api.py 仕様書
 
 作成日: 2024-10-29
+更新日: 2024-11-21
+
+## OpenAI API 利用状況一覧
+
+### プロジェクト内で使用中のAPI
+
+| API名 | メソッド | 用途 | 使用箇所 | 説明 |
+|------|---------|-----|---------|-----|
+| **Responses API** | `client.responses.create()` | テキスト生成（新形式） | helper_api.py:715-743 | 新しいメッセージ形式（developer role含む）をサポート |
+| **Chat Completions API** | `client.chat.completions.create()` | チャット形式の対話生成 | helper_api.py:747-758 | 従来のチャット形式API、JSON出力対応 |
+| **Structured Outputs API** | `client.responses.parse()` | 構造化出力（Pydantic連携） | celery_tasks.py:198-203,424-429 | Pydanticモデルで型安全な出力を保証 |
+
+### プロジェクトで利用可能な追加API
+
+| API名 | メソッド | 用途 | 対応状況 | 説明 |
+|------|---------|-----|---------|-----|
+| **Embeddings API** | `client.embeddings.create()` | テキストのベクトル化 | 未実装 | RAGシステムでの類似検索用 |
+| **Moderation API** | `client.moderations.create()` | コンテンツの安全性チェック | 未実装 | 不適切なコンテンツの検出 |
+| **Images API** | `client.images.generate()` | 画像生成 | 未実装 | DALL-E 3による画像生成 |
+| **Audio API** | `client.audio.transcriptions.create()` | 音声認識 | 未実装 | Whisperによる文字起こし |
+| **Files API** | `client.files.create()` | ファイル管理 | 未実装 | Fine-tuning用データのアップロード |
+| **Fine-tuning API** | `client.fine_tuning.jobs.create()` | モデルのファインチューニング | 未実装 | カスタムモデルの作成 |
+
+### API使用時の主要パラメータ
+
+| パラメータ | 対応API | 型 | 説明 | デフォルト値 |
+|-----------|--------|---|------|------------|
+| `model` | 全API共通 | str | 使用するモデル名 | "gpt-5-mini" |
+| `messages`/`input` | Responses, Chat | List | 入力メッセージ | 必須 |
+| `temperature` | Chat Completions | float | 生成の多様性（0-2） | 0.7 |
+| `max_tokens` | Chat Completions | int | 最大生成トークン数 | モデル依存 |
+| `max_completion_tokens` | Responses (新モデル) | int | 最大出力トークン数 | 1000 |
+| `max_output_tokens` | Structured Outputs | int | 構造化出力の最大トークン | 1000-2000 |
+| `response_format` | Chat/Structured | dict/Model | 出力形式の指定 | なし |
+| `text_format` | responses.parse | Pydantic Model | 構造化出力の型定義 | 必須 |
+
+### サポートモデル一覧
+
+| モデルシリーズ | モデル名 | 最大入力トークン | 最大出力トークン | 用途 | 備考 |
+|--------------|---------|----------------|----------------|------|------|
+| **GPT-4o** | gpt-4o, gpt-4o-mini | 128,000 | 4,096 | 汎用 | 現行主力モデル |
+| **GPT-4.1** | gpt-4.1, gpt-4.1-mini | 128,000 | 4,096 | 汎用 | 改良版 |
+| **GPT-5** | gpt-5, gpt-5-mini, gpt-5-nano | 未定 | 未定 | 次世代 | 開発中 |
+| **O-Series** | o1, o1-mini | 128,000 | 32,768-65,536 | 推論特化 | temperatureパラメータ非対応 |
+| **O-Series (新)** | o3, o3-mini, o4, o4-mini | 200,000-256,000 | 100,000-128,000 | 大規模推論 | 大容量入出力対応 |
 
 ## 概要
 
