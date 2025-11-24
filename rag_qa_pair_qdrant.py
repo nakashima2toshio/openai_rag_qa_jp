@@ -432,6 +432,63 @@ def load_qa_output_history() -> pd.DataFrame:
     return df_history
 
 
+def load_preprocessed_history() -> pd.DataFrame:
+    """OUTPUT/フォルダから前処理済みCSVファイル一覧を取得"""
+    output_dir = Path("OUTPUT")
+
+    if not output_dir.exists():
+        return pd.DataFrame(columns=["ファイル名", "ファイルサイズ", "作成日付", "データセット名"])
+
+    # preprocessed_*.csvファイルを全て取得
+    csv_files = list(output_dir.glob("preprocessed_*.csv"))
+
+    if not csv_files:
+        return pd.DataFrame(columns=["ファイル名", "ファイルサイズ", "作成日付", "データセット名"])
+
+    history_data = []
+
+    for csv_file in csv_files:
+        try:
+            # ファイル情報を取得
+            file_stat = csv_file.stat()
+            file_size = file_stat.st_size
+            created_time = datetime.fromtimestamp(file_stat.st_mtime)
+
+            # ファイルサイズを人間が読みやすい形式に変換
+            if file_size < 1024:
+                size_str = f"{file_size} B"
+            elif file_size < 1024 * 1024:
+                size_str = f"{file_size / 1024:.1f} KB"
+            else:
+                size_str = f"{file_size / (1024 * 1024):.1f} MB"
+
+            # データセット名を抽出（preprocessed_XXX.csv → XXX）
+            dataset_name = csv_file.stem.replace("preprocessed_", "")
+
+            history_data.append(
+                {
+                    "ファイル名": csv_file.name,
+                    "データセット名": dataset_name,
+                    "ファイルサイズ": size_str,
+                    "作成日付": created_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "_timestamp": created_time,  # ソート用
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"ファイル情報取得エラー {csv_file}: {e}")
+            continue
+
+    # DataFrameに変換して日付でソート（降順：新しいものが上）
+    df_history = pd.DataFrame(history_data)
+
+    if not df_history.empty:
+        df_history = df_history.sort_values("_timestamp", ascending=False)
+        df_history = df_history.drop(columns=["_timestamp"])  # ソート用カラムを削除
+
+    return df_history
+
+
 # ===================================================================
 # ローカルファイル読み込み関数
 # ===================================================================
@@ -928,19 +985,19 @@ def show_rag_download_page():
         "HuggingFaceデータセットまたはローカルファイルをダウンロード・前処理してOUTPUT/フォルダに保存"
     )
 
-    # 最新の情報セクション（qa_output/フォルダ）
-    st.subheader("📋 最新の情報（Q&Aペアデータ）")
-    df_history = load_qa_output_history()
+    # ダウンロード・前処理済みデータセット
+    st.subheader("📦 ダウンロード・前処理済みデータセット")
+    df_preprocessed = load_preprocessed_history()
 
-    if not df_history.empty:
-        st.dataframe(df_history, use_container_width=True, hide_index=True, height=200)
+    if not df_preprocessed.empty:
+        st.dataframe(df_preprocessed, use_container_width=True, hide_index=True, height=200)
     else:
         st.info(
-            "まだQ&Aペアデータがありません。下記からデータセットをダウンロードしてください。"
+            "まだ前処理済みデータがありません。下記からデータセットをダウンロード・前処理してください。"
         )
 
     st.divider()
-    st.caption("データセットの自動ダウンロード → 前処理 → Q&Aペア生成")
+    st.caption("データセットの自動ダウンロード → 前処理 → OUTPUT/フォルダに保存")
 
     # サイドバー：データソース選択
     with st.sidebar:
@@ -998,112 +1055,6 @@ def show_rag_download_page():
                 "sample_size": 0,
                 "min_text_length": 50,
             }
-
-        # =========================================================
-        # 高度なQ/A生成オプション（a02_make_qa_para.py相当）
-        # =========================================================
-        st.divider()
-        st.subheader("🚀 高度なQ/A生成")
-
-        use_advanced_qa = st.checkbox(
-            "高度なQ/A生成を使用",
-            value=False,
-            help="a02_make_qa_para.pyの高度な機能を使用します（Celery並列処理、カバレージ分析など）",
-        )
-
-        if use_advanced_qa:
-            st.caption("⚙️ 処理設定")
-
-            # Celery設定
-            use_celery = st.checkbox(
-                "Celery並列処理", value=True, help="複数ワーカーで並列処理"
-            )
-
-            if use_celery:
-                celery_workers = st.number_input(
-                    "Celeryワーカー数",
-                    min_value=1,
-                    max_value=48,
-                    value=24,
-                    step=1,
-                    help="並列処理するワーカー数",
-                )
-            else:
-                celery_workers = 1
-
-            col_a1, col_a2 = st.columns(2)
-            with col_a1:
-                batch_chunks = st.number_input(
-                    "バッチチャンク数",
-                    min_value=1,
-                    max_value=5,
-                    value=3,
-                    step=1,
-                    help="1回のAPIで処理するチャンク数",
-                )
-
-                max_docs = st.number_input(
-                    "最大ドキュメント数",
-                    min_value=1,
-                    max_value=10000,
-                    value=10,
-                    step=10,
-                    help="処理する最大ドキュメント数",
-                )
-
-            with col_a2:
-                min_tokens = st.number_input(
-                    "最小トークン数",
-                    min_value=50,
-                    max_value=500,
-                    value=150,
-                    step=10,
-                    help="統合対象の最小トークン数",
-                )
-
-                max_tokens = st.number_input(
-                    "最大トークン数",
-                    min_value=100,
-                    max_value=1000,
-                    value=400,
-                    step=50,
-                    help="統合後の最大トークン数",
-                )
-
-            merge_chunks = st.checkbox(
-                "チャンク統合", value=True, help="小さいチャンクを統合"
-            )
-
-            coverage_threshold = st.slider(
-                "カバレージ閾値",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.58,
-                step=0.01,
-                help="カバレージ判定の類似度閾値",
-            )
-
-            advanced_model = st.selectbox(
-                "モデル",
-                options=["gpt-5-nano", "gpt-5-mini", "gpt-5", "gpt-4o-mini", "gpt-4o"],
-                index=3,
-                help="Q/A生成に使用するモデル",
-            )
-
-            analyze_coverage = st.checkbox(
-                "カバレージ分析", value=True, help="Q/Aペアのカバレージを分析"
-            )
-        else:
-            use_celery = False
-            celery_workers = 1
-            batch_chunks = 3
-            max_docs = 10
-            merge_chunks = True
-            min_tokens = 150
-            max_tokens = 400
-            coverage_threshold = 0.58
-            advanced_model = "gpt-4o-mini"
-            analyze_coverage = True
 
     # データソースの表示名
     data_source_name = (
@@ -1173,51 +1124,6 @@ def show_rag_download_page():
             "重複を除去", value=True, help="完全に同じテキストを除外"
         )
 
-    # Q/A生成オプション
-    st.subheader("🤖 Q/A生成オプション")
-
-    col_qa1, col_qa2 = st.columns([1, 1])
-
-    with col_qa1:
-        enable_qa_generation = st.checkbox(
-            "Q/A生成を実行", value=True, help="前処理後に自動的にQ/Aペアを生成します"
-        )
-
-        if enable_qa_generation:
-            chunk_size = st.number_input(
-                "チャンクサイズ（トークン数）",
-                min_value=100,
-                max_value=1000,
-                value=300,
-                step=50,
-                help="テキストを分割するチャンクのサイズ",
-            )
-
-    with col_qa2:
-        if enable_qa_generation:
-            qa_per_chunk = st.number_input(
-                "チャンクあたりのQ/A数",
-                min_value=1,
-                max_value=10,
-                value=3,
-                step=1,
-                help="各チャンクから生成するQ/Aペアの数",
-            )
-
-            qa_model = st.selectbox(
-                "使用モデル",
-                options=[
-                    "gpt-5-nano",
-                    "gpt-5-mini",
-                    "gpt-5",
-                    "gpt-4o-mini",
-                    "gpt-4o",
-                    "gpt-4-turbo",
-                ],
-                index=3,
-                help="Q/A生成に使用するOpenAIモデル",
-            )
-
     # 実行ボタン
     run_download = st.button(
         "🚀 ダウンロード＆前処理開始", type="primary", use_container_width=True
@@ -1278,172 +1184,103 @@ def show_rag_download_page():
                         df = df.head(sample_size)
                         add_log(f"📊 {len(df)} 件に制限しました")
 
-                # 高度なQ/A生成を使用する場合
-                if enable_qa_generation and use_advanced_qa:
-                    # ファイルを一時保存してa02_make_qa_para.pyに渡す
-                    with st.spinner("🚀 高度なQ/Aペア生成準備中..."):
-                        add_log("📁 一時ファイルを作成中...")
+                # ステップ2: question, answerカラムの確認と抽出
+                with st.spinner("⚙️ データ処理中..."):
+                    add_log("⚙️ question, answerカラムを確認中...")
 
-                        # 一時ファイルに保存
-                        temp_dir = Path("temp_uploads")
-                        temp_dir.mkdir(exist_ok=True)
+                    # question, answerカラムを探す
+                    question_col = None
+                    answer_col = None
 
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        temp_filename = f"temp_{timestamp}_{uploaded_file.name}"
-                        temp_path = temp_dir / temp_filename
+                    for col in df.columns:
+                        col_lower = col.lower()
+                        if "question" in col_lower and not question_col:
+                            question_col = col
+                        if "answer" in col_lower and not answer_col:
+                            answer_col = col
 
-                        # DataFrameを一時ファイルに保存
-                        df.to_csv(temp_path, index=False, encoding="utf-8-sig")
-                        add_log(f"  ✅ 一時ファイル作成: {temp_filename}")
+                    # question, answerカラムがない場合は通常処理
+                    if question_col and answer_col:
+                        add_log(f"  ✅ questionカラム: {question_col}")
+                        add_log(f"  ✅ answerカラム: {answer_col}")
 
-                    # 高度なQ/A生成を実行
-                    with st.spinner(
-                        "🚀 高度なQ/Aペア生成中（a02_make_qa_para.py実行）..."
-                    ):
-                        add_log("🚀 高度なQ/Aペア生成開始")
+                        # question, answerのみ抽出
+                        df_qa = df[[question_col, answer_col]].copy()
+                        df_qa.columns = ["question", "answer"]  # カラム名を統一
 
-                        # a02_make_qa_para.pyを実行
-                        result = run_advanced_qa_generation(
-                            dataset=None,
-                            input_file=str(temp_path),
-                            use_celery=use_celery,
-                            celery_workers=celery_workers,
-                            batch_chunks=batch_chunks,
-                            max_docs=max_docs,
-                            merge_chunks=merge_chunks,
-                            min_tokens=min_tokens,
-                            max_tokens=max_tokens,
-                            coverage_threshold=coverage_threshold,
-                            model=advanced_model,
-                            analyze_coverage=analyze_coverage,
-                            log_callback=add_log,
-                        )
+                        # 空のデータを除外
+                        before_len = len(df_qa)
+                        df_qa = df_qa.dropna(subset=["question", "answer"])
+                        df_qa = df_qa[
+                            (df_qa["question"].str.strip() != "")
+                            & (df_qa["answer"].str.strip() != "")
+                        ]
+                        removed = before_len - len(df_qa)
+                        if removed > 0:
+                            add_log(
+                                f"📊 空データ除外: {removed} 件を除外（残り {len(df_qa)} 件）"
+                            )
 
-                        # 一時ファイルを削除
-                        try:
-                            temp_path.unlink()
-                            add_log("  🗑️ 一時ファイルを削除しました")
-                        except:
-                            pass
-
-                        if result["success"]:
-                            qa_saved_files = result.get("saved_files")
-                            qa_count = result.get("qa_count", 0)
-
-                            # 結果を保存
-                            st.session_state["result_count"] = len(df)
-                            st.session_state["qa_saved_files"] = qa_saved_files
-                            st.session_state["qa_count"] = qa_count
-                            st.session_state["processed_df"] = df
-
-                            if result.get("coverage_results"):
-                                add_log(
-                                    f"📊 カバレージ率: {result['coverage_results']['coverage_rate']:.1%}"
-                                )
-
-                            add_log("🎉 全処理完了！")
-                        else:
-                            add_log("⚠️ 高度なQ/A生成に失敗しました")
-
-                # 通常の処理（既存のQ/Aファイルの場合）
-                else:
-                    # ステップ2: question, answerカラムの確認と抽出
-                    with st.spinner("⚙️ データ処理中..."):
-                        add_log("⚙️ question, answerカラムを確認中...")
-
-                        # question, answerカラムを探す
-                        question_col = None
-                        answer_col = None
-
-                        for col in df.columns:
-                            col_lower = col.lower()
-                            if "question" in col_lower and not question_col:
-                                question_col = col
-                            if "answer" in col_lower and not answer_col:
-                                answer_col = col
-
-                        # question, answerカラムがない場合は通常処理
-                        if question_col and answer_col:
-                            add_log(f"  ✅ questionカラム: {question_col}")
-                            add_log(f"  ✅ answerカラム: {answer_col}")
-
-                            # question, answerのみ抽出
-                            df_qa = df[[question_col, answer_col]].copy()
-                            df_qa.columns = ["question", "answer"]  # カラム名を統一
-
-                            # 空のデータを除外
+                        # 重複除去（オプション）
+                        if remove_duplicates:
                             before_len = len(df_qa)
-                            df_qa = df_qa.dropna(subset=["question", "answer"])
-                            df_qa = df_qa[
-                                (df_qa["question"].str.strip() != "")
-                                & (df_qa["answer"].str.strip() != "")
-                            ]
+                            df_qa = df_qa.drop_duplicates()
                             removed = before_len - len(df_qa)
                             if removed > 0:
                                 add_log(
-                                    f"📊 空データ除外: {removed} 件を除外（残り {len(df_qa)} 件）"
+                                    f"📊 重複除去: {removed} 件を除外（残り {len(df_qa)} 件）"
                                 )
 
-                            # 重複除去（オプション）
-                            if remove_duplicates:
-                                before_len = len(df_qa)
-                                df_qa = df_qa.drop_duplicates()
-                                removed = before_len - len(df_qa)
-                                if removed > 0:
-                                    add_log(
-                                        f"📊 重複除去: {removed} 件を除外（残り {len(df_qa)} 件）"
-                                    )
+                        df_qa = df_qa.reset_index(drop=True)
+                        add_log(f"✅ データ処理完了: {len(df_qa)} 件")
 
-                            df_qa = df_qa.reset_index(drop=True)
-                            add_log(f"✅ データ処理完了: {len(df_qa)} 件")
+                        # ステップ3: qa_output/に保存
+                        with st.spinner("💾 ファイル保存中..."):
+                            add_log("💾 qa_output/フォルダに保存中...")
 
-                            # ステップ3: qa_output/に保存
-                            with st.spinner("💾 ファイル保存中..."):
-                                add_log("💾 qa_output/フォルダに保存中...")
+                            qa_output_dir = Path("qa_output")
+                            qa_output_dir.mkdir(exist_ok=True)
 
-                                qa_output_dir = Path("qa_output")
-                                qa_output_dir.mkdir(exist_ok=True)
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            csv_filename = f"qa_pairs_upload_{timestamp}.csv"
+                            csv_path = qa_output_dir / csv_filename
 
-                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                csv_filename = f"qa_pairs_upload_{timestamp}.csv"
-                                csv_path = qa_output_dir / csv_filename
-
-                                df_qa.to_csv(
-                                    csv_path, index=False, encoding="utf-8-sig"
-                                )
-                                add_log(f"  📄 CSV保存: {csv_filename}")
-                                add_log("✅ ファイル保存完了")
-
-                            # 結果を保存
-                            st.session_state["result_count"] = len(df_qa)
-                            st.session_state["qa_saved_files"] = {"csv": str(csv_path)}
-                            st.session_state["qa_count"] = len(df_qa)
-                            st.session_state["processed_df"] = df_qa
-
-                            add_log("🎉 全処理完了！")
-                        else:
-                            add_log(
-                                "⚠️ Q/Aカラムが見つかりません。テキストデータとして処理します"
+                            df_qa.to_csv(
+                                csv_path, index=False, encoding="utf-8-sig"
                             )
+                            add_log(f"  📄 CSV保存: {csv_filename}")
+                            add_log("✅ ファイル保存完了")
 
-                            # テキストデータとして保存
-                            with st.spinner("💾 ファイル保存中..."):
-                                output_dir = Path("OUTPUT")
-                                output_dir.mkdir(exist_ok=True)
+                        # 結果を保存
+                        st.session_state["result_count"] = len(df_qa)
+                        st.session_state["qa_saved_files"] = {"csv": str(csv_path)}
+                        st.session_state["qa_count"] = len(df_qa)
+                        st.session_state["processed_df"] = df_qa
 
-                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                csv_filename = f"preprocessed_upload_{timestamp}.csv"
-                                csv_path = output_dir / csv_filename
+                        add_log("🎉 全処理完了！")
+                    else:
+                        add_log(
+                            "⚠️ Q/Aカラムが見つかりません。テキストデータとして処理します"
+                        )
 
-                                df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-                                add_log(f"  📄 CSV保存: {csv_filename}")
+                        # テキストデータとして保存
+                        with st.spinner("💾 ファイル保存中..."):
+                            output_dir = Path("OUTPUT")
+                            output_dir.mkdir(exist_ok=True)
 
-                                st.session_state["result_count"] = len(df)
-                                st.session_state["saved_files"] = {"csv": str(csv_path)}
-                                st.session_state["processed_df"] = df
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            csv_filename = f"preprocessed_upload_{timestamp}.csv"
+                            csv_path = output_dir / csv_filename
 
-                                add_log("✅ データ保存完了")
-                                add_log("🎉 全処理完了！")
+                            df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+                            add_log(f"  📄 CSV保存: {csv_filename}")
+
+                            st.session_state["result_count"] = len(df)
+                            st.session_state["saved_files"] = {"csv": str(csv_path)}
+                            st.session_state["processed_df"] = df
+
+                            add_log("✅ データ保存完了")
+                            add_log("🎉 全処理完了！")
 
             # ===================================================================
             # データセットの場合：既存の処理フロー
@@ -1518,108 +1355,10 @@ def show_rag_download_page():
                     saved_files = save_to_output(df_processed, selected_dataset)
                     add_log("✅ ファイル保存完了")
 
-                # ステップ4: Q/A生成（オプション）
-                qa_saved_files = None
-                qa_count = 0
-
-                # 高度なQ/A生成を使用する場合
-                if enable_qa_generation and use_advanced_qa:
-                    with st.spinner(
-                        "🚀 高度なQ/Aペア生成中（a02_make_qa_para.py実行）..."
-                    ):
-                        add_log("🚀 高度なQ/Aペア生成開始")
-
-                        # a02_make_qa_para.pyを実行
-                        result = run_advanced_qa_generation(
-                            dataset=selected_dataset,
-                            input_file=None,
-                            use_celery=use_celery,
-                            celery_workers=celery_workers,
-                            batch_chunks=batch_chunks,
-                            max_docs=max_docs,
-                            merge_chunks=merge_chunks,
-                            min_tokens=min_tokens,
-                            max_tokens=max_tokens,
-                            coverage_threshold=coverage_threshold,
-                            model=advanced_model,
-                            analyze_coverage=analyze_coverage,
-                            log_callback=add_log,
-                        )
-
-                        if result["success"]:
-                            qa_saved_files = result.get("saved_files")
-                            qa_count = result.get("qa_count", 0)
-                            if result.get("coverage_results"):
-                                add_log(
-                                    f"📊 カバレージ率: {result['coverage_results']['coverage_rate']:.1%}"
-                                )
-                        else:
-                            add_log(f"⚠️ 高度なQ/A生成に失敗しました")
-
-                # 通常のQ/A生成を使用する場合
-                elif enable_qa_generation:
-                    with st.spinner("🤖 Q/Aペア生成中..."):
-                        add_log("🤖 Q/Aペア生成開始")
-                        add_log(
-                            f"  設定: チャンクサイズ={chunk_size}, Q/A数={qa_per_chunk}, モデル={qa_model}"
-                        )
-
-                        all_qa_pairs = []
-
-                        # 各ドキュメントを処理
-                        for doc_idx, row in df_processed.iterrows():
-                            text = row["Combined_Text"]
-
-                            # テキストをチャンクに分割
-                            chunks = split_into_chunks(
-                                text, chunk_size=chunk_size, overlap=50
-                            )
-                            add_log(
-                                f"  ドキュメント{doc_idx + 1}/{len(df_processed)}: {len(chunks)}チャンクに分割"
-                            )
-
-                            # 各チャンクからQ/A生成
-                            for chunk_idx, chunk in enumerate(chunks):
-                                chunk_id = f"{selected_dataset}_doc{doc_idx:04d}_chunk{chunk_idx:03d}"
-
-                                qa_pairs = generate_qa_pairs(
-                                    text=chunk,
-                                    dataset_type=selected_dataset,
-                                    chunk_id=chunk_id,
-                                    model=qa_model,
-                                    qa_per_chunk=qa_per_chunk,
-                                    log_callback=add_log,
-                                )
-
-                                all_qa_pairs.extend(qa_pairs)
-
-                            # 進捗表示（10ドキュメントごと）
-                            if (doc_idx + 1) % 10 == 0:
-                                add_log(
-                                    f"  進捗: {doc_idx + 1}/{len(df_processed)} ドキュメント処理完了 (Q/A総数: {len(all_qa_pairs)})"
-                                )
-
-                        add_log(f"✅ Q/A生成完了: 合計 {len(all_qa_pairs)} ペア")
-                        qa_count = len(all_qa_pairs)
-
-                        # Q/Aペアを保存
-                        if all_qa_pairs:
-                            add_log("💾 Q/Aペアを保存中...")
-                            qa_saved_files = save_qa_pairs_to_file(
-                                all_qa_pairs, selected_dataset, log_callback=add_log
-                            )
-                            add_log("✅ Q/Aペア保存完了")
-                        else:
-                            add_log("⚠️ Q/Aペアが生成されませんでした")
-
                 # 結果を保存
                 st.session_state["result_count"] = len(df_processed)
                 st.session_state["saved_files"] = saved_files
                 st.session_state["processed_df"] = df_processed
-
-                if qa_saved_files:
-                    st.session_state["qa_saved_files"] = qa_saved_files
-                    st.session_state["qa_count"] = len(all_qa_pairs)
 
                 add_log("🎉 全処理完了！")
 
@@ -1661,29 +1400,6 @@ def show_rag_download_page():
             st.success("**メタデータ**")
             st.code(Path(saved_files["json"]).name, language=None)
             st.caption(f"パス: {saved_files['json']}")
-
-        # Q/Aファイル
-        if "qa_saved_files" in st.session_state and st.session_state["qa_saved_files"]:
-            st.markdown("### 🤖 Q/Aペアデータ")
-
-            qa_files = st.session_state["qa_saved_files"]
-            qa_count = st.session_state.get("qa_count", 0)
-
-            st.info(f"✅ 生成されたQ/Aペア: **{qa_count}** 個")
-
-            col_qa1, col_qa2 = st.columns(2)
-
-            with col_qa1:
-                if qa_files and "csv" in qa_files and qa_files["csv"]:
-                    st.success("**Q/A CSV**")
-                    st.code(Path(qa_files["csv"]).name, language=None)
-                    st.caption(f"パス: {qa_files['csv']}")
-
-            with col_qa2:
-                if qa_files and "json" in qa_files and qa_files["json"]:
-                    st.success("**Q/A JSON**")
-                    st.code(Path(qa_files["json"]).name, language=None)
-                    st.caption(f"パス: {qa_files['json']}")
 
         # データプレビュー
         if "processed_df" in st.session_state:
@@ -3447,6 +3163,182 @@ def embed_query_for_search(
         return client.embeddings.create(model=model, input=[text]).data[0].embedding
 
 
+def show_system_explanation_page():
+    """画面0: システム説明"""
+    st.title("📖 システム説明")
+    st.caption("RAGシステムのデータフロー・処理ステップ・ディレクトリ構造")
+
+    st.markdown("---")
+
+    # データフロー図
+    st.subheader("🔄 データフロー例（CC-Newsの場合）")
+
+    st.code("""
+┌─────────────────┐
+│  HuggingFace    │
+│    cc_news      │
+└────────┬────────┘
+         │ ①ダウンロード
+         ↓
+┌─────────────────────────────────┐
+│  datasets/                      │
+│  cc_news_train_500_*.csv        │
+└────────┬────────────────────────┘
+         │ ①前処理
+         ↓
+┌─────────────────────────────────┐
+│  OUTPUT/                        │
+│  preprocessed_cc_news.csv       │
+└────────┬────────────────────────┘
+         │ ②Q/A生成
+         ↓
+┌─────────────────────────────────┐
+│  qa_output/                     │
+│  a02_qa_pairs_cc_news.csv       │
+└────────┬────────────────────────┘
+         │ ③埋め込み生成
+         ↓
+┌─────────────────────────────────┐
+│  OpenAI                         │
+│  text-embedding-3-small         │
+└────────┬────────────────────────┘
+         │ ③ベクトル登録
+         ↓
+┌─────────────────────────────────┐
+│  Qdrant                         │
+│  qa_cc_news_a02_llm             │
+└─────────────────────────────────┘
+    """, language=None)
+
+    st.markdown("---")
+
+    # ステップ詳細
+    st.subheader("📋 ステップ詳細")
+
+    st.markdown("""
+| ステップ | スクリプト | 入力 | 出力 | 所要時間目安 |
+|---------|-----------|------|------|------------|
+| **①-1** | `a01_load_non_qa_rag_data.py` | HuggingFace | `datasets/cc_news_*.csv` | 1-5分 |
+| **①-2** | `a01_load_non_qa_rag_data.py` | `datasets/cc_news_*.csv` | `OUTPUT/preprocessed_cc_news.csv` | 1分 |
+| **②** | `a02_make_qa_para.py` | `OUTPUT/preprocessed_cc_news.csv` | `qa_output/a02_qa_pairs_cc_news.csv` | 10-60分 |
+| **③** | `a42_qdrant_registration.py` | `qa_output/a02_qa_pairs_cc_news.csv` | Qdrant | 5-10分 |
+    """)
+
+    st.markdown("---")
+
+    # ディレクトリ構造
+    st.subheader("📂 ディレクトリ構造")
+
+    st.markdown("""
+```
+openai_rag_qa_jp/
+├── datasets/                  # ①ダウンロードしたRawデータ
+│   ├── wikimedia_wikipedia_train_1000_*.csv
+│   ├── range3_cc100_ja_train_1000_*.csv
+│   ├── cc_news_train_500_*.csv
+│   └── livedoor/
+│       └── text/              # 解凍されたLivedoorデータ
+│
+├── OUTPUT/                    # ①前処理済みデータ
+│   ├── preprocessed_wikipedia_ja.csv
+│   ├── preprocessed_japanese_text.csv
+│   ├── preprocessed_cc_news.csv
+│   └── preprocessed_livedoor.csv
+│
+├── qa_output/                 # ②Q/A生成データ
+│   ├── a02_qa_pairs_cc_news.csv
+│   ├── a02_qa_pairs_livedoor.csv
+│   ├── a03_qa_pairs_cc_news.csv
+│   ├── a10_qa_pairs_cc_news.csv
+│   └── coverage_*.json
+│
+└── [Qdrantコレクション]       # ③ベクトルDB
+    ├── qa_cc_news_a02_llm
+    ├── qa_cc_news_a03_rule
+    ├── qa_cc_news_a10_hybrid
+    ├── qa_livedoor_a02_20_llm
+    ├── qa_livedoor_a03_rule
+    └── qa_livedoor_a10_hybrid
+```
+    """)
+
+    st.markdown("---")
+
+    # 実行コマンド早見表
+    st.subheader("🎯 実行コマンド早見表")
+
+    with st.expander("📰 CC-News データセット", expanded=False):
+        st.markdown("""
+```bash
+# ステップ1: ダウンロード・前処理
+streamlit run a01_load_non_qa_rag_data.py --server.port=8502
+# → UI操作: HuggingFaceから cc_news をロード
+# → 「OUTPUTフォルダに保存」ボタンをクリック
+
+# ステップ2: Q/A生成
+python a02_make_qa_para.py \\
+  --dataset cc_news \\
+  --use-celery \\
+  --celery-workers 24 \\
+  --model gpt-4o-mini \\
+  --max-docs 100
+
+# ステップ3: Qdrant登録
+python a42_qdrant_registration.py --recreate --include-answer
+```
+        """)
+
+    with st.expander("📰 Livedoor データセット", expanded=False):
+        st.markdown("""
+```bash
+# ステップ1: ダウンロード・前処理
+streamlit run a01_load_non_qa_rag_data.py --server.port=8502
+# → UI操作: Livedoor を選択してロード
+
+# ステップ2: Q/A生成
+python a02_make_qa_para.py \\
+  --dataset livedoor \\
+  --use-celery \\
+  --celery-workers 24 \\
+  --model gpt-4o-mini
+
+# ステップ3: Qdrant登録
+python a42_qdrant_registration.py --recreate --include-answer
+```
+        """)
+
+    with st.expander("📄 カスタムファイル（アップロード）", expanded=False):
+        st.markdown("""
+```bash
+# ステップ2から開始（既にCSVがある場合）
+python a02_make_qa_para.py \\
+  --input-file my_data.csv \\
+  --use-celery \\
+  --celery-workers 24 \\
+  --model gpt-4o-mini
+
+# ステップ3: Qdrant登録
+python a42_qdrant_registration.py \\
+  --input-file qa_output/a02_qa_pairs_{dataset}.csv \\
+  --recreate --include-answer
+```
+        """)
+
+    st.markdown("---")
+
+    # 対応データセット一覧
+    st.subheader("📊 対応データセット")
+
+    st.markdown("""
+| データセット名 | 中間保存先 | 最終出力先 |
+|---------------|-----------|-----------|
+| **Wikipedia日本語** | `datasets/wikimedia_wikipedia_train_1000_*.csv` | `OUTPUT/preprocessed_wikipedia_ja.csv` |
+| **CC100日本語** | `datasets/range3_cc100_ja_train_1000_*.csv` | `OUTPUT/preprocessed_japanese_text.csv` |
+| **CC-News英語** | `datasets/cc_news_train_500_*.csv` | `OUTPUT/preprocessed_cc_news.csv` |
+| **Livedoor** | `datasets/livedoor_train_7376_*.csv` | `OUTPUT/preprocessed_livedoor.csv` |
+    """)
+
+
 def show_qdrant_search_page():
     """画面5: Qdrant検索"""
     st.title("🔎 Qdrant検索")
@@ -3719,6 +3611,7 @@ def main():
         page = st.radio(
             "機能選択",
             options=[
+                "explanation",
                 "rag_download",
                 "qa_generation",
                 "qdrant_registration",
@@ -3726,6 +3619,7 @@ def main():
                 "qdrant_search",
             ],
             format_func=lambda x: {
+                "explanation": "📖 説明",
                 "rag_download": "📥 RAGデータダウンロード",
                 "qa_generation": "🤖 Q/A生成",
                 "qdrant_registration": "🗄️ Qdrant登録",
@@ -3738,7 +3632,9 @@ def main():
         st.divider()
 
     # 選択された画面を表示
-    if page == "rag_download":
+    if page == "explanation":
+        show_system_explanation_page()
+    elif page == "rag_download":
         show_rag_download_page()
     elif page == "qa_generation":
         show_qa_generation_page()
