@@ -754,8 +754,30 @@ def load_preprocessed_data(dataset_type: str) -> pd.DataFrame:
         raise ValueError(f"未対応のデータセット: {dataset_type}")
 
     file_path = config["file"]
-    if not Path(file_path).exists():
-        raise FileNotFoundError(f"ファイルが見つかりません: {file_path}")
+    file_path_obj = Path(file_path)
+
+    # 固定名のファイルが存在するか確認
+    if not file_path_obj.exists():
+        # タイムスタンプ付きファイルを検索
+        # 例: preprocessed_wikipedia_ja.csv → preprocessed_wikipedia_ja_*.csv を検索
+        base_name = file_path_obj.stem  # preprocessed_wikipedia_ja
+        extension = file_path_obj.suffix  # .csv
+        pattern = f"{base_name}_*{extension}"
+
+        output_dir = file_path_obj.parent
+        matching_files = list(output_dir.glob(pattern))
+
+        if not matching_files:
+            raise FileNotFoundError(
+                f"ファイルが見つかりません: {file_path}\n"
+                f"タイムスタンプ付きファイル（{output_dir}/{pattern}）も見つかりません"
+            )
+
+        # 最新のファイルを選択（ファイル名でソート）
+        # ファイル名形式: preprocessed_wikipedia_ja_20251125_045518.csv
+        matching_files.sort(key=lambda x: x.name)
+        file_path = str(matching_files[-1])
+        logger.info(f"タイムスタンプ付きファイルを自動選択: {Path(file_path).name}")
 
     logger.info(f"データ読み込み中: {file_path}")
     df = pd.read_csv(file_path)
