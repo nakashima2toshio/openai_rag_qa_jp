@@ -173,7 +173,7 @@ class QdrantPointPayload(BaseModel):
     answer: str = Field(..., description="回答文")
     source: str = Field(..., description="ソースファイル名")
     created_at: str = Field(..., description="作成日時 (ISO形式)")
-    schema: str = Field(default="qa:v1", description="スキーマバージョン")
+    schema_version: str = Field(default="qa:v1", description="スキーマバージョン")
     generation_method: Optional[str] = Field(
         default=None,
         description="生成方法"
@@ -214,9 +214,9 @@ class SavedFilesResult(BaseModel):
     """
     ファイル保存結果
     """
-    csv: Optional[str] = Field(default=None, description="CSVファイルパス")
-    json: Optional[str] = Field(default=None, description="JSONファイルパス")
-    txt: Optional[str] = Field(default=None, description="テキストファイルパス")
+    csv_path: Optional[str] = Field(default=None, description="CSVファイルパス")
+    json_path: Optional[str] = Field(default=None, description="JSONファイルパス")
+    txt_path: Optional[str] = Field(default=None, description="テキストファイルパス")
 
 
 # ===================================================================
