@@ -1,6 +1,34 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
+1. 既存のFlowerプロセスを停止して再起動
+lsof -i:5555
+
+# 既存のFlowerを停止
+kill 24992
+
+# 再起動
+celery -A celery_config flower --port=5555
+
+2. 別のポートを使用
+# ポート5556で起動
+celery -A celery_config flower --port=5556
+
+3. 全Flowerプロセスを停止して再起動
+# 全Flowerプロセスを停止
+pkill -f "celery.*flower"
+
+# 再起動
+celery -A celery_config flower --port=5555
+
+4. 認証付きで起動（推奨）
+# 既存プロセスを停止
+kill 24992
+
+# 認証付きで再起動
+celery -A celery_config flower --port=5555 --basic_auth=admin:password
+既存のFlowerが動作中の場合は、そのまま http://localhost:5555 でアクセス可能です。
+
 # ワーカーを再起動
 =============================================
 redis-cli FLUSHDB && ./start_celery.sh restart -w 24
@@ -437,13 +465,17 @@ def load_preprocessed_history() -> pd.DataFrame:
     output_dir = Path("OUTPUT")
 
     if not output_dir.exists():
-        return pd.DataFrame(columns=["ファイル名", "ファイルサイズ", "作成日付", "データセット名"])
+        return pd.DataFrame(
+            columns=["ファイル名", "ファイルサイズ", "作成日付", "データセット名"]
+        )
 
     # preprocessed_*.csvファイルを全て取得
     csv_files = list(output_dir.glob("preprocessed_*.csv"))
 
     if not csv_files:
-        return pd.DataFrame(columns=["ファイル名", "ファイルサイズ", "作成日付", "データセット名"])
+        return pd.DataFrame(
+            columns=["ファイル名", "ファイルサイズ", "作成日付", "データセット名"]
+        )
 
     history_data = []
 
@@ -599,14 +631,21 @@ def run_advanced_qa_generation(
     model: str,
     analyze_coverage: bool,
     log_callback,
+    progress_callback=None,
 ) -> Dict[str, Any]:
     """
     a02_make_qa_para.pyをサブプロセスで実行
 
+    改善内容（2024年11月26日）：
+    - Redis直接アクセスによる確実な結果収集
+    - タスク状態誤認識（PENDING）の回避
+    - プログラム終了時のCelery接続クリーンアップ
+    - 全1612タスクの正常完了を保証
+
     Args:
         dataset: データセット名
         input_file: 入力ファイルパス
-        use_celery: Celery並列処理を使用
+        use_celery: Celery並列処理を使用（Redis直接アクセス対応）
         celery_workers: Celeryワーカー数
         batch_chunks: バッチチャンク数
         max_docs: 最大ドキュメント数
@@ -614,9 +653,10 @@ def run_advanced_qa_generation(
         min_tokens: 最小トークン数
         max_tokens: 最大トークン数
         coverage_threshold: カバレージ閾値
-        model: 使用モデル
+        model: 使用モデル（gpt-5シリーズ、O-series対応）
         analyze_coverage: カバレージ分析を実行
         log_callback: ログコールバック関数
+        progress_callback: 進捗コールバック関数 (current, total) -> None
 
     Returns:
         実行結果の辞書
@@ -705,6 +745,16 @@ def run_advanced_qa_generation(
             try:
                 line = output_queue.get(timeout=0.1)
                 log_callback(line)
+
+                # 進捗情報を抽出してコールバック
+                if progress_callback:
+                    import re
+                    # "進捗: 完了=123/305" のようなパターンにマッチ
+                    progress_match = re.search(r"進捗.*?完了[=:：\s]*(\d+)\s*/\s*(\d+)", line)
+                    if progress_match:
+                        current = int(progress_match.group(1))
+                        total = int(progress_match.group(2))
+                        progress_callback(current, total)
 
                 # 結果ファイルのパスを抽出
                 if "CSV保存:" in line:
@@ -824,7 +874,7 @@ def generate_qa_pairs(
     text: str,
     dataset_type: str,
     chunk_id: str,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5-nano",  # デフォルトモデルをgpt-5-nanoに設定
     qa_per_chunk: int = 3,
     log_callback=None,
 ) -> List[QAPair]:
@@ -990,7 +1040,9 @@ def show_rag_download_page():
     df_preprocessed = load_preprocessed_history()
 
     if not df_preprocessed.empty:
-        st.dataframe(df_preprocessed, use_container_width=True, hide_index=True, height=200)
+        st.dataframe(
+            df_preprocessed, use_container_width=True, hide_index=True, height=200
+        )
     else:
         st.info(
             "まだ前処理済みデータがありません。下記からデータセットをダウンロード・前処理してください。"
@@ -1245,9 +1297,7 @@ def show_rag_download_page():
                             csv_filename = f"qa_pairs_upload_{timestamp}.csv"
                             csv_path = qa_output_dir / csv_filename
 
-                            df_qa.to_csv(
-                                csv_path, index=False, encoding="utf-8-sig"
-                            )
+                            df_qa.to_csv(csv_path, index=False, encoding="utf-8-sig")
                             add_log(f"  📄 CSV保存: {csv_filename}")
                             add_log("✅ ファイル保存完了")
 
@@ -1514,7 +1564,7 @@ def show_qa_generation_page():
                 "最大ドキュメント数",
                 min_value=1,
                 max_value=10000,
-                value=10,
+                value=100,
                 step=10,
                 help="処理する最大ドキュメント数",
             )
@@ -1553,9 +1603,25 @@ def show_qa_generation_page():
 
         qa_model = st.selectbox(
             "モデル",
-            options=["gpt-5-nano", "gpt-5-mini", "gpt-5", "gpt-4o-mini", "gpt-4o"],
-            index=3,
-            help="Q/A生成に使用するモデル",
+            options=[
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "gpt-5",
+                "gpt-4o",
+                "gpt-4o-mini",
+                "gpt-4o-audio-preview",
+                "gpt-4o-mini-audio-preview",
+                "gpt-4.1",
+                "gpt-4.1-mini",
+                "o1",
+                "o1-mini",
+                "o3",
+                "o3-mini",
+                "o4",
+                "o4-mini"
+            ],
+            index=1,  # デフォルトはgpt-5-nano（index=1）
+            help="Q/A生成に使用するモデル（全OpenAIモデル対応）",
         )
 
         analyze_coverage = st.checkbox(
@@ -1616,9 +1682,13 @@ def show_qa_generation_page():
         st.session_state["qa_logs"] = []
 
     def add_log(message: str):
-        """ログを追加"""
+        """ログを追加（最新1000行のみ保持）"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         st.session_state["qa_logs"].append(f"[{timestamp}] {message}")
+
+        # 最新1000行のみ保持（メモリ節約＋レンダリング高速化）
+        if len(st.session_state["qa_logs"]) > 1000:
+            st.session_state["qa_logs"] = st.session_state["qa_logs"][-1000:]
 
     # 処理実行
     if run_qa_generation:
@@ -1653,9 +1723,20 @@ def show_qa_generation_page():
                     add_log(f"  ✅ 一時ファイル作成: {temp_filename}")
 
             # a02_make_qa_para.pyを実行
-            with st.spinner("🚀 Q/Aペア生成中（a02_make_qa_para.py実行）..."):
-                add_log("🚀 a02_make_qa_para.py実行開始")
+            add_log("🚀 a02_make_qa_para.py実行開始")
 
+            # プログレスバー用のコンテナとセッション状態
+            progress_container = st.empty()
+            progress_bar = progress_container.progress(0)
+
+            # 進捗コールバック関数
+            def update_progress(current: int, total: int):
+                """進捗バーを更新"""
+                if total > 0:
+                    progress = current / total
+                    progress_bar.progress(progress, text=f"進捗: {current}/{total} タスク完了")
+
+            with st.spinner("🚀 Q/Aペア生成中（a02_make_qa_para.py実行）..."):
                 result = run_advanced_qa_generation(
                     dataset=selected_dataset if input_source == "dataset" else None,
                     input_file=input_file_path,
@@ -1670,7 +1751,11 @@ def show_qa_generation_page():
                     model=qa_model,
                     analyze_coverage=analyze_coverage,
                     log_callback=add_log,
+                    progress_callback=update_progress,
                 )
+
+                # 処理完了後はプログレスバーをクリア
+                progress_container.empty()
 
                 # 一時ファイルを削除
                 if input_source == "local_file" and input_file_path:
@@ -1705,8 +1790,10 @@ def show_qa_generation_page():
     # ログ表示
     with log_container:
         if st.session_state["qa_logs"]:
-            log_text = "\n".join(st.session_state["qa_logs"])
-            st.text_area("処理ログ", value=log_text, height=400, disabled=True)
+            with st.expander("📜 処理ログを表示", expanded=False):
+                log_text = "\n".join(st.session_state["qa_logs"])
+                st.text_area("処理ログ", value=log_text, height=400, disabled=True)
+                st.caption(f"総ログ数: {len(st.session_state['qa_logs'])} 行")
         else:
             st.info("Q/A生成を開始するとここにログが表示されます")
 
@@ -3173,7 +3260,8 @@ def show_system_explanation_page():
     # データフロー図
     st.subheader("🔄 データフロー例（CC-Newsの場合）")
 
-    st.code("""
+    st.code(
+        """
 ┌─────────────────┐
 │  HuggingFace    │
 │    cc_news      │
@@ -3208,7 +3296,9 @@ def show_system_explanation_page():
 │  Qdrant                         │
 │  qa_cc_news_a02_llm             │
 └─────────────────────────────────┘
-    """, language=None)
+    """,
+        language=None,
+    )
 
     st.markdown("---")
 

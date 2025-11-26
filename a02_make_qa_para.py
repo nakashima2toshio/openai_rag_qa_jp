@@ -957,14 +957,14 @@ def determine_qa_count(chunk: Dict, config: Dict) -> int:
 def generate_qa_pairs_for_batch(
     chunks: List[Dict],
     config: Dict,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-5-nano",
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """複数チャンクから一度にQ/Aペアを生成（バッチ処理対応）
     Args:
         chunks: チャンクデータのリスト（1-5個）
         config: データセット設定
-        model: 使用するモデル（デフォルト: gpt-5-mini）
+        model: 使用するモデル（デフォルト: gpt-5-nano）
         client: OpenAIクライアント
     Returns:
         生成されたQ/Aペアのリスト
@@ -1147,14 +1147,14 @@ Output in JSON format:
 def generate_qa_pairs_for_chunk(
     chunk: Dict,
     config: Dict,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-5-nano",
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """単一チャンクからQ/Aペアを生成（後方互換性のため維持）
     Args:
         chunk: チャンクデータ
         config: データセット設定
-        model: 使用するモデル（デフォルト: gpt-5-mini）
+        model: 使用するモデル（デフォルト: gpt-5-nano）
         client: OpenAIクライアント
     Returns:
         生成されたQ/Aペアのリスト
@@ -1925,8 +1925,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-5-mini",
-        help="使用するOpenAIモデル（デフォルト: gpt-5-mini）"
+        default="gpt-5-nano",
+        help="使用するOpenAIモデル（デフォルト: gpt-5-nano）"
     )
     parser.add_argument(
         "--output",
@@ -2100,8 +2100,9 @@ def main():
                 processed_chunks, config, args.model, args.batch_chunks
             )
 
-            # 結果収集（タイムアウト: タスク数 × 60秒、最低600秒）
-            timeout_seconds = max(len(tasks) * 60, 600)
+            # 結果収集（タイムアウト: タスク数 × 10秒、最低600秒、最大1800秒）
+            # 大量タスクの場合でも30分以内に収集完了を想定
+            timeout_seconds = min(max(len(tasks) * 10, 600), 1800)
             logger.info(f"結果収集タイムアウト: {timeout_seconds}秒（{len(tasks)}タスク）")
             qa_pairs = collect_results(tasks, timeout=timeout_seconds)
         else:
@@ -2172,6 +2173,20 @@ def main():
             print("\n質問タイプ別統計:")
             for qt, count in sorted(question_types.items()):
                 print(f"  {qt}: {count}件")
+
+        # Celeryクリーンアップ（使用している場合）
+        if args.use_celery:
+            try:
+                # Celeryアプリケーションのクリーンアップ
+                from celery_tasks import app as celery_app
+                # 接続を閉じる
+                celery_app.close()
+                logger.debug("Celery接続をクリーンアップしました")
+            except Exception as cleanup_error:
+                logger.debug(f"Celeryクリーンアップ時の警告: {cleanup_error}")
+
+        # 正常終了
+        sys.exit(0)
 
     except Exception as e:
         logger.error(f"処理中にエラーが発生しました: {e}")

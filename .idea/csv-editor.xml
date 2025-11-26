@@ -73,6 +73,27 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/qa_output/a02/qa_pairs_livedoor_20251125_132309.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a02/qa_pairs_wikipedia_ja_20251126_064831.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="/qa_output/a02/qa_pairs_wikipedia_ja_20251126_070526.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/qa_output/a02_qa_pairs_cc_news.csv">
           <value>
             <Attribute>

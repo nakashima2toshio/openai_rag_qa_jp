@@ -205,27 +205,45 @@ Output in JSON format:
             logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
 
             # レスポンスから解析済みデータを取得
-            for output in response.output:
-                if output.type == "message":
-                    for item in output.content:
-                        if item.type == "output_text" and item.parsed:
-                            parsed_response = item.parsed
+            parsed_response = None
 
-                            if not parsed_response:
-                                logger.error(f"OpenAI APIが空のレスポンスを返しました")
-                                raise ValueError("Empty response from OpenAI API")
+            # 方法1: output_parsed属性を直接確認（GPT-5シリーズ対応）
+            if hasattr(response, 'output_parsed') and response.output_parsed:
+                parsed_response = response.output_parsed
+                logger.info(f"GPT-5形式のレスポンス（output_parsed）を使用")
 
-                            for qa_data in parsed_response.qa_pairs:
-                                qa = {
-                                    "question": qa_data.question,
-                                    "answer": qa_data.answer,
-                                    "question_type": qa_data.question_type,
-                                    "source_chunk_id": chunk_data.get('id', ''),
-                                    "doc_id": chunk_data.get('doc_id', ''),
-                                    "dataset_type": chunk_data.get('dataset_type', ''),
-                                    "chunk_idx": chunk_data.get('chunk_idx', 0)
-                                }
-                                qa_pairs.append(qa)
+            # 方法2: output配列から探索（GPT-4o対応）
+            if not parsed_response and hasattr(response, 'output'):
+                for output in response.output:
+                    # ReasoningItemはスキップ
+                    if hasattr(output, 'type'):
+                        if output.type == "reasoning":
+                            continue
+                        elif output.type == "message" and hasattr(output, 'content') and output.content:
+                            for item in output.content:
+                                if hasattr(item, 'type') and item.type == "output_text" and hasattr(item, 'parsed') and item.parsed:
+                                    parsed_response = item.parsed
+                                    logger.info(f"GPT-4o形式のレスポンス（output配列）を使用")
+                                    break
+                    if parsed_response:
+                        break
+
+            if not parsed_response:
+                logger.error(f"OpenAI APIが解析可能なレスポンスを返しませんでした")
+                raise ValueError("No parsable response from OpenAI API")
+
+            # Q/Aペアを抽出
+            for qa_data in parsed_response.qa_pairs:
+                qa = {
+                    "question": qa_data.question,
+                    "answer": qa_data.answer,
+                    "question_type": qa_data.question_type,
+                    "source_chunk_id": chunk_data.get('id', ''),
+                    "doc_id": chunk_data.get('doc_id', ''),
+                    "dataset_type": chunk_data.get('dataset_type', ''),
+                    "chunk_idx": chunk_data.get('chunk_idx', 0)
+                }
+                qa_pairs.append(qa)
 
         except Exception as e:
             logger.error(f"構造化出力API呼び出しエラー: {str(e)}")
@@ -431,36 +449,53 @@ Output in JSON format:
             logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
 
             # レスポンスから解析済みデータを取得
-            for output in response.output:
-                if output.type == "message":
-                    for item in output.content:
-                        if item.type == "output_text" and item.parsed:
-                            parsed_response = item.parsed
+            parsed_response = None
 
-                            if not parsed_response:
-                                logger.error(f"OpenAI APIが空のレスポンスを返しました")
-                                raise ValueError("Empty response from OpenAI API")
+            # 方法1: output_parsed属性を直接確認（GPT-5シリーズ対応）
+            if hasattr(response, 'output_parsed') and response.output_parsed:
+                parsed_response = response.output_parsed
+                logger.info(f"GPT-5形式のレスポンス（output_parsed）を使用")
 
-                            # レスポンス解析とQ/Aペア分配
-                            qa_index = 0
-                            for i, chunk in enumerate(chunks, 1):
-                                chunk_key = f"chunk_{i}"
-                                expected_pairs = chunks_data[chunk_key]["num_pairs"]
+            # 方法2: output配列から探索（GPT-4o対応）
+            if not parsed_response and hasattr(response, 'output'):
+                for output in response.output:
+                    # ReasoningItemはスキップ
+                    if hasattr(output, 'type'):
+                        if output.type == "reasoning":
+                            continue
+                        elif output.type == "message" and hasattr(output, 'content') and output.content:
+                            for item in output.content:
+                                if hasattr(item, 'type') and item.type == "output_text" and hasattr(item, 'parsed') and item.parsed:
+                                    parsed_response = item.parsed
+                                    logger.info(f"GPT-4o形式のレスポンス（output配列）を使用")
+                                    break
+                    if parsed_response:
+                        break
 
-                                for _ in range(expected_pairs):
-                                    if qa_index < len(parsed_response.qa_pairs):
-                                        qa_data = parsed_response.qa_pairs[qa_index]
-                                        qa = {
-                                            "question": qa_data.question,
-                                            "answer": qa_data.answer,
-                                            "question_type": qa_data.question_type,
-                                            "source_chunk_id": chunk.get('id', ''),
-                                            "doc_id": chunk.get('doc_id', ''),
-                                            "dataset_type": chunk.get('dataset_type', ''),
-                                            "chunk_idx": chunk.get('chunk_idx', 0)
-                                        }
-                                        all_qa_pairs.append(qa)
-                                        qa_index += 1
+            if not parsed_response:
+                logger.error(f"OpenAI APIが解析可能なレスポンスを返しませんでした")
+                raise ValueError("No parsable response from OpenAI API")
+
+            # レスポンス解析とQ/Aペア分配
+            qa_index = 0
+            for i, chunk in enumerate(chunks, 1):
+                chunk_key = f"chunk_{i}"
+                expected_pairs = chunks_data[chunk_key]["num_pairs"]
+
+                for _ in range(expected_pairs):
+                    if qa_index < len(parsed_response.qa_pairs):
+                        qa_data = parsed_response.qa_pairs[qa_index]
+                        qa = {
+                            "question": qa_data.question,
+                            "answer": qa_data.answer,
+                            "question_type": qa_data.question_type,
+                            "source_chunk_id": chunk.get('id', ''),
+                            "doc_id": chunk.get('doc_id', ''),
+                            "dataset_type": chunk.get('dataset_type', ''),
+                            "chunk_idx": chunk.get('chunk_idx', 0)
+                        }
+                        all_qa_pairs.append(qa)
+                        qa_index += 1
 
         except Exception as e:
             logger.error(f"構造化出力API呼び出しエラー: {str(e)}")
@@ -573,7 +608,7 @@ def submit_parallel_qa_generation(chunks: List[Dict], config: Dict, model: str =
 
 def collect_results(tasks: List, timeout: int = 300) -> List[Dict]:
     """
-    並列処理の結果を収集（シンプルで確実な方法）
+    並列処理の結果を収集（改良版：Redis直接アクセスで確実な結果取得）
 
     Args:
         tasks: Celeryタスクのリスト
@@ -583,6 +618,9 @@ def collect_results(tasks: List, timeout: int = 300) -> List[Dict]:
         Q/Aペアのリスト
     """
     import time
+    import redis
+    import json
+    from celery.result import AsyncResult
 
     all_qa_pairs = []
     failed_chunks = []
@@ -592,12 +630,23 @@ def collect_results(tasks: List, timeout: int = 300) -> List[Dict]:
 
     logger.info(f"結果収集開始: {total_tasks}個のタスク")
 
+    # Redis接続を確立
+    redis_client = redis.Redis(
+        host=os.getenv('REDIS_HOST', 'localhost'),
+        port=int(os.getenv('REDIS_PORT', 6379)),
+        db=int(os.getenv('REDIS_DB', 0)),
+        decode_responses=True
+    )
+
     # タスクIDをログ出力
     for i, task in enumerate(tasks):
         logger.debug(f"タスク {i+1}: ID={task.id}")
 
     start_time = time.time()
     last_log_time = start_time
+    stall_check_time = start_time
+    last_completed_count = 0
+    stall_counter = 0
 
     # シンプルなループで結果を収集
     while len(completed_tasks) + len(failed_tasks) < total_tasks:
@@ -618,38 +667,114 @@ def collect_results(tasks: List, timeout: int = 300) -> List[Dict]:
                        f"経過時間={elapsed:.1f}秒")
             last_log_time = current_time
 
+        # 30秒ごとに停滞チェック
+        if current_time - stall_check_time >= 30:
+            current_completed = len(completed_tasks)
+            if current_completed == last_completed_count:
+                stall_counter += 1
+                logger.warning(f"⚠️ 処理が停滞している可能性があります（{stall_counter * 30}秒間進捗なし）")
+
+                # 3分間進捗がない場合、状態を強制リフレッシュ
+                if stall_counter >= 6:
+                    logger.warning("📊 タスク状態を強制的に再取得...")
+                    for i, task in enumerate(tasks):
+                        if i not in completed_tasks and i not in failed_tasks:
+                            try:
+                                # AsyncResultで再取得
+                                refreshed_task = AsyncResult(task.id)
+                                if refreshed_task.state in ['SUCCESS', 'FAILURE']:
+                                    logger.info(f"タスク {i+1} の状態: {refreshed_task.state}")
+                            except Exception as e:
+                                logger.debug(f"タスク {i+1} の状態取得エラー: {str(e)}")
+                    stall_counter = 0
+            else:
+                stall_counter = 0
+                last_completed_count = current_completed
+            stall_check_time = current_time
+
         # 各タスクをチェック
+        pending_indices = []
         for i, task in enumerate(tasks):
             # 既に処理済みのタスクはスキップ
             if i in completed_tasks or i in failed_tasks:
                 continue
 
             try:
-                # タスクが完了しているかチェック（ノンブロッキング）
-                if task.ready():
-                    # 結果を取得（短いタイムアウト）
-                    result = task.get(timeout=1)
+                # まずRedisから直接状態を確認（最も確実な方法）
+                redis_key = f"celery-task-meta-{task.id}"
+                redis_data = redis_client.get(redis_key)
 
-                    if result and result.get('success'):
-                        qa_pairs = result.get('qa_pairs', [])
-                        all_qa_pairs.extend(qa_pairs)
-                        completed_tasks.add(i)
+                result = None
+                redis_state = None
 
-                        # チャンク情報をログ
-                        if 'chunk_id' in result:
-                            logger.info(f"✓ タスク {i+1}/{total_tasks} 完了: チャンク {result['chunk_id']} - {len(qa_pairs)}個のQ/A")
-                        elif 'chunk_ids' in result:
-                            logger.info(f"✓ タスク {i+1}/{total_tasks} 完了: バッチ {len(result['chunk_ids'])}チャンク - {len(qa_pairs)}個のQ/A")
-                    else:
-                        failed_tasks.add(i)
-                        error_msg = result.get('error', 'Unknown error') if result else 'No result'
-                        logger.error(f"✗ タスク {i+1}/{total_tasks} 失敗: {error_msg}")
+                if redis_data:
+                    try:
+                        redis_result = json.loads(redis_data)
+                        redis_state = redis_result.get('status')
 
-                        if result:
+                        # Redisで成功している場合は結果を直接取得
+                        if redis_state == 'SUCCESS':
+                            result = redis_result.get('result')
+                            if result and isinstance(result, dict) and result.get('success'):
+                                # Redis直接取得成功
+                                logger.debug(f"タスク {i+1} Redis直接取得成功")
+                    except json.JSONDecodeError:
+                        logger.warning(f"タスク {i+1} Redis JSONデコードエラー")
+
+                # Redisから正常な結果を取得した場合は処理
+                if result and isinstance(result, dict) and result.get('success'):
+                    qa_pairs = result.get('qa_pairs', [])
+                    all_qa_pairs.extend(qa_pairs)
+                    completed_tasks.add(i)
+
+                    # チャンク情報をログ
+                    if 'chunk_id' in result:
+                        logger.info(f"✓ タスク {i+1}/{total_tasks} 完了（Redis直接）: チャンク {result['chunk_id']} - {len(qa_pairs)}個のQ/A")
+                    elif 'chunk_ids' in result:
+                        logger.info(f"✓ タスク {i+1}/{total_tasks} 完了（Redis直接）: バッチ {len(result['chunk_ids'])}チャンク - {len(qa_pairs)}個のQ/A")
+                else:
+                    # Redisから取得できない場合は従来の方法も試す
+                    task_state = task.state
+
+                    # デバッグ: 最後のタスクの状態を詳細ログ
+                    if i == total_tasks - 1:
+                        logger.info(f"🔍 最後のタスク[{i}] Redis状態={redis_state}, Celery状態={task_state}, id={task.id[:8]}...")
+
+                    # PENDINGでもRedisにSUCCESSがある場合、またはready()の場合
+                    if task_state == 'SUCCESS' or task.ready() or (task_state == 'PENDING' and redis_state == 'SUCCESS'):
+                        # 結果を取得（短いタイムアウト）
+                        try:
+                            result = task.get(timeout=1, propagate=False)
+                        except:
+                            pass
+
+                        if result and isinstance(result, dict) and result.get('success'):
+                            qa_pairs = result.get('qa_pairs', [])
+                            all_qa_pairs.extend(qa_pairs)
+                            completed_tasks.add(i)
+
+                            # チャンク情報をログ
                             if 'chunk_id' in result:
-                                failed_chunks.append(result['chunk_id'])
+                                logger.info(f"✓ タスク {i+1}/{total_tasks} 完了: チャンク {result['chunk_id']} - {len(qa_pairs)}個のQ/A")
                             elif 'chunk_ids' in result:
-                                failed_chunks.extend(result['chunk_ids'])
+                                logger.info(f"✓ タスク {i+1}/{total_tasks} 完了: バッチ {len(result['chunk_ids'])}チャンク - {len(qa_pairs)}個のQ/A")
+                        elif result is not None:
+                            failed_tasks.add(i)
+                            error_msg = result.get('error', 'Unknown error') if result and isinstance(result, dict) else str(result)
+                            logger.error(f"✗ タスク {i+1}/{total_tasks} 失敗: {error_msg[:200]}")
+
+                            if result and isinstance(result, dict):
+                                if 'chunk_id' in result:
+                                    failed_chunks.append(result['chunk_id'])
+                                elif 'chunk_ids' in result:
+                                    failed_chunks.extend(result['chunk_ids'])
+
+                    elif task_state == 'FAILURE':
+                        failed_tasks.add(i)
+                        logger.error(f"✗ タスク {i+1}/{total_tasks} 失敗（状態: FAILURE）")
+
+                    elif task_state == 'PENDING':
+                        pending_indices.append(i)
 
             except TimeoutError:
                 # タイムアウトは正常（まだ処理中）
@@ -659,23 +784,43 @@ def collect_results(tasks: List, timeout: int = 300) -> List[Dict]:
                 if i not in failed_tasks:
                     logger.debug(f"タスク {i+1} チェック中にエラー（処理継続）: {str(e)[:100]}")
 
-        # 短い待機
-        time.sleep(0.5)
+        # デバッグ: ペンディング状態のタスクが多い場合警告
+        if len(pending_indices) > 10 and current_time - start_time > 60:
+            logger.debug(f"ペンディング状態のタスク数: {len(pending_indices)}")
 
-    # 最終的な未完了タスクの処理
+        # 短い待機（処理済みタスクが多い場合は待機時間を長くする）
+        completion_ratio = len(completed_tasks) / total_tasks if total_tasks > 0 else 0
+        if completion_ratio > 0.9:
+            time.sleep(1.0)  # 90%以上完了したら待機時間を長く
+        else:
+            time.sleep(0.5)
+
+    # 最終的な未完了タスクの処理（より積極的に取得）
+    logger.info(f"ループ終了後の最終確認: 未処理タスク {total_tasks - len(completed_tasks) - len(failed_tasks)}個")
     for i, task in enumerate(tasks):
         if i not in completed_tasks and i not in failed_tasks:
             try:
-                # 最後のチャンス（少し長めのタイムアウト）
-                if task.ready():
-                    result = task.get(timeout=2)
-                    if result and result.get('success'):
+                # AsyncResultで強制的に最新状態を取得
+                from celery.result import AsyncResult
+                refreshed = AsyncResult(task.id)
+                final_state = refreshed.state
+                logger.info(f"タスク {i+1} 最終状態: {final_state}")
+
+                # 状態に関わらず結果取得を試みる
+                if final_state in ['SUCCESS', 'FAILURE'] or refreshed.ready():
+                    result = refreshed.get(timeout=3, propagate=False)
+                    if result and isinstance(result, dict) and result.get('success'):
                         qa_pairs = result.get('qa_pairs', [])
                         all_qa_pairs.extend(qa_pairs)
                         completed_tasks.add(i)
                         logger.info(f"✓ タスク {i+1}/{total_tasks} 最終収集で完了: {len(qa_pairs)}個のQ/A")
-            except:
-                logger.warning(f"タスク {i+1}/{total_tasks} 未完了のまま終了")
+                    else:
+                        failed_tasks.add(i)
+                        logger.warning(f"タスク {i+1}/{total_tasks} 最終収集で失敗として処理")
+                else:
+                    logger.warning(f"タスク {i+1}/{total_tasks} 最終状態: {final_state} - 未完了")
+            except Exception as e:
+                logger.warning(f"タスク {i+1}/{total_tasks} 最終収集エラー: {str(e)[:100]}")
 
     # 結果サマリー
     elapsed_total = time.time() - start_time
