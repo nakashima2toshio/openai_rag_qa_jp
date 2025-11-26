@@ -13,10 +13,13 @@ from typing import List, Dict, Optional
 from celery import Celery, group
 from dotenv import load_dotenv
 from openai import OpenAI
-from pydantic import BaseModel
 
 # 環境変数読み込み
 load_dotenv()
+
+# 共通モジュールからインポート
+from models import QAPair, QAPairsResponse
+from config import ModelConfig, CeleryConfig
 
 # ログ設定
 logging.basicConfig(
@@ -28,42 +31,35 @@ logger = logging.getLogger(__name__)
 # Celeryアプリケーション設定
 app = Celery(
     'qa_generation',
-    broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
-    backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+    broker=os.getenv('CELERY_BROKER_URL', CeleryConfig.BROKER_URL),
+    backend=os.getenv('CELERY_RESULT_BACKEND', CeleryConfig.RESULT_BACKEND)
 )
 
 # Celery設定
 app.conf.update(
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    timezone='Asia/Tokyo',
-    enable_utc=True,
+    task_serializer=CeleryConfig.TASK_SERIALIZER,
+    accept_content=CeleryConfig.ACCEPT_CONTENT,
+    result_serializer=CeleryConfig.RESULT_SERIALIZER,
+    timezone=CeleryConfig.TIMEZONE,
+    enable_utc=CeleryConfig.ENABLE_UTC,
     # タスクのタイムアウト設定
-    task_time_limit=300,  # 5分
-    task_soft_time_limit=240,  # 4分（ソフトリミット）
+    task_time_limit=CeleryConfig.TASK_TIME_LIMIT,
+    task_soft_time_limit=CeleryConfig.TASK_SOFT_TIME_LIMIT,
     # 並列度の制御
-    worker_concurrency=4,  # ワーカー並列度
-    worker_prefetch_multiplier=1,  # プリフェッチ数
+    worker_concurrency=CeleryConfig.WORKER_CONCURRENCY,
+    worker_prefetch_multiplier=CeleryConfig.WORKER_PREFETCH_MULTIPLIER,
     # リトライ設定
     task_acks_late=True,
     task_reject_on_worker_lost=True,
 )
 
 
-class QAPair(BaseModel):
-    """Q/Aペアのデータモデル"""
-    question: str
-    answer: str
-    question_type: str
-    source_chunk_id: Optional[str] = None
-    dataset_type: Optional[str] = None
-    auto_generated: bool = False
-
-
-class QAPairsResponse(BaseModel):
-    """Q/Aペア生成レスポンス"""
-    qa_pairs: List[QAPair]
+# ===========================================
+# モデル別パラメータ制約（config.pyから参照）
+# ===========================================
+def supports_temperature(model: str) -> bool:
+    """モデルがtemperatureパラメータをサポートするかチェック"""
+    return ModelConfig.supports_temperature(model)
 
 
 def determine_qa_count(chunk_data: Dict, config: Dict) -> int:
@@ -89,8 +85,113 @@ def determine_qa_count(chunk_data: Dict, config: Dict) -> int:
         return base_qa_count
 
 
+def _extract_parsed_response(response, model: str) -> QAPairsResponse:
+    """
+    responses.parse() API のレスポンスから解析済みデータを抽出
+
+    Args:
+        response: OpenAI API レスポンス
+        model: 使用したモデル名
+
+    Returns:
+        QAPairsResponse オブジェクト
+
+    Raises:
+        ValueError: 解析可能なレスポンスがない場合
+    """
+    parsed_response = None
+
+    # デバッグ: レスポンスの構造をログ出力
+    logger.info(f"レスポンスタイプ: {type(response).__name__}")
+    response_attrs = [attr for attr in dir(response) if not attr.startswith('_')]
+    logger.info(f"レスポンス属性: {response_attrs}")
+
+    # 方法1: output_parsed属性を直接確認（GPT-5シリーズ対応）
+    if hasattr(response, 'output_parsed') and response.output_parsed:
+        parsed_response = response.output_parsed
+        logger.info(f"GPT-5形式のレスポンス（output_parsed）を使用")
+        return parsed_response
+
+    # 方法2: output配列から探索（GPT-4o対応）
+    if hasattr(response, 'output'):
+        logger.info(f"output配列の長さ: {len(response.output)}")
+        for idx, output in enumerate(response.output):
+            output_type = getattr(output, 'type', 'N/A')
+            logger.info(f"output[{idx}] タイプ: {type(output).__name__}, type属性: {output_type}")
+
+            # ReasoningItemはスキップ
+            if hasattr(output, 'type'):
+                if output.type == "reasoning":
+                    logger.info(f"  -> reasoning タイプをスキップ")
+                    continue
+                elif output.type == "message" and hasattr(output, 'content') and output.content:
+                    logger.info(f"  -> message タイプ、content長さ: {len(output.content)}")
+                    for item_idx, item in enumerate(output.content):
+                        item_type = getattr(item, 'type', 'N/A')
+                        logger.info(f"    content[{item_idx}] タイプ: {type(item).__name__}, type属性: {item_type}")
+
+                        # parsed属性をチェック
+                        if hasattr(item, 'type') and item.type == "output_text" and hasattr(item, 'parsed') and item.parsed:
+                            parsed_response = item.parsed
+                            logger.info(f"GPT-4o形式のレスポンス（output配列 -> parsed）を使用")
+                            return parsed_response
+
+                        # text属性がある場合もログ出力
+                        if hasattr(item, 'text') and item.text:
+                            text_preview = item.text[:100] if len(item.text) > 100 else item.text
+                            logger.info(f"    text属性あり（最初の100文字）: {text_preview}...")
+
+            if parsed_response:
+                break
+
+    # 方法3: 直接text属性からJSON解析を試みる
+    if not parsed_response and hasattr(response, 'output'):
+        logger.info("方法3: text属性からJSON直接解析を試行")
+        for output in response.output:
+            if hasattr(output, 'type') and output.type == "message" and hasattr(output, 'content'):
+                for item in output.content:
+                    if hasattr(item, 'text') and item.text:
+                        try:
+                            json_data = json.loads(item.text)
+                            if 'qa_pairs' in json_data:
+                                # JSONからQAPairsResponseを構築
+                                parsed_response = QAPairsResponse(**json_data)
+                                logger.info(f"JSONテキストから直接解析成功")
+                                return parsed_response
+                        except json.JSONDecodeError as e:
+                            logger.debug(f"JSON解析失敗（JSONDecodeError）: {str(e)[:100]}")
+                        except Exception as e:
+                            logger.debug(f"JSON解析失敗（その他）: {str(e)[:100]}")
+            if parsed_response:
+                break
+
+    # 方法4: output_text属性を直接確認
+    if not parsed_response and hasattr(response, 'output_text') and response.output_text:
+        logger.info("方法4: output_text属性からJSON解析を試行")
+        try:
+            json_data = json.loads(response.output_text)
+            if 'qa_pairs' in json_data:
+                parsed_response = QAPairsResponse(**json_data)
+                logger.info(f"output_textから直接解析成功")
+                return parsed_response
+        except Exception as e:
+            logger.debug(f"output_text解析失敗: {str(e)[:100]}")
+
+    if not parsed_response:
+        logger.error(f"OpenAI APIが解析可能なレスポンスを返しませんでした")
+        # レスポンスの詳細をログ出力（デバッグ用）
+        try:
+            response_str = str(response)[:1000]
+            logger.error(f"レスポンス全体（最初の1000文字）: {response_str}")
+        except:
+            pass
+        raise ValueError("No parsable response from OpenAI API")
+
+    return parsed_response
+
+
 @app.task(bind=True, max_retries=3)
-def generate_qa_for_chunk_async(self, chunk_data: Dict, config: Dict, model: str = "gpt-5-mini") -> Dict:
+def generate_qa_for_chunk_async(self, chunk_data: Dict, config: Dict, model: str = "gpt-4o-mini") -> Dict:
     """
     単一チャンクからQ/Aペアを非同期生成（Celeryタスク）
 
@@ -199,38 +300,13 @@ Output in JSON format:
                 input=combined_input,
                 model=model,
                 text_format=QAPairsResponse,  # Pydanticモデルを直接指定
-                max_output_tokens=1000
+                max_output_tokens=2000  # JSON切れ防止のため増加
             )
 
             logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
 
             # レスポンスから解析済みデータを取得
-            parsed_response = None
-
-            # 方法1: output_parsed属性を直接確認（GPT-5シリーズ対応）
-            if hasattr(response, 'output_parsed') and response.output_parsed:
-                parsed_response = response.output_parsed
-                logger.info(f"GPT-5形式のレスポンス（output_parsed）を使用")
-
-            # 方法2: output配列から探索（GPT-4o対応）
-            if not parsed_response and hasattr(response, 'output'):
-                for output in response.output:
-                    # ReasoningItemはスキップ
-                    if hasattr(output, 'type'):
-                        if output.type == "reasoning":
-                            continue
-                        elif output.type == "message" and hasattr(output, 'content') and output.content:
-                            for item in output.content:
-                                if hasattr(item, 'type') and item.type == "output_text" and hasattr(item, 'parsed') and item.parsed:
-                                    parsed_response = item.parsed
-                                    logger.info(f"GPT-4o形式のレスポンス（output配列）を使用")
-                                    break
-                    if parsed_response:
-                        break
-
-            if not parsed_response:
-                logger.error(f"OpenAI APIが解析可能なレスポンスを返しませんでした")
-                raise ValueError("No parsable response from OpenAI API")
+            parsed_response = _extract_parsed_response(response, model)
 
             # Q/Aペアを抽出
             for qa_data in parsed_response.qa_pairs:
@@ -251,16 +327,30 @@ Output in JSON format:
 
             # フォールバック処理
             try:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=[
+                # モデルに応じてパラメータを切り替える
+                completion_params = {
+                    "model": model,
+                    "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    response_format={"type": "json_object"},
-                    temperature=0.7,
-                    max_tokens=1000
-                )
+                    "response_format": {"type": "json_object"},
+                }
+
+                # temperatureをサポートするモデルのみ指定
+                # GPT-5シリーズ、O-Seriesはtemperature=1のみサポート
+                if supports_temperature(model):
+                    completion_params["temperature"] = 0.7
+                else:
+                    logger.info(f"モデル {model} はtemperatureパラメータ非対応のためスキップ")
+
+                # GPT-5シリーズやO3/O4シリーズの場合はmax_completion_tokensを使用
+                if model.startswith("gpt-5") or model.startswith("o3") or model.startswith("o4"):
+                    completion_params["max_completion_tokens"] = 1000
+                else:
+                    completion_params["max_tokens"] = 1000
+
+                response = client.chat.completions.create(**completion_params)
 
                 logger.info(f"OpenAI API呼び出し成功（フォールバック）")
 
@@ -322,7 +412,7 @@ Output in JSON format:
 
 
 @app.task(bind=True, max_retries=3)
-def generate_qa_for_batch_async(self, chunks: List[Dict], config: Dict, model: str = "gpt-5-mini") -> Dict:
+def generate_qa_for_batch_async(self, chunks: List[Dict], config: Dict, model: str = "gpt-4o-mini") -> Dict:
     """
     複数チャンクからQ/Aペアを非同期バッチ生成（Celeryタスク）
 
@@ -443,38 +533,13 @@ Output in JSON format:
                 input=combined_input,
                 model=model,
                 text_format=QAPairsResponse,  # Pydanticモデルを直接指定
-                max_output_tokens=2000
+                max_output_tokens=4000  # バッチ処理（3チャンク）のJSON切れ防止のため増加
             )
 
             logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
 
-            # レスポンスから解析済みデータを取得
-            parsed_response = None
-
-            # 方法1: output_parsed属性を直接確認（GPT-5シリーズ対応）
-            if hasattr(response, 'output_parsed') and response.output_parsed:
-                parsed_response = response.output_parsed
-                logger.info(f"GPT-5形式のレスポンス（output_parsed）を使用")
-
-            # 方法2: output配列から探索（GPT-4o対応）
-            if not parsed_response and hasattr(response, 'output'):
-                for output in response.output:
-                    # ReasoningItemはスキップ
-                    if hasattr(output, 'type'):
-                        if output.type == "reasoning":
-                            continue
-                        elif output.type == "message" and hasattr(output, 'content') and output.content:
-                            for item in output.content:
-                                if hasattr(item, 'type') and item.type == "output_text" and hasattr(item, 'parsed') and item.parsed:
-                                    parsed_response = item.parsed
-                                    logger.info(f"GPT-4o形式のレスポンス（output配列）を使用")
-                                    break
-                    if parsed_response:
-                        break
-
-            if not parsed_response:
-                logger.error(f"OpenAI APIが解析可能なレスポンスを返しませんでした")
-                raise ValueError("No parsable response from OpenAI API")
+            # レスポンスから解析済みデータを取得（共通関数を使用）
+            parsed_response = _extract_parsed_response(response, model)
 
             # レスポンス解析とQ/Aペア分配
             qa_index = 0
@@ -502,16 +567,30 @@ Output in JSON format:
             logger.info("フォールバック: 通常のChat Completions APIを使用")
 
             # フォールバック処理
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
+            # モデルに応じてパラメータを切り替える
+            completion_params = {
+                "model": model,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={"type": "json_object"},
-                temperature=0.7,
-                max_tokens=2000
-            )
+                "response_format": {"type": "json_object"},
+            }
+
+            # temperatureをサポートするモデルのみ指定
+            # GPT-5シリーズ、O-Seriesはtemperature=1のみサポート
+            if supports_temperature(model):
+                completion_params["temperature"] = 0.7
+            else:
+                logger.info(f"モデル {model} はtemperatureパラメータ非対応のためスキップ")
+
+            # GPT-5シリーズやO3/O4シリーズの場合はmax_completion_tokensを使用
+            if model.startswith("gpt-5") or model.startswith("o3") or model.startswith("o4"):
+                completion_params["max_completion_tokens"] = 2000
+            else:
+                completion_params["max_tokens"] = 2000
+
+            response = client.chat.completions.create(**completion_params)
 
             import json
             response_text = response.choices[0].message.content
@@ -567,7 +646,7 @@ Output in JSON format:
         }
 
 
-def submit_parallel_qa_generation(chunks: List[Dict], config: Dict, model: str = "gpt-5-mini",
+def submit_parallel_qa_generation(chunks: List[Dict], config: Dict, model: str = "gpt-4o-mini",
                                  batch_size: int = 3) -> List:
     """
     並列Q/A生成ジョブを投入
@@ -738,7 +817,7 @@ def collect_results(tasks: List, timeout: int = 300) -> List[Dict]:
 
                     # デバッグ: 最後のタスクの状態を詳細ログ
                     if i == total_tasks - 1:
-                        logger.info(f"🔍 最後のタスク[{i}] Redis状態={redis_state}, Celery状態={task_state}, id={task.id[:8]}...")
+                        logger.debug(f"🔍 最後のタスク[{i}] Redis状態={redis_state}, Celery状態={task_state}, id={task.id[:8]}...")
 
                     # PENDINGでもRedisにSUCCESSがある場合、またはready()の場合
                     if task_state == 'SUCCESS' or task.ready() or (task_state == 'PENDING' and redis_state == 'SUCCESS'):

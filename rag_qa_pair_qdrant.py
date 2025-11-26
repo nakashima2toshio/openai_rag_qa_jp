@@ -34,9 +34,6 @@ celery -A celery_config flower --port=5555 --basic_auth=admin:password
 redis-cli FLUSHDB && ./start_celery.sh restart -w 24
 
 =============================================
-rag_qa_pair_qdrant.py - RAGデータダウンロード・前処理・Q/A生成ツール
-
-=============================================
 起動: streamlit run rag_qa_pair_qdrant.py --server.port=8500
 
 【主要機能】
@@ -69,7 +66,6 @@ from typing import Dict, List, Optional, Any, Iterable, Tuple
 import time
 import tiktoken
 from openai import OpenAI
-from pydantic import BaseModel
 from dotenv import load_dotenv
 import io
 import subprocess
@@ -85,6 +81,18 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 # 環境変数読み込み
 load_dotenv()
 
+# ===================================================================
+# 共通モジュールからインポート（models.py, config.py）
+# ===================================================================
+from models import QAPair, QAPairsResponse
+from config import (
+    DATASET_CONFIGS,
+    ModelConfig,
+    DatasetConfig,
+    QdrantConfig,
+    PathConfig,
+)
+
 # ローカルモジュール（必要な関数のみインポート）
 from helper_rag import clean_text
 
@@ -92,38 +100,40 @@ from helper_rag import clean_text
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ===================================================================
-# Pydantic モデル定義（Q/A生成用）
-# ===================================================================
-
-
-class QAPair(BaseModel):
-    """Q/Aペアのデータモデル"""
-
-    question: str
-    answer: str
-    question_type: str
-    source_chunk_id: Optional[str] = None
-    dataset_type: Optional[str] = None
-    auto_generated: bool = False
-
-
-class QAPairsResponse(BaseModel):
-    """Q/Aペア生成レスポンス"""
-
-    qa_pairs: List[QAPair]
-
 
 # ===================================================================
-# データセット設定
+# データセット設定（config.pyからインポート済み）
+# 後方互換性のため、ローカル参照も維持
+# ===================================================================
+# DATASET_CONFIGS は config.py からインポート済み
+
+# ===================================================================
+# Livedoorコーパス用関数（ローカルデータセット固有処理）
 # ===================================================================
 
-DATASET_CONFIGS = {
-    "wikipedia_ja": {
-        "name": "Wikipedia日本語版",
-        "icon": "📚",
-        "description": "Wikipedia日本語版の記事データ（百科事典的知識）",
-        "hf_dataset": "wikimedia/wikipedia",
+# Note: 以下のLivedoor関連コードは特殊な処理が必要なため残す
+_LIVEDOOR_CONFIG = {
+    "name": "Livedoorニュースコーパス",
+    "icon": "📰",
+    "description": "Livedoorニュース日本語記事（9カテゴリ、全7,376件）",
+    "hf_dataset": None,
+    "download_url": "https://www.rondhuit.com/download/ldcc-20140209.tar.gz",
+    "split": None,
+    "text_field": "content",
+    "title_field": "title",
+    "sample_size": 7376,
+    "min_text_length": 100,
+}
+
+# DATASET_CONFIGSに "wikipedia_ja" が含まれているか確認（後方互換性）
+if "wikipedia_ja" not in DATASET_CONFIGS:
+    # config.pyからのインポートが失敗した場合のフォールバック
+    DATASET_CONFIGS = {
+        "wikipedia_ja": {
+            "name": "Wikipedia日本語版",
+            "icon": "📚",
+            "description": "Wikipedia日本語版の記事データ（百科事典的知識）",
+            "hf_dataset": "wikimedia/wikipedia",
         "hf_config": "20231101.ja",
         "split": "train",
         "text_field": "text",
@@ -874,7 +884,7 @@ def generate_qa_pairs(
     text: str,
     dataset_type: str,
     chunk_id: str,
-    model: str = "gpt-5-nano",  # デフォルトモデルをgpt-5-nanoに設定
+    model: str = "gpt-4o-mini",  # デフォルトモデルをgpt-4o-miniに設定
     qa_per_chunk: int = 3,
     log_callback=None,
 ) -> List[QAPair]:
@@ -1620,7 +1630,7 @@ def show_qa_generation_page():
                 "o4",
                 "o4-mini"
             ],
-            index=1,  # デフォルトはgpt-5-nano（index=1）
+            index=4,  # デフォルトはgpt-4o-mini（index=4）
             help="Q/A生成に使用するモデル（全OpenAIモデル対応）",
         )
 

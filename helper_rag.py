@@ -20,6 +20,19 @@ from functools import wraps
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ===================================================================
+# 共通モジュールからインポート
+# ===================================================================
+# テキスト処理関数をhelper_text.pyから参照可能にする
+from helper_text import clean_text as _clean_text_impl
+from helper_text import count_tokens, split_into_chunks
+
+# 設定はconfig.pyから参照可能（後方互換性維持）
+try:
+    from config import ModelConfig
+except ImportError:
+    ModelConfig = None
+
 
 # ==================================================
 # 設定管理クラス（共通）

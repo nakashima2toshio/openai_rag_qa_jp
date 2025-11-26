@@ -200,11 +200,21 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 import tiktoken
 from openai import OpenAI
-from pydantic import BaseModel
 from dotenv import load_dotenv
 import logging
 import re
 from collections import Counter
+
+# ===================================================================
+# 共通モジュールからインポート
+# ===================================================================
+from models import QAPair, QAPairsResponse
+from config import (
+    DATASET_CONFIGS,
+    QAGenerationConfig,
+    ModelConfig,
+)
+from helper_text import count_tokens, clean_text
 
 # ローカルモジュール
 from a03_rag_qa_coverage_improved import SemanticCoverage
@@ -221,94 +231,45 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================
-# Pydantic モデル定義
+# 質問タイプ階層構造（config.pyから参照）
 # ==========================================
-
-class QAPair(BaseModel):
-    """Q/Aペアのデータモデル（拡張版）"""
-    question: str
-    answer: str
-    question_type: str
-    difficulty_level: Optional[str] = "medium"  # easy/medium/hard
-    question_category: Optional[str] = "understanding"  # basic/understanding/application
-    source_chunk_id: Optional[str] = None
-    dataset_type: Optional[str] = None
-    auto_generated: bool = False
-    confidence_score: Optional[float] = None  # 生成の確信度
-    quality_score: Optional[float] = None  # 品質スコア
-
-
-class QAPairsResponse(BaseModel):
-    """Q/Aペア生成レスポンス"""
-    qa_pairs: List[QAPair]
+QUESTION_TYPES_HIERARCHY = QAGenerationConfig.QUESTION_TYPES_HIERARCHY
 
 
 # ==========================================
-# 質問タイプ階層構造の定義
+# データセット設定の拡張（ローカル固有設定）
 # ==========================================
+# DATASET_CONFIGS は config.py からインポート済み
+# 以下はこのスクリプト固有の拡張設定
 
-QUESTION_TYPES_HIERARCHY = {
-    "basic": {
-        "definition": "定義型（〜とは何ですか？）",
-        "identification": "識別型（〜の例を挙げてください）",
-        "enumeration": "列挙型（〜の種類/要素は？）"
-    },
-    "understanding": {
-        "cause_effect": "因果関係型（〜の結果/影響は？）",
-        "process": "プロセス型（〜はどのように行われますか？）",
-        "mechanism": "メカニズム型（〜の仕組みは？）",
-        "comparison": "比較型（〜と〜の違いは？）"
-    },
-    "application": {
-        "synthesis": "統合型（〜を組み合わせるとどうなりますか？）",
-        "evaluation": "評価型（〜の長所と短所は？）",
-        "prediction": "予測型（〜の場合どうなりますか？）",
-        "practical": "実践型（〜はどのように活用されますか？）"
-    }
-}
-
-# ==========================================
-# データセット設定
-# ==========================================
-
-DATASET_CONFIGS = {
+# config.pyの設定を拡張（追加フィールド）
+_LOCAL_DATASET_EXTENSIONS = {
     "cc_news": {
-        "name": "CC-News英語ニュース",
-        "file": "OUTPUT/preprocessed_cc_news.csv",
         "text_column": "Combined_Text",
         "title_column": "title",
         "lang": "en",
-        "chunk_size": 300,  # トークン数
-        "qa_per_chunk": 5,  # チャンクあたりのQ/A数（改善: 3→5）
     },
     "japanese_text": {
-        "name": "日本語Webテキスト",
-        "file": "OUTPUT/preprocessed_japanese_text.csv",
         "text_column": "Combined_Text",
         "title_column": None,
         "lang": "ja",
-        "chunk_size": 200,
-        "qa_per_chunk": 2,
     },
     "wikipedia_ja": {
-        "name": "Wikipedia日本語版",
-        "file": "OUTPUT/preprocessed_wikipedia_ja.csv",
         "text_column": "Combined_Text",
         "title_column": "title",
         "lang": "ja",
-        "chunk_size": 250,
-        "qa_per_chunk": 3,
     },
     "livedoor": {
-        "name": "Livedoorニュースコーパス",
-        "file": "OUTPUT/preprocessed_livedoor.csv",
         "text_column": "Combined_Text",
         "title_column": "title",
         "lang": "ja",
-        "chunk_size": 200,  # 日本語ニュース記事に適したサイズ
-        "qa_per_chunk": 4,  # ニュース記事の情報密度を考慮
     }
 }
+
+# DATASET_CONFIGSにローカル拡張を追加
+for dataset_name, extensions in _LOCAL_DATASET_EXTENSIONS.items():
+    if dataset_name in DATASET_CONFIGS:
+        DATASET_CONFIGS[dataset_name].update(extensions)
 
 
 # ==========================================
@@ -957,14 +918,14 @@ def determine_qa_count(chunk: Dict, config: Dict) -> int:
 def generate_qa_pairs_for_batch(
     chunks: List[Dict],
     config: Dict,
-    model: str = "gpt-5-nano",
+    model: str = "gpt-4o-mini",
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """複数チャンクから一度にQ/Aペアを生成（バッチ処理対応）
     Args:
         chunks: チャンクデータのリスト（1-5個）
         config: データセット設定
-        model: 使用するモデル（デフォルト: gpt-5-nano）
+        model: 使用するモデル（デフォルト: gpt-4o-mini）
         client: OpenAIクライアント
     Returns:
         生成されたQ/Aペアのリスト
@@ -1147,14 +1108,14 @@ Output in JSON format:
 def generate_qa_pairs_for_chunk(
     chunk: Dict,
     config: Dict,
-    model: str = "gpt-5-nano",
+    model: str = "gpt-4o-mini",
     client: Optional[OpenAI] = None
 ) -> List[Dict]:
     """単一チャンクからQ/Aペアを生成（後方互換性のため維持）
     Args:
         chunk: チャンクデータ
         config: データセット設定
-        model: 使用するモデル（デフォルト: gpt-5-nano）
+        model: 使用するモデル（デフォルト: gpt-4o-mini）
         client: OpenAIクライアント
     Returns:
         生成されたQ/Aペアのリスト
@@ -1335,7 +1296,7 @@ Output in JSON format:
 def generate_qa_for_dataset(
     chunks: List[Dict],
     dataset_type: str,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-4o-mini",
     chunk_batch_size: int = 3,
     merge_chunks: bool = True,
     min_tokens: int = 150,
@@ -1925,8 +1886,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-5-nano",
-        help="使用するOpenAIモデル（デフォルト: gpt-5-nano）"
+        default="gpt-4o-mini",
+        help="使用するOpenAIモデル（デフォルト: gpt-4o-mini）"
     )
     parser.add_argument(
         "--output",
