@@ -48,11 +48,8 @@ Qdrantに登録されたRAGデータを安全に削除するためのユーテ�
 import argparse
 import os
 import sys
-import json
 import time
 from typing import Dict, List, Optional, Any
-from datetime import datetime
-from pathlib import Path
 
 try:
     import yaml
@@ -383,7 +380,7 @@ def get_all_collections(client: QdrantClient) -> List[Dict[str, Any]]:
                 "points_count": info.points_count,
                 "status": info.status
             })
-        except Exception as e:
+        except Exception:
             collection_list.append({
                 "name": collection.name,
                 "points_count": 0,

@@ -34,10 +34,9 @@ streamlit run a34_rag_search_cloud_vs.py --server.port=8501
 - OpenAI APIから最新状態を取得・更新
 """
 import streamlit as st
-import time
 import logging
 import json
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Tuple
 from datetime import datetime
 from pathlib import Path
 import traceback
@@ -841,7 +840,7 @@ def display_vector_store_management():
         st.write("**操作**")
         if st.button("🔄 最新情報に更新", type="primary"):
             with st.spinner("最新のVector Store情報を取得中..."):
-                updated_stores = manager.refresh_and_save()
+                manager.refresh_and_save()
                 st.session_state['vector_stores_updated'] = datetime.now().isoformat()
                 # キャッシュクリア
                 st.cache_resource.clear()
@@ -869,16 +868,16 @@ def display_system_info():
     with st.expander("🔧 システム情報", expanded=False):
         st.write("**利用可能な機能:**")
         st.write(f"- OpenAI SDK: {'✅' if OPENAI_AVAILABLE else '❌'}")
-        st.write(f"- Responses API: ✅")
-        st.write(f"- file_search ツール: ✅")
+        st.write("- Responses API: ✅")
+        st.write("- file_search ツール: ✅")
         st.write(f"- Agent SDK: {'✅（簡易版）' if AGENT_SDK_AVAILABLE else '❌'}")
-        st.write(f"- Vector Store RAG: ✅")
-        st.write(f"- ファイル引用: ✅")
-        st.write(f"- 検索結果詳細: ✅")
-        st.write(f"- 型安全実装: ✅")
-        st.write(f"- 環境変数APIキー: ✅")
-        st.write(f"- 動的Vector Store管理: ✅")
-        st.write(f"- 重複ID解決: ✅（最新優先）")
+        st.write("- Vector Store RAG: ✅")
+        st.write("- ファイル引用: ✅")
+        st.write("- 検索結果詳細: ✅")
+        st.write("- 型安全実装: ✅")
+        st.write("- 環境変数APIキー: ✅")
+        st.write("- 動的Vector Store管理: ✅")
+        st.write("- 重複ID解決: ✅（最新優先）")
 
         st.write("**APIキー設定:**")
         st.write("- 環境変数 `OPENAI_API_KEY` から自動取得")
@@ -1100,7 +1099,7 @@ def display_search_results(response_text: str, metadata: Dict[str, Any], origina
             with col2:
                 if 'usage' in enhanced_metadata:
                     usage = enhanced_metadata['usage']
-                    st.markdown(f"**トークン使用量:**")
+                    st.markdown("**トークン使用量:**")
                     st.markdown(f"- 入力: {usage.get('prompt_tokens', 0):,}")
                     st.markdown(f"- 出力: {usage.get('completion_tokens', 0):,}")
                     st.markdown(f"- 合計: {usage.get('total_tokens', 0):,}")
@@ -1166,8 +1165,8 @@ def main():
         else:
             st.info("ℹ️ Agent SDK 未利用（Responses APIのみ）")
     with col3:
-        st.success(f"✅ 動的Vector Store管理")
-        st.success(f"🔄 重複ID解決（最新優先）")
+        st.success("✅ 動的Vector Store管理")
+        st.success("🔄 重複ID解決（最新優先）")
         st.info(f"📊 利用可能店舗: {len(vector_stores)}件")
 
     st.markdown("---")

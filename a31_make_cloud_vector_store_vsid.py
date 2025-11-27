@@ -10,11 +10,10 @@ import time
 import json
 import tempfile
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Callable
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import logging
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
 
 # OpenAI SDK のインポート
 try:
@@ -433,12 +432,12 @@ class VectorStoreManager:
             logger.info(f"Vector Store作成完了: ID={vector_store.id}")
 
             # Step 3: ファイルをVector Storeに追加
-            vector_store_file = self.client.vector_stores.files.create(
+            self.client.vector_stores.files.create(
                 vector_store_id=vector_store.id,
                 file_id=uploaded_file_id
             )
 
-            logger.info(f"Vector StoreFileリンク作成完了")
+            logger.info("Vector StoreFileリンク作成完了")
 
             # Step 4: ファイル処理完了を待機
             max_wait_time = 600  # 最大10分待機
@@ -460,7 +459,7 @@ class VectorStoreManager:
                     if file_status.status == "completed":
                         updated_vector_store = self.client.vector_stores.retrieve(vector_store.id)
 
-                        logger.info(f"✅ Vector Store作成完了:")
+                        logger.info("✅ Vector Store作成完了:")
                         logger.info(f"  - ID: {vector_store.id}")
                         logger.info(f"  - Name: {vector_store.name}")
                         logger.info(f"  - ファイル数: {updated_vector_store.file_counts.total}")

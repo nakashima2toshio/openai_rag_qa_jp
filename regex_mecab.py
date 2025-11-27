@@ -2,9 +2,8 @@
 # MeCab複合名詞版と正規表現版を統合したロバストなキーワード抽出システム
 
 import re
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 from collections import Counter
-import os
 
 
 class KeywordExtractor:
@@ -52,7 +51,7 @@ class KeywordExtractor:
             tagger = MeCab.Tagger()
             tagger.parse("テスト")
             return True
-        except (ImportError, RuntimeError) as e:
+        except (ImportError, RuntimeError):
             return False
 
     def extract(self, text: str, top_n: int = 5,
@@ -240,7 +239,7 @@ class KeywordExtractor:
             try:
                 mecab_kws = self._extract_with_mecab(text, top_n * 2, use_scoring=False)
                 all_keywords.update(mecab_kws)
-            except:
+            except Exception:
                 pass
 
         # 正規表現から抽出
@@ -366,7 +365,7 @@ def evaluate_coverage_potential(keywords: List[str],
             text_emb = analyzer.generate_embedding(uncovered_text)
             similarity = analyzer.cosine_similarity(kw_emb, text_emb)
             metrics['意味的関連度'] = similarity
-        except:
+        except Exception:
             metrics['意味的関連度'] = 0.0
 
     return metrics

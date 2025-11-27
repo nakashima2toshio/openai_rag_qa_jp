@@ -28,31 +28,21 @@ import streamlit as st
 import pandas as pd
 import json
 import io
-import os
 import urllib.request
 import tarfile
-import glob
 from datetime import datetime
 from pathlib import Path
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
 # ローカルモジュール
 from helper_rag import (
-    setup_page_config,
-    setup_page_header,
-    setup_sidebar_header,
     select_model,
     show_model_info,
     validate_data,
-    load_dataset,
     estimate_token_usage,
-    create_download_data,
-    display_statistics,
     save_files_to_output,
-    show_usage_instructions,
     clean_text,
-    TokenManager,
     safe_execute
 )
 
@@ -497,7 +487,6 @@ def main():
     """メイン処理関数"""
 
     # 初期設定（デフォルトのデータセットタイプ）
-    default_dataset = "japanese_text"
 
     # ページ設定
     try:

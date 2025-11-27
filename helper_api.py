@@ -6,16 +6,13 @@ import time
 import json
 import logging
 import logging.handlers
-from logging import Logger
 
 import yaml
 import os
-from typing import List, Dict, Any, Optional, Union, Tuple, Literal, Callable
+from typing import List, Dict, Any, Optional, Union, Literal
 from pathlib import Path
-from dataclasses import dataclass
 from functools import wraps
 from datetime import datetime
-from abc import ABC, abstractmethod
 import hashlib
 
 import tiktoken
@@ -26,14 +23,9 @@ from openai import OpenAI
 # -----------------------------------------------------
 from openai.types.responses import (
     EasyInputMessageParam,
-    ResponseInputTextParam,
-    ResponseInputImageParam,
     Response
 )
 from openai.types.chat import (
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
-    ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
 )
 

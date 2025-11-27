@@ -1,6 +1,6 @@
 # MeCabを使用した日本語キーワード抽出の改良版
 import collections
-from typing import List, Optional
+from typing import List
 import re
 
 def extract_keywords_mecab(text: str, top_n: int = 5, use_compound: bool = True) -> List[str]:
@@ -386,7 +386,7 @@ def debug_compound_noun_extraction(text: str) -> None:
                     extracted_compounds.append(compound)
                     print(f"         ✓ 追加: '{compound}'")
                 else:
-                    print(f"         ✗ スキップ（短すぎるかストップワード）")
+                    print("         ✗ スキップ（短すぎるかストップワード）")
                 compound_noun = []
             continue
 

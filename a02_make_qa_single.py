@@ -91,7 +91,7 @@ import argparse
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from datetime import datetime
 import tiktoken
 from openai import OpenAI
@@ -218,7 +218,7 @@ class KeywordExtractor:
             tagger = MeCab.Tagger()
             tagger.parse("テスト")
             return True
-        except (ImportError, RuntimeError) as e:
+        except (ImportError, RuntimeError):
             return False
 
     def extract(self, text: str, top_n: int = 5) -> List[str]:

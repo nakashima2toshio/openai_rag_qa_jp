@@ -2,11 +2,8 @@
 # 日本語文書のセマンティックカバレージ分析とQ/A自動生成デモンストレーション
 
 import numpy as np
-from typing import List, Dict, Tuple
 import re
 import os
-import json
-import time
 from dotenv import load_dotenv
 
 # 統合版キーワード抽出システムをインポート
@@ -180,7 +177,7 @@ def visualize_semantic_coverage(coverage_matrix, doc_chunks, qa_pairs):
     max_similarities = coverage_matrix.max(axis=1)
 
     # ヒストグラム
-    bars = ax2.bar(
+    ax2.bar(
         range(len(max_similarities)),
         max_similarities,
         color=['green' if s > 0.7 else 'red' for s in max_similarities]
@@ -364,7 +361,7 @@ def main():
     user_input = input("\n結果を可視化しますか？ (y/n): ")
     if user_input.lower() == 'y':
         try:
-            fig = visualize_semantic_coverage(coverage_matrix, doc_chunks, example_qa_pairs)
+            visualize_semantic_coverage(coverage_matrix, doc_chunks, example_qa_pairs)
             plt.show()
             print("✅ 可視化が完了しました")
         except Exception as e:
@@ -390,7 +387,7 @@ def main():
             # 統合版の結果を表示
             if '統合版' in results:
                 integrated_keywords = [kw for kw, score in results['統合版']]
-                print(f"\n統合版キーワード抽出:")
+                print("\n統合版キーワード抽出:")
                 for j, (kw, score) in enumerate(results['統合版'][:5], 1):
                     print(f"  {j}. {kw:15s} (スコア: {score:.3f})")
 
@@ -403,7 +400,7 @@ def main():
             keywords = integrated_keywords if '統合版' in results else extractor.extract(chunk, top_n=5)
             metrics = evaluate_coverage_potential(keywords, chunk, analyzer)
 
-            print(f"\nキーワード品質指標:")
+            print("\nキーワード品質指標:")
             print(f"  - カバレージ率: {metrics['キーワードカバレージ率']:.1%}")
             print(f"  - 複合語率: {metrics['複合語率']:.1%}")
             print(f"  - 専門用語率: {metrics['専門用語率']:.1%}")
@@ -411,7 +408,7 @@ def main():
                 print(f"  - 意味的関連度: {metrics['意味的関連度']:.1%}")
 
             # 推奨Q/A生成
-            print(f"\n推奨Q/A:")
+            print("\n推奨Q/A:")
             for keyword in keywords[:3]:
                 if keyword in ['CNN', 'Vision', 'Transformer', '画像認識']:
                     print(f"  Q: {keyword}はどのような技術ですか？")

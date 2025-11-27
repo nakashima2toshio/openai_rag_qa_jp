@@ -56,7 +56,7 @@ def show_qdrant_search_page():
         temp_client = QdrantClient(url=qdrant_url)
         collections_response = temp_client.get_collections()
         available_collections = [col.name for col in collections_response.collections]
-    except Exception as e:
+    except Exception:
         st.error(f"❌ Qdrantサーバーに接続できません: {qdrant_url}")
         st.warning("Qdrantサーバーが起動していることを確認してください")
         st.code("python server.py", language="bash")

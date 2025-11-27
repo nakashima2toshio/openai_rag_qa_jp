@@ -14,7 +14,7 @@ helper_text.py - テキスト処理ユーティリティ
 
 import re
 import logging
-from typing import List, Optional, Tuple
+from typing import List
 import tiktoken
 
 # ログ設定
@@ -310,7 +310,7 @@ def split_into_chunks_with_metadata(
     chunks = []
     start = 0
     chunk_idx = 0
-    total_chunks = (total_tokens + chunk_size - overlap - 1) // (chunk_size - overlap)
+    (total_tokens + chunk_size - overlap - 1) // (chunk_size - overlap)
 
     while start < len(tokens):
         end = min(start + chunk_size, len(tokens))

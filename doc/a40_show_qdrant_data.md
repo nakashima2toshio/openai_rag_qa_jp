@@ -1,108 +1,271 @@
-# a40_show_qdrant_data.py - Qdrantデータ表示ツール（Streamlit UI）
+# a40_show_qdrant_data.py - 技術仕様書
 
-## 📋 概要
+## 目次
 
-`a40_show_qdrant_data.py`は、Qdrantベクトルデータベースの状態を監視し、登録されているデータを視覚的に表示するためのStreamlitベースのWebアプリケーションです。コレクション一覧、詳細情報、データソース構成、ポイントデータのエクスポートなど、包括的な管理機能を提供します。
+1. [概要](#1-概要)
+2. [アーキテクチャ](#2-アーキテクチャ)
+3. [QdrantHealthChecker](#3-qdranthealthchecker)
+4. [QdrantDataFetcher](#4-qdrantdatafetcher)
+5. [UI構成](#5-ui構成)
+6. [使用方法](#6-使用方法)
+7. [エクスポート機能](#7-エクスポート機能)
+8. [トラブルシューティング](#8-トラブルシューティング)
 
-### 主な特徴
+---
 
-- **リアルタイム接続監視**: Qdrantサーバーの接続状態を自動チェック
-- **コレクション管理**: 全コレクションの一覧表示と統計情報
-- **データソース分析**: qa_output/ディレクトリーとの対応関係を自動分析
+## 1. 概要
+
+### 1.1 目的
+
+`a40_show_qdrant_data.py`は、Qdrantベクトルデータベースの状態を監視し、登録されているデータを視覚的に表示するためのStreamlitベースのWebアプリケーションです。
+
+### 1.2 起動コマンド
+
+```bash
+streamlit run a40_show_qdrant_data.py --server.port=8502
+```
+
+### 1.3 主要機能
+
+- **Qdrantサーバー接続状態チェック**: ポートチェック + API接続確認
+- **コレクション一覧表示**: 全コレクションの統計情報（ベクトル数、ポイント数、ステータス）
+- **データソース情報表示**: qa_output/ディレクトリーとの対応関係を自動分析
 - **ポイントデータ表示**: コレクション内のデータをテーブル形式で表示
 - **エクスポート機能**: CSV/JSON形式でのデータダウンロード
-- **デバッグモード**: 詳細なエラー情報とトラブルシューティング
+- **デバッグモード**: 詳細なエラー情報とサーバー設定表示
+
+### 1.4 入出力
+
+| 種別 | データソース | 形式 |
+|------|------------|------|
+| INPUT | Qdrant Vector Database (localhost:6333) | REST API |
+| OUTPUT | Streamlit WebUI | HTML/CSS |
+| OUTPUT | CSV/JSON エクスポート | ファイルダウンロード |
 
 ---
 
-## 📥 INPUT / 📤 OUTPUT
+## 2. アーキテクチャ
 
-### INPUT（入力データソース）
+### 2.1 システム構成図
 
-| データソース | 説明 | 形式 |
-|---|---|---|
-| **Qdrant Vector Database** | ベクトルデータベース（ポート6333） | REST API |
-| └ コレクション | qa_cc_news_a02_llm, qa_cc_news_a03_rule等 | ベクトル + メタデータ |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    a40_show_qdrant_data.py                      │
+├─────────────────────────────────────────────────────────────────┤
+│  QDRANT_CONFIG (48-56)                                          │
+│  ├── name: "Qdrant"                                             │
+│  ├── host: "localhost"                                          │
+│  ├── port: 6333                                                 │
+│  ├── url: "http://localhost:6333"                               │
+│  └── docker_image: "qdrant/qdrant"                              │
+├─────────────────────────────────────────────────────────────────┤
+│  QdrantHealthChecker (61-110)                                   │
+│  ├── check_port() - ポート開放チェック                           │
+│  └── check_qdrant() - Qdrant接続チェック                         │
+├─────────────────────────────────────────────────────────────────┤
+│  QdrantDataFetcher (115-282)                                    │
+│  ├── fetch_collections() - コレクション一覧取得                   │
+│  ├── fetch_collection_points() - ポイントデータ取得               │
+│  ├── fetch_collection_info() - コレクション詳細情報取得            │
+│  └── fetch_collection_source_info() - データソース情報取得        │
+├─────────────────────────────────────────────────────────────────┤
+│  display_source_info() (287-328)                                │
+│  └── データソース情報をStreamlit UIで表示                         │
+├─────────────────────────────────────────────────────────────────┤
+│  main() (333-666)                                               │
+│  ├── サイドバー（接続状態、デバッグモード、自動更新）               │
+│  ├── コレクション一覧表示                                        │
+│  ├── データソース情報表示                                        │
+│  ├── コレクション詳細データ表示                                   │
+│  └── エクスポート機能（CSV/JSON）                                │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-### OUTPUT（出力）
+### 2.2 依存モジュール
 
-| 出力先 | 形式 | 内容 |
-|---|---|---|
-| **Streamlit WebUI** | HTML/CSS | インタラクティブな統計表示 |
-| **CSV エクスポート** | CSV | コレクション一覧、ポイントデータ |
-| **JSON エクスポート** | JSON | コレクション一覧、ポイントデータ |
+```python
+import streamlit as st
+import pandas as pd
+import time
+import logging
+import socket
+from qdrant_client import QdrantClient
+from typing import Dict, Any, Optional, Tuple
+from datetime import datetime
+```
+
+### 2.3 サーバー設定
+
+```python
+QDRANT_CONFIG = {
+    "name": "Qdrant",
+    "host": "localhost",
+    "port": 6333,
+    "icon": "🎯",
+    "url": "http://localhost:6333",
+    "health_check_endpoint": "/collections",
+    "docker_image": "qdrant/qdrant"
+}
+```
 
 ---
 
-## 🚀 使用方法
+## 3. QdrantHealthChecker
 
-### 基本的な使い方
+### 3.1 概要
 
-#### 1. Qdrantサーバーの起動
+Qdrantサーバーへの接続状態をチェックするクラス。
 
-```bash
-# Docker Composeを使用（推奨）
-cd docker-compose
-docker-compose up -d qdrant
+### 3.2 check_port (68-79)
 
-# または単独のDockerコマンド
-docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
+```python
+def check_port(self, host: str, port: int, timeout: float = 2.0) -> bool:
+    """ポートが開いているかチェック
 
-# または自動セットアップスクリプト
-python server.py
+    - socket接続でポート開放を確認
+    - タイムアウト: 2秒（デフォルト）
+    """
 ```
 
-#### 2. Streamlitアプリの起動
+### 3.3 check_qdrant (81-110)
 
-```bash
-# デフォルトポート（8501）で起動
-streamlit run a40_show_qdrant_data.py
+```python
+def check_qdrant(self) -> Tuple[bool, str, Optional[Dict]]:
+    """Qdrant接続チェック
 
-# カスタムポート指定
-streamlit run a40_show_qdrant_data.py --server.port=8502
+    処理フロー:
+    1. ポートチェック（check_port）
+    2. QdrantClient接続
+    3. コレクション一覧取得
+    4. レスポンスタイム計測
 
-# ブラウザ自動起動を無効化
-streamlit run a40_show_qdrant_data.py --server.headless=true
-```
-
-#### 3. ブラウザでアクセス
-
-```
-http://localhost:8501
+    Returns:
+        (is_connected, message, metrics)
+        - is_connected: 接続成功/失敗
+        - message: ステータスメッセージ
+        - metrics: {collection_count, collections, response_time_ms}
+    """
 ```
 
 ---
 
-## 💻 UI構成
+## 4. QdrantDataFetcher
 
-### サイドバー（左ペイン）
+### 4.1 概要
+
+Qdrantからデータを取得するクラス。
+
+### 4.2 fetch_collections (121-149)
+
+```python
+def fetch_collections(self) -> pd.DataFrame:
+    """コレクション一覧を取得
+
+    Returns:
+        DataFrame with columns:
+        - Collection: コレクション名
+        - Vectors Count: ベクトル総数
+        - Points Count: ポイント総数
+        - Indexed Vectors: インデックス済みベクトル数
+        - Status: コレクションの状態
+    """
+```
+
+### 4.3 fetch_collection_points (151-188)
+
+```python
+def fetch_collection_points(
+    self, collection_name: str, limit: int = 50
+) -> pd.DataFrame:
+    """コレクションの詳細データを取得
+
+    - scrollメソッドでポイントを取得
+    - payloadの各フィールドを列として追加
+    - 長すぎる文字列は200文字で切り詰め
+    - ベクトルデータは含まない（with_vectors=False）
+    """
+```
+
+### 4.4 fetch_collection_info (190-227)
+
+```python
+def fetch_collection_info(self, collection_name: str) -> Dict[str, Any]:
+    """コレクションの詳細情報を取得
+
+    Returns:
+        {
+            "vectors_count": int,
+            "points_count": int,
+            "indexed_vectors": int,
+            "status": str,
+            "config": {
+                "vector_size": int,
+                "distance": str
+            }
+        }
+    """
+```
+
+### 4.5 fetch_collection_source_info (229-282)
+
+```python
+def fetch_collection_source_info(
+    self, collection_name: str, sample_size: int = 200
+) -> Dict[str, Any]:
+    """コレクションのデータソース情報を取得
+
+    - サンプリング（デフォルト200件）から推定
+    - source, generation_method, domainを集計
+    - 全体のデータ数を推定
+
+    Returns:
+        {
+            "total_points": int,
+            "sources": {
+                "source_file.csv": {
+                    "sample_count": int,
+                    "estimated_total": int,
+                    "percentage": float,
+                    "method": str,
+                    "domain": str
+                }
+            },
+            "sample_size": int
+        }
+    """
+```
+
+---
+
+## 5. UI構成
+
+### 5.1 サイドバー（左ペイン）
 
 | 機能 | 説明 |
-|---|---|
-| **⚙️ Qdrant接続状態** | Qdrantサーバーへの接続状態をリアルタイム表示 |
+|------|------|
+| **⚙️ Qdrant接続状態** | Qdrantサーバーへの接続状態を表示 |
+| **🐛 デバッグモード** | 詳細なエラー情報とサーバー設定を表示 |
+| **🔄 自動更新** | 指定間隔で自動的に接続状態を更新（5〜300秒） |
 | **🔍 接続チェック実行** | 手動で接続状態を再確認 |
-| **🐛 デバッグモード** | 詳細なエラー情報とデバッグ情報を表示 |
-| **🔄 自動更新** | 指定間隔で自動的に接続状態を更新 |
-| **間隔(秒)** | 自動更新の間隔を設定（5〜300秒） |
 
-### メインエリア（右ペイン）
+### 5.2 メインエリア（右ペイン）
 
 #### 📚 コレクション一覧
 
 | カラム | 説明 |
-|---|---|
+|--------|------|
 | Collection | コレクション名 |
 | Vectors Count | ベクトル総数 |
 | Points Count | ポイント総数 |
 | Indexed Vectors | インデックス済みベクトル数 |
 | Status | コレクションの状態（green/yellow/red） |
 
-#### 📂 データソース構成
+#### 📂 データソース情報
 
-各コレクションについて、以下の情報を表示：
+各コレクションについて、以下の情報を表示:
 
 | 項目 | 説明 |
-|---|---|
+|------|------|
 | ソースファイル | qa_output/ディレクトリー内のCSVファイル名 |
 | 推定件数 | サンプリングに基づく推定データ件数 |
 | 割合 | 全体に占める割合（%） |
@@ -112,18 +275,24 @@ http://localhost:8501
 #### 🔍 コレクション詳細データ
 
 | 機能 | 説明 |
-|---|---|
+|------|------|
 | 表示件数 | 取得するポイント数を指定（1〜500件） |
 | 📊 詳細情報を表示 | ベクトル設定、ステータスメトリクスを表示 |
 | 🔍 ポイントデータを取得 | 実際のポイントデータをテーブル表示 |
 | 📥 CSVダウンロード | ポイントデータをCSV形式で保存 |
 | 📥 JSONダウンロード | ポイントデータをJSON形式で保存 |
 
----
+### 5.3 セッション状態
 
-## 🎨 画面構成とワークフロー
+```python
+session_state = {
+    'debug_mode': False,        # デバッグモード
+    'auto_refresh': False,      # 自動更新
+    'refresh_interval': 30      # 更新間隔（秒）
+}
+```
 
-### 起動直後の画面
+### 5.4 画面構成図
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -154,74 +323,90 @@ http://localhost:8501
 
 ---
 
-## 📊 主要機能の詳細
+## 6. 使用方法
 
-### 1. 接続状態チェック
+### 6.1 前提条件
 
-**処理フロー**:
-1. ポートチェック（localhost:6333）
-2. Qdrantクライアント接続
-3. コレクション一覧取得
-4. レスポンスタイム計測
+1. **Qdrantサーバーの起動**
 
-**表示内容**:
-- ✅ 接続成功: コレクション数、レスポンスタイム
-- ❌ 接続失敗: エラーメッセージ、トラブルシューティング
+```bash
+# 方法1: Docker Composeを使用（推奨）
+cd docker-compose
+docker-compose up -d qdrant
 
-### 2. データソース分析機能
+# 方法2: 単独のDockerコマンド
+docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
-コレクション内のポイントをサンプリング（デフォルト200件）して、データソースを自動分析します。
-
-**分析項目**:
-```python
-{
-  "total_points": 5042,           # 総ポイント数
-  "sources": {
-    "a02_qa_pairs_cc_news.csv": {
-      "sample_count": 200,        # サンプル内カウント
-      "estimated_total": 5042,    # 推定総数
-      "percentage": 100.0,        # 割合
-      "method": "a02_make_qa",    # 生成方法
-      "domain": "cc_news"         # ドメイン
-    }
-  },
-  "sample_size": 200              # サンプルサイズ
-}
+# 方法3: 自動セットアップスクリプト
+python server.py
 ```
 
-**用途**:
-- コレクションとCSVファイルの対応関係を確認
-- データの混在状況を把握
-- 生成方法別のデータ分布を確認
+2. **依存ライブラリのインストール**
 
-### 3. ポイントデータ表示
+```bash
+pip install streamlit qdrant-client pandas
+```
 
-**表示されるフィールド**:
-- ID: ポイントの一意識別子
-- question: 質問文（QAペアの場合）
-- answer: 回答文（QAペアの場合）
-- text: テキストデータ（生テキストの場合）
-- domain: ドメイン名
-- generation_method: 生成方法
-- source: ソースファイル名
-- created_at: 作成日時
-- schema: スキーマバージョン
+### 6.2 基本操作
 
-**制限事項**:
-- 長すぎる文字列は200文字で切り詰め（`...`付き）
-- リスト/辞書型は文字列化して表示
-- ベクトルデータは表示されない（with_vectors=False）
+1. **アプリ起動**
+```bash
+streamlit run a40_show_qdrant_data.py --server.port=8502
+```
 
-### 4. エクスポート機能
+2. **ブラウザでアクセス**
+```
+http://localhost:8502
+```
 
-#### CSV形式
+3. **接続チェック**
+   - サイドバーの「🔍 接続チェック実行」ボタンをクリック
+   - 接続状態（✅ Connected / ❌ Connection refused）を確認
+
+4. **コレクション確認**
+   - メインエリアでコレクション一覧を確認
+   - 各コレクションのデータソース情報を展開
+
+5. **詳細データ取得**
+   - コレクションを選択
+   - 表示件数を設定（1〜500件）
+   - 「🔍 ポイントデータを取得」ボタンをクリック
+
+---
+
+## 7. エクスポート機能
+
+### 7.1 コレクション一覧エクスポート
+
+**CSV形式**:
+```csv
+Collection,Vectors Count,Points Count,Indexed Vectors,Status
+qa_cc_news_a02_llm,5042,5042,5042,green
+qa_livedoor_a02_llm,1845,1845,1845,green
+```
+
+**JSON形式**:
+```json
+[
+  {
+    "Collection": "qa_cc_news_a02_llm",
+    "Vectors Count": 5042,
+    "Points Count": 5042,
+    "Indexed Vectors": 5042,
+    "Status": "green"
+  }
+]
+```
+
+### 7.2 ポイントデータエクスポート
+
+**CSV形式**:
 ```csv
 ID,question,answer,domain,generation_method,source,created_at,schema
 123456789,"質問文","回答文","cc_news","a02_make_qa","a02_qa_pairs_cc_news.csv","2025-11-01T12:00:00Z","qa:v1"
-...
 ```
 
-#### JSON形式
+**JSON形式**:
 ```json
 [
   {
@@ -237,41 +422,20 @@ ID,question,answer,domain,generation_method,source,created_at,schema
 ]
 ```
 
----
+### 7.3 ファイル名形式
 
-## 🔄 処理フロー
-
-### 起動からデータ表示までのフロー
-
-```mermaid
-graph TD
-    A[Streamlitアプリ起動] --> B[UI初期化]
-    B --> C[接続チェック実行]
-    C --> D{Qdrant接続成功?}
-    D -->|失敗| E[エラーメッセージ表示]
-    E --> F[トラブルシューティング表示]
-    D -->|成功| G[コレクション一覧取得]
-    G --> H[コレクション情報テーブル表示]
-    H --> I[各コレクションのソース分析]
-    I --> J[データソース情報表示]
-    J --> K{ユーザー操作}
-    K -->|詳細情報ボタン| L[コレクション詳細取得]
-    K -->|ポイント取得ボタン| M[ポイントデータ取得]
-    K -->|CSVダウンロード| N[CSV生成・ダウンロード]
-    K -->|JSONダウンロード| O[JSON生成・ダウンロード]
-    L --> P[メトリクス表示]
-    M --> Q[テーブル表示]
-    Q --> N
-    Q --> O
+```
+qdrant_collections_YYYYMMDD_HHMMSS.csv
+qdrant_collections_YYYYMMDD_HHMMSS.json
+{collection_name}_points_YYYYMMDD_HHMMSS.csv
+{collection_name}_points_YYYYMMDD_HHMMSS.json
 ```
 
 ---
 
-## 🛠️ トラブルシューティング
+## 8. トラブルシューティング
 
-### よくある問題と解決方法
-
-#### 1. Qdrantサーバーに接続できない
+### 8.1 Qdrantサーバーに接続できない
 
 **症状**:
 ```
@@ -311,16 +475,12 @@ docker-compose logs qdrant
 docker-compose restart qdrant
 ```
 
-#### 2. コレクションが空/見つからない
+### 8.2 コレクションが空/見つからない
 
 **症状**:
 ```
 📂 データソース情報が見つかりません
 ```
-
-**原因**:
-- データが登録されていない
-- コレクションが削除された
 
 **解決方法**:
 ```bash
@@ -328,7 +488,7 @@ docker-compose restart qdrant
 python a42_qdrant_registration.py --recreate --include-answer
 ```
 
-#### 3. タイムアウトエラー
+### 8.3 タイムアウトエラー
 
 **症状**:
 ```
@@ -340,11 +500,7 @@ python a42_qdrant_registration.py --recreate --include-answer
 - ファイアウォール設定を確認
 - ポート6333が使用可能か確認
 
-#### 4. データが正しく表示されない
-
-**症状**:
-- ポイントデータが空
-- 一部のフィールドが表示されない
+### 8.4 データが正しく表示されない
 
 **解決方法**:
 ```bash
@@ -357,168 +513,24 @@ python a41_qdrant_truncate.py --stats
 
 ---
 
-## 📝 設定とカスタマイズ
+## 付録: メタデータ
 
-### Qdrant接続設定（コード内定数）
+| 項目 | 値 |
+|------|-----|
+| ファイル行数 | 668行 |
+| ポート | 8502（デフォルト） |
+| Qdrantポート | 6333 |
+| デフォルトサンプルサイズ | 200件 |
+| デフォルト表示件数 | 50件 |
+| 最大表示件数 | 500件 |
+| 自動更新間隔 | 5〜300秒 |
 
-```python
-QDRANT_CONFIG = {
-    "name": "Qdrant",
-    "host": "localhost",
-    "port": 6333,
-    "icon": "🎯",
-    "url": "http://localhost:6333",
-    "health_check_endpoint": "/collections",
-    "docker_image": "qdrant/qdrant"
-}
-```
+## 関連ファイル
 
-### サンプリング設定
-
-データソース分析時のサンプルサイズを変更するには、`fetch_collection_source_info`メソッドの`sample_size`引数を変更します：
-
-```python
-# デフォルト: 200件
-source_info = data_fetcher.fetch_collection_source_info(collection_name, sample_size=200)
-
-# より精度の高い分析: 500件
-source_info = data_fetcher.fetch_collection_source_info(collection_name, sample_size=500)
-```
-
----
-
-## 📈 実行例と画面イメージ
-
-### 例1: 正常起動時の表示
-
-**サイドバー**:
-```
-⚙️ Qdrant接続状態
-─────────────────────
-□ 🐛 デバッグモード
-□ 🔄 自動更新
-
-[🔍 接続チェック実行]
-
-🎯 Qdrant
-✅ Connected
-
-詳細情報 ▼
-  collection_count: 8
-  response_time_ms: 45.23
-```
-
-**メインエリア（コレクション一覧）**:
-```
-📚 コレクション一覧
-┌──────────────────────────┬─────────┬─────────┬─────────────┬────────┐
-│ Collection               │ Vectors │ Points  │ Indexed Vec │ Status │
-├──────────────────────────┼─────────┼─────────┼─────────────┼────────┤
-│ qa_cc_news_a02_llm       │ 5,042   │ 5,042   │ 5,042       │ green  │
-│ qa_cc_news_a03_rule      │ 2,358   │ 2,358   │ 2,358       │ green  │
-│ qa_cc_news_a10_hybrid    │   731   │   731   │   731       │ green  │
-│ qa_livedoor_a02_20_llm   │   189   │   189   │   189       │ green  │
-│ qa_livedoor_a03_rule     │    80   │    80   │    80       │ green  │
-│ qa_livedoor_a10_hybrid   │ 1,845   │ 1,845   │ 1,845       │ green  │
-│ raw_cc_news              │ 3,256   │ 3,256   │ 3,256       │ green  │
-│ raw_livedoor             │ 2,733   │ 2,733   │ 2,733       │ green  │
-└──────────────────────────┴─────────┴─────────┴─────────────┴────────┘
-
-[📥 CSVダウンロード] [📥 JSONダウンロード]
-```
-
-**データソース情報**:
-```
-📂 コレクションのデータソース情報
-各コレクションがqa_output/ディレクトリーのどのファイルから構成されているかを表示します
-
-▼ 📦 qa_cc_news_a02_llm
-
-  📂 データソース構成 (qa_output/ディレクトリー)
-  サンプル200件から推定 | 総ポイント数: 5,042件
-
-  ┌────────────────────────┬──────────┬───────┬──────────────┬──────────┐
-  │ ソースファイル         │ 推定件数 │ 割合  │ 生成方法     │ ドメイン │
-  ├────────────────────────┼──────────┼───────┼──────────────┼──────────┤
-  │ a02_qa_pairs_cc_news.. │ 5,042件  │ 100%  │ a02_make_qa  │ cc_news  │
-  └────────────────────────┴──────────┴───────┴──────────────┴──────────┘
-
-  📊 詳細情報 ▼
-    a02_qa_pairs_cc_news.csv
-    - パス: qa_output/a02_qa_pairs_cc_news.csv
-    - 推定データ数: 5,042件 (100.0%)
-    - 生成方法: a02_make_qa
-    - ドメイン: cc_news
-    - サンプル内カウント: 200件
-```
-
-### 例2: エラー時の表示
-
-```
-❌ Qdrantサーバーに接続できません
-
-⚠️ 原因: Qdrantサーバーが起動していない可能性があります。
-
-解決方法:
-
-🚀 方法1: 自動セットアップ（推奨）
-```bash
-python server.py
-```
-
-🐳 方法2: 手動でDocker起動
-ステップ1: Docker Desktopを起動
-- macOS: アプリケーションフォルダからDocker Desktopを起動
-
-ステップ2: Qdrantを起動
-```bash
-cd docker-compose
-docker-compose up -d qdrant
-```
-```
-
----
-
-## 🔗 関連ファイル
-
-| ファイル | 役割 | 関係 |
-|---|---|---|
-| `a42_qdrant_registration.py` | Qdrantへのデータ登録 | 表示するデータの登録元 |
-| `a41_qdrant_truncate.py` | Qdrantデータ削除 | データ管理・クリーンアップ |
-| `a50_rag_search_local_qdrant.py` | 検索UI | 登録データの検索・検証 |
-| `server.py` | Qdrantサーバー管理 | サーバー起動・ヘルスチェック |
-| `docker-compose/docker-compose.yml` | Docker設定 | Qdrantコンテナの定義 |
-
----
-
-## 🎯 主な用途
-
-| 用途 | 説明 |
-|---|---|
-| **データ確認** | 登録されたデータの件数や構成を確認 |
-| **デバッグ** | データ登録後の検証、問題の診断 |
-| **エクスポート** | データのバックアップやオフライン分析 |
-| **モニタリング** | Qdrantサーバーの稼働状態を監視 |
-| **データソース分析** | どのCSVファイルのデータが登録されているか確認 |
-
----
-
-## 📚 参考情報
-
-- [Streamlit Documentation](https://docs.streamlit.io/)
-- [Qdrant Documentation - Collections](https://qdrant.tech/documentation/concepts/collections/)
-- [Qdrant Documentation - Points](https://qdrant.tech/documentation/concepts/points/)
-- [プロジェクトREADME](../README.md)
-
----
-
-## 🔐 セキュリティに関する注意
-
-- このツールはローカル環境での使用を想定しています
-- 本番環境で使用する場合は、認証機能の追加を検討してください
-- エクスポートされたデータには機密情報が含まれる可能性があります
-- Streamlitのデフォルト設定では、ローカルネットワークからアクセス可能です
-
----
-
-*最終更新: 2025年11月12日*
+| ファイル | 役割 |
+|---------|------|
+| a41_qdrant_truncate.py | Qdrantデータ削除 |
+| a42_qdrant_registration.py | Qdrantへのデータ登録 |
+| a50_rag_search_local_qdrant.py | Qdrant検索UI |
+| server.py | Qdrantサーバー管理 |
+| docker-compose/docker-compose.yml | Docker設定 |

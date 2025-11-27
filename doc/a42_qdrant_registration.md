@@ -1,251 +1,460 @@
-# a42_qdrant_registration.py - 3つの独立コレクションへのQdrant登録ツール
+# a42_qdrant_registration.py - 技術仕様書
 
-### 追加・コレクション：
+## 目次
 
-| コレクション名                | CSVファイル                             | ドメイン     | 生成方法         |
-|------------------------|-------------------------------------|----------|--------------|
-| qa_livedoor_a02_20_llm | qa_output/a02_qa_pairs_livedoor.csv | livedoor | a02_make_qa  |
-| qa_livedoor_a03_rule   | qa_output/a03_qa_pairs_livedoor.csv | livedoor | a03_coverage |
-| qa_livedoor_a10_hybrid | qa_output/a10_qa_pairs_livedoor.csv | livedoor | a10_hybrid   |
-
-
-### 登録データ一覧：
-| コレクション名               | CSVファイル                            | 生成方法         | 説明       |
-|-----------------------|------------------------------------|--------------|-----------------------------------------------|
-| qa_cc_news_a02_llm    | qa_output/a02_qa_pairs_cc_news.csv | a02_make_qa  | LLM生成方式 (a02_make_qa.py)                      |
-| qa_cc_news_a03_rule   | qa_output/a03_qa_pairs_cc_news.csv | a03_coverage | ルールベース生成方式 (a03_rag_qa_coverage_improved.py)|
-| qa_cc_news_a10_hybrid | qa_output/a10_qa_pairs_cc_news.csv | a10_hybrid   | ハイブリッド生成方式 (a10_qa_optimized_hybrid_batch.py) |
-
-
-## 📥 INPUT / 📤 OUTPUT
-
-### INPUT（入力ファイル）
-
-| ファイルパス | 説明 | 必須カラム | 生成元 |
-|---|---|---|---|
-| `qa_output/a02_qa_pairs_cc_news.csv` | LLM生成方式のQ&Aペア | question, answer | a20_output_qa_csv.py |
-| `qa_output/a03_qa_pairs_cc_news.csv` | ルールベース生成方式のQ&Aペア | question, answer | a20_output_qa_csv.py |
-| `qa_output/a10_qa_pairs_cc_news.csv` | ハイブリッド生成方式のQ&Aペア | question, answer | a20_output_qa_csv.py |
-| `config.yml` | 設定ファイル（オプション） | - | 手動作成 |
-
-### OUTPUT（出力）
-
-| 出力先 | 形式 | 内容 |
-|---|---|---|
-| **Qdrantベクトルデータベース** | コレクション | 3つの独立したベクトルコレクション |
-| ├ `qa_cc_news_a02_llm` | ベクトル + メタデータ | LLM生成Q&Aの埋め込みベクトル |
-| ├ `qa_cc_news_a03_rule` | ベクトル + メタデータ | ルールベース生成Q&Aの埋め込みベクトル |
-| └ `qa_cc_news_a10_hybrid` | ベクトル + メタデータ | ハイブリッド生成Q&Aの埋め込みベクトル |
+1. [概要](#1-概要)
+2. [アーキテクチャ](#2-アーキテクチャ)
+3. [コレクション設定](#3-コレクション設定)
+4. [データ処理機能](#4-データ処理機能)
+5. [埋め込み生成](#5-埋め込み生成)
+6. [コマンドラインオプション](#6-コマンドラインオプション)
+7. [使用方法](#7-使用方法)
+8. [検索機能](#8-検索機能)
+9. [トラブルシューティング](#9-トラブルシューティング)
 
 ---
 
-## 📋 概要
+## 1. 概要
 
-`a42_qdrant_registration.py`は、`a20_output_qa_csv.py`で生成された3つのQ&AペアCSVファイルを、それぞれ独立したQdrantコレクションに登録するツールです。各生成方式（LLM、ルールベース、ハイブリッド）のデータを完全に分離して管理します。
+### 1.1 目的
 
-### 主な特徴
+`a42_qdrant_registration.py`は、Q&Aデータおよび生テキストデータをQdrantベクトルデータベースに登録するツールです。各生成方式（LLM、ルールベース、ハイブリッド）のデータを独立したコレクションで管理します。
 
-- **3つの独立コレクション**: 各生成方式のデータを別々のコレクションで管理
-- **OpenAI Embedding**: text-embedding-3-smallモデル（1536次元）を使用
-- **メタデータ付与**: domain、generation_method、sourceなどの情報を保持
-- **バッチ処理対応**: 効率的なAPI呼び出しとデータ登録
-
----
-
-## 🎯 コレクション構成
-
-| CSVファイル | コレクション名 | 生成方法 | 説明 | 推定件数 |
-|---|---|---|---|---|
-| `a02_qa_pairs_cc_news.csv` | `qa_cc_news_a02_llm` | a02_make_qa | LLM生成方式（GPT） | 約5,000件 |
-| `a03_qa_pairs_cc_news.csv` | `qa_cc_news_a03_rule` | a03_coverage | ルールベース生成方式 | 約2,400件 |
-| `a10_qa_pairs_cc_news.csv` | `qa_cc_news_a10_hybrid` | a10_hybrid | ハイブリッド最適化方式 | 約700件 |
-
----
-
-## 🚀 使用方法
-
-### 基本的な使い方
-
-#### 1. 前提条件の確認
+### 1.2 実行コマンド
 
 ```bash
-# OpenAI APIキーの設定
-export OPENAI_API_KEY="sk-..."
-
-# Qdrantサーバーの起動
-docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
-
-# CSVファイルの生成（未生成の場合）
-python a20_output_qa_csv.py
-```
-
-#### 2. 全コレクションへの登録
-
-```bash
-# 3つのコレクションすべてにデータを登録（推奨）
+# 全コレクションにデータを登録（推奨）
 python a42_qdrant_registration.py --recreate --include-answer
+
+# ローカルファイル登録
+python a42_qdrant_registration.py \
+    --input-file qa_output/qa_pairs_upload_20251122_182355.csv \
+    --recreate \
+    --include-answer
 ```
 
-#### 3. 特定コレクションのみの登録
+### 1.3 主要機能
 
-```bash
-# LLM生成方式のコレクションのみ
-python a42_qdrant_registration.py --collection qa_cc_news_a02_llm --recreate --include-answer
+- **8つの独立コレクション**: Q&A 6種 + 生テキスト 2種
+- **OpenAI Embedding**: text-embedding-3-small（1536次元）
+- **ローカルファイル登録**: CSV/TXT/JSON/JSONL対応
+- **言語自動判定**: 日本語・英語を自動検出
+- **セマンティックチャンク分割**: 段落→文単位で意味を保持
+- **バッチ処理対応**: トークン数ベースの動的バッチサイズ
 
-# ルールベース生成方式のコレクションのみ
-python a42_qdrant_registration.py --collection qa_cc_news_a03_rule --recreate --include-answer
+### 1.4 入出力
 
-# ハイブリッド生成方式のコレクションのみ
-python a42_qdrant_registration.py --collection qa_cc_news_a10_hybrid --recreate --include-answer
+| 種別 | データソース | 形式 |
+|------|------------|------|
+| INPUT | qa_output/*.csv | Q&Aペア（question, answer） |
+| INPUT | OUTPUT/*.txt | 生テキスト |
+| INPUT | --input-file | カスタムファイル（CSV/TXT/JSON/JSONL） |
+| OUTPUT | Qdrant Vector Database | ベクトル + メタデータ |
+
+---
+
+## 2. アーキテクチャ
+
+### 2.1 システム構成図
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  a42_qdrant_registration.py (901行)             │
+├─────────────────────────────────────────────────────────────────┤
+│  設定・定数                                                      │
+│  ├── DEFAULTS (90-98) - デフォルト設定                          │
+│  └── COLLECTION_MAPPINGS (102-167) - 8コレクション定義           │
+├─────────────────────────────────────────────────────────────────┤
+│  設定・ヘルパー                                                  │
+│  ├── load_config (171-186) - config.yml読み込み                 │
+│  ├── batched (189-197) - バッチ処理イテレータ                   │
+│  └── get_openai_client (200-203) - OpenAIクライアント取得        │
+├─────────────────────────────────────────────────────────────────┤
+│  埋め込み生成                                                    │
+│  ├── embed_texts_openai (206-209) - OpenAI API呼び出し          │
+│  └── embed_texts (211-290) - バッチ処理版埋め込み生成           │
+├─────────────────────────────────────────────────────────────────┤
+│  データ読み込み                                                  │
+│  ├── build_inputs (293-296) - 入力テキスト構築                  │
+│  ├── load_csv (299-317) - CSVファイル読み込み                   │
+│  ├── detect_language (320-340) - 言語自動判定                   │
+│  ├── chunk_japanese_text (342-438) - 日本語チャンク分割         │
+│  ├── chunk_english_text (440-534) - 英語チャンク分割            │
+│  └── load_txt (536-573) - TXTファイル読み込み                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Qdrant操作                                                      │
+│  ├── create_or_recreate_collection (576-605) - コレクション作成  │
+│  ├── build_points (608-652) - ポイント構築                      │
+│  ├── upsert_points (654-659) - アップサート                     │
+│  └── search (665-702) - 検索                                    │
+├─────────────────────────────────────────────────────────────────┤
+│  main (705-900) - メインエントリポイント                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 依存モジュール
+
+```python
+import argparse
+import os
+from datetime import datetime, timezone
+from typing import Dict, Iterable, List, Optional, Any
+from pathlib import Path
+import pandas as pd
+import yaml  # オプション
+import tiktoken
+
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+from openai import OpenAI
 ```
 
 ---
 
-## 💻 コマンドライン引数
+## 3. コレクション設定
 
-| 引数 | 説明 | デフォルト | 例 |
-|---|---|---|---|
-| `--recreate` | コレクションを削除して新規作成 | False | `--recreate` |
-| `--collection` | 特定コレクションのみ処理 | なし（全コレクション） | `--collection qa_cc_news_a02_llm` |
-| `--include-answer` | 埋め込みにanswerも含める | False | `--include-answer` |
-| `--qdrant-url` | QdrantサーバーのURL | http://localhost:6333 | `--qdrant-url http://192.168.1.10:6333` |
-| `--batch-size` | バッチ処理サイズ | 32 | `--batch-size 64` |
-| `--limit` | データ件数制限（開発用） | 0（無制限） | `--limit 100` |
-| `--search` | 検索テストのみ実行 | なし | `--search "気候変動"` |
-| `--topk` | 検索結果の上位件数 | 5 | `--topk 10` |
+### 3.1 COLLECTION_MAPPINGS（全8コレクション）
 
----
+| コレクション名 | CSVファイル | ドメイン | 生成方法 | タイプ |
+|--------------|-----------|---------|---------|-------|
+| qa_cc_news_a02_llm | qa_output/a02_qa_pairs_cc_news.csv | cc_news | a02_make_qa | qa |
+| qa_cc_news_a03_rule | qa_output/a03_qa_pairs_cc_news.csv | cc_news | a03_coverage | qa |
+| qa_cc_news_a10_hybrid | qa_output/a10_qa_pairs_cc_news.csv | cc_news | a10_hybrid | qa |
+| qa_livedoor_a02_20_llm | qa_output/a02_qa_pairs_livedoor.csv | livedoor | a02_make_qa | qa |
+| qa_livedoor_a03_rule | qa_output/a03_qa_pairs_livedoor.csv | livedoor | a03_coverage | qa |
+| qa_livedoor_a10_hybrid | qa_output/a10_qa_pairs_livedoor.csv | livedoor | a10_hybrid | qa |
+| raw_cc_news | OUTPUT/cc_news.txt | cc_news | raw_text | raw |
+| raw_livedoor | OUTPUT/livedoor.txt | livedoor | raw_text | raw |
 
-## 🔍 検索機能
+### 3.2 デフォルト設定
 
-### 検索テストの実行
-
-```bash
-# LLMコレクションで検索
-python a42_qdrant_registration.py --search "気候変動" --collection qa_cc_news_a02_llm
-
-# ルールベースコレクションで検索
-python a42_qdrant_registration.py --search "温暖化" --collection qa_cc_news_a03_rule
-
-# ハイブリッドコレクションで検索
-python a42_qdrant_registration.py --search "環境問題" --collection qa_cc_news_a10_hybrid --topk 10
-```
-
-### 検索結果の例
-
-```
-[Search] collection=qa_cc_news_a02_llm query='気候変動'
-score=0.8234  method=a02_make_qa  Q: 気候変動がもたらす影響は？  A: 海面上昇、異常気象の増加、生態系の変化...
-score=0.7956  method=a02_make_qa  Q: パリ協定の目標は？  A: 世界の平均気温上昇を産業革命前比で2度未満に...
-```
-
----
-
-## 📊 データ構造
-
-### ベクトルポイントの構造
-
-```json
-{
-  "id": 123456789,
-  "vector": [0.012, -0.034, ...],  // 1536次元
-  "payload": {
-    "domain": "cc_news",
-    "generation_method": "a02_make_qa",
-    "collection": "qa_cc_news_a02_llm",
-    "question": "質問文",
-    "answer": "回答文",
-    "source": "a02_qa_pairs_cc_news.csv",
-    "created_at": "2025-11-01T12:00:00Z",
-    "schema": "qa:v1"
-  }
+```python
+DEFAULTS = {
+    "rag": {
+        "include_answer_in_embedding": False,
+    },
+    "embeddings": {
+        "primary": {
+            "provider": "openai",
+            "model": "text-embedding-3-small",
+            "dims": 1536
+        },
+    },
+    "qdrant": {"url": "http://localhost:6333"},
 }
 ```
 
-### Embedding設定
-
-| 項目 | 設定値 |
-|---|---|
-| **モデル** | text-embedding-3-small |
-| **次元数** | 1,536 |
-| **距離計算** | Cosine類似度 |
-| **入力テキスト** | `question` のみ（デフォルト）<br>`question + "\n" + answer`（--include-answer時） |
-| **バッチサイズ** | 32（デフォルト） |
-
 ---
 
-## 🔄 処理フロー
+## 4. データ処理機能
 
-```mermaid
-graph TD
-    A[a20_output_qa_csv.py<br/>実行] --> B[3つのCSVファイル生成]
-    B --> C[a42_qdrant_registration.py<br/>実行]
+### 4.1 CSVファイル読み込み (load_csv: 299-317)
 
-    C --> D[CSVファイル読み込み]
-    D --> E[テキスト構築<br/>question or question+answer]
-    E --> F[OpenAI Embedding生成<br/>text-embedding-3-small]
-    F --> G[ベクトルポイント構築<br/>+メタデータ付与]
-    G --> H[Qdrantへアップサート]
+```python
+def load_csv(path: str, required=("question", "answer"), limit: int = 0) -> pd.DataFrame:
+    """Q&A CSVファイルを読み込み
 
-    H --> I1[qa_cc_news_a02_llm<br/>コレクション]
-    H --> I2[qa_cc_news_a03_rule<br/>コレクション]
-    H --> I3[qa_cc_news_a10_hybrid<br/>コレクション]
+    カラム名マッピング:
+    - 'Question' → 'question'
+    - 'Response'/'Answer'/'correct_answer' → 'answer'
+    """
+```
+
+### 4.2 言語自動判定 (detect_language: 320-340)
+
+```python
+def detect_language(text: str) -> str:
+    """テキストの言語を判定（日本語 or 英語）
+
+    判定基準:
+    - ひらがな（U+3040-U+309F）
+    - カタカナ（U+30A0-U+30FF）
+    - 漢字（U+4E00-U+9FFF）
+    - 日本語文字が30%以上なら"ja"、それ以外は"en"
+    """
+```
+
+### 4.3 日本語チャンク分割 (chunk_japanese_text: 342-438)
+
+```python
+def chunk_japanese_text(text: str, max_tokens: int = 500) -> List[str]:
+    """日本語テキストをセマンティックにチャンク分割
+
+    処理フロー:
+    1. 段落で分割（空行区切り）
+    2. 段落がmax_tokensを超える場合は文単位で分割
+    3. 単一文が大きすぎる場合は強制的に固定長分割
+    """
+```
+
+### 4.4 英語チャンク分割 (chunk_english_text: 440-534)
+
+```python
+def chunk_english_text(text: str, max_tokens: int = 500) -> List[str]:
+    """英語テキストをセマンティックにチャンク分割
+
+    処理フロー:
+    1. 段落で分割（空行区切り）
+    2. 段落がmax_tokensを超える場合は文単位で分割
+       - ピリオド+スペース+大文字で分割（略語を考慮）
+    3. 単一文が大きすぎる場合は強制的に固定長分割
+    """
+```
+
+### 4.5 TXTファイル読み込み (load_txt: 536-573)
+
+```python
+def load_txt(path: str, limit: int = 0, chunk_size: int = 500) -> pd.DataFrame:
+    """テキストファイルを読み込み、セマンティックチャンクに分割
+
+    処理:
+    1. 言語自動判定（先頭1000文字）
+    2. 言語に応じたチャンク分割
+    3. DataFrameに変換（textカラムのみ）
+    """
 ```
 
 ---
 
-## 📝 設定ファイル（config.yml）
+## 5. 埋め込み生成
 
-オプションで`config.yml`を使用して設定をカスタマイズできます：
+### 5.1 embed_texts (211-290)
 
-```yaml
-rag:
-  include_answer_in_embedding: false  # デフォルトでanswerを含めるか
+```python
+def embed_texts(texts: List[str], model: str, batch_size: int = 128) -> List[List[float]]:
+    """テキストをバッチ処理でEmbeddingに変換
 
-embeddings:
-  primary:
-    provider: openai
-    model: text-embedding-3-small
-    dims: 1536
+    特徴:
+    - OpenAIの8192トークン制限を考慮して動的にバッチサイズを調整
+    - 空文字列・空白のみの文字列はゼロベクトルで補完
+    - 進捗表示（バッチ数、件数、トークン数）
+    """
+```
 
-qdrant:
-  url: http://localhost:6333
+**トークン制限処理**:
+```python
+MAX_TOKENS_PER_REQUEST = 8000  # 8192から余裕を持たせて8000
+
+# 追加前にチェック：制限を超える場合は先にバッチを送信
+if current_tokens + text_tokens > MAX_TOKENS_PER_REQUEST:
+    # 現在のバッチを送信
+    valid_vecs.extend(embed_texts_openai(current_batch, model=model, client=client))
+    current_batch = []
+    current_tokens = 0
 ```
 
 ---
 
-## 🛠️ トラブルシューティング
+## 6. コマンドラインオプション
 
-### よくある問題と解決方法
+### 6.1 全オプション一覧
 
-#### 1. CSVファイルが見つからない
+| オプション | 型 | デフォルト | 説明 |
+|-----------|---|----------|------|
+| `--recreate` | flag | False | コレクションを削除して新規作成 |
+| `--collection` | str | なし | 特定コレクションのみ処理 |
+| `--input-file` | str | なし | ローカルファイルを登録（CSV/TXT/JSON/JSONL） |
+| `--qdrant-url` | str | http://localhost:6333 | QdrantサーバーのURL |
+| `--batch-size` | int | 32 | Embeddings/Upsertバッチサイズ |
+| `--limit` | int | 0 | データ件数上限（0=無制限） |
+| `--include-answer` | flag | False | 埋め込みにanswerも含める |
+| `--search` | str | なし | 検索テストのみ実行 |
+| `--topk` | int | 5 | 検索結果の上位件数 |
 
+### 6.2 --input-file でのドメイン自動推定
+
+ファイル名から自動的にドメインを推定:
+- `cc_news`を含む → domain: `cc_news`
+- `livedoor`を含む → domain: `livedoor`
+- `upload`を含む → domain: `custom_upload`
+- その他 → domain: `custom`
+
+---
+
+## 7. 使用方法
+
+### 7.1 前提条件
+
+```bash
+# 1. OpenAI APIキーの設定
+export OPENAI_API_KEY="sk-..."
+
+# 2. Qdrantサーバーの起動
+docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
+
+# または docker-compose
+cd docker-compose
+docker-compose up -d qdrant
+```
+
+### 7.2 全コレクションへの登録（推奨）
+
+```bash
+python a42_qdrant_registration.py --recreate --include-answer
+```
+
+### 7.3 特定コレクションのみの登録
+
+```bash
+# CC News LLM生成方式
+python a42_qdrant_registration.py --collection qa_cc_news_a02_llm --recreate --include-answer
+
+# Livedoor ハイブリッド方式
+python a42_qdrant_registration.py --collection qa_livedoor_a10_hybrid --recreate --include-answer
+
+# 生テキスト（CC News）
+python a42_qdrant_registration.py --collection raw_cc_news --recreate
+```
+
+### 7.4 ローカルファイル登録
+
+```bash
+# CSVファイル
+python a42_qdrant_registration.py \
+    --input-file qa_output/qa_pairs_upload_20251122_182355.csv \
+    --recreate \
+    --include-answer
+
+# TXTファイル（生テキスト、自動チャンク分割）
+python a42_qdrant_registration.py \
+    --input-file data/my_documents.txt \
+    --recreate
+
+# 件数制限付き
+python a42_qdrant_registration.py \
+    --input-file data/large_dataset.csv \
+    --limit 100 \
+    --include-answer
+```
+
+### 7.5 実行例
+
+```
+[INFO] 処理対象: 8 コレクション
+================================================================================
+
+📦 コレクション: qa_cc_news_a02_llm
+   説明: LLM生成方式（a02_make_qa_para.py）
+   ソース: qa_output/a02_qa_pairs_cc_news.csv
+--------------------------------------------------------------------------------
+   データ件数: 5,042件
+   埋め込み生成中: primary (model=text-embedding-3-small)...
+   埋め込み生成中: バッチ1 (100件, 7500トークン)...
+   アップサート中... ✓ 5,042件
+
+📦 コレクション: raw_cc_news
+   説明: 生テキストデータ（cc_news）
+   ソース: OUTPUT/cc_news.txt
+--------------------------------------------------------------------------------
+   言語判定: 英語
+   チャンク数: 3,256件（最大500トークン/チャンク）
+   埋め込み生成中: primary (model=text-embedding-3-small)... ✓
+   アップサート中... ✓ 3,256件
+
+================================================================================
+✅ 完了: 総登録件数 15,234件
+
+[INFO] 登録されたコレクション一覧:
+--------------------------------------------------------------------------------
+  • qa_cc_news_a02_llm
+  • qa_cc_news_a03_rule
+  • qa_cc_news_a10_hybrid
+  • qa_livedoor_a02_20_llm
+  • qa_livedoor_a03_rule
+  • qa_livedoor_a10_hybrid
+  • raw_cc_news
+  • raw_livedoor
+--------------------------------------------------------------------------------
+```
+
+---
+
+## 8. 検索機能
+
+### 8.1 検索テストの実行
+
+```bash
+# Q&Aコレクションで検索
+python a42_qdrant_registration.py --search "気候変動" --collection qa_cc_news_a02_llm
+
+# 生テキストコレクションで検索
+python a42_qdrant_registration.py --search "環境問題" --collection raw_cc_news --topk 10
+```
+
+### 8.2 検索結果の例
+
+```
+[Search] collection=qa_cc_news_a02_llm query='気候変動'
+score=0.8234  method=a02_make_qa  Q: 気候変動がもたらす影響は？  A: 海面上昇、異常気象の増加...
+score=0.7956  method=a02_make_qa  Q: パリ協定の目標は？  A: 世界の平均気温上昇を産業革命前比で...
+```
+
+### 8.3 ペイロード構造
+
+**Q&Aペア用**:
+```json
+{
+  "domain": "cc_news",
+  "generation_method": "a02_make_qa",
+  "question": "質問文",
+  "answer": "回答文",
+  "source": "a02_qa_pairs_cc_news.csv",
+  "created_at": "2025-11-01T12:00:00Z",
+  "schema": "qa:v1"
+}
+```
+
+**生テキスト用**:
+```json
+{
+  "domain": "cc_news",
+  "generation_method": "raw_text",
+  "text": "チャンクテキスト...",
+  "source": "cc_news.txt",
+  "created_at": "2025-11-01T12:00:00Z",
+  "schema": "raw:v1"
+}
+```
+
+---
+
+## 9. トラブルシューティング
+
+### 9.1 CSVファイルが見つからない
+
+**症状**:
 ```
 [WARN] ファイルが見つかりません: qa_output/a02_qa_pairs_cc_news.csv (スキップ)
 ```
 
 **解決方法**:
 ```bash
-# a20_output_qa_csv.pyを実行してCSVを生成
-python a20_output_qa_csv.py
+# Q&A生成スクリプトを実行
+python a02_make_qa_para.py --dataset cc_news
 ```
 
-#### 2. Qdrantサーバーに接続できない
+### 9.2 Qdrantサーバーに接続できない
 
+**症状**:
 ```
-[ERROR] Qdrant接続エラー: Connection refused
+qdrant_client.http.exceptions.ResponseHandlingException: Connection refused
 ```
 
 **解決方法**:
 ```bash
 # Qdrantサーバーを起動
 docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
+
+# または docker-compose
+cd docker-compose
+docker-compose up -d qdrant
 ```
 
-#### 3. OpenAI APIキーエラー
+### 9.3 OpenAI APIキーエラー
 
+**症状**:
 ```
-[ERROR] OpenAI API key not found
+openai.AuthenticationError: No API key provided
 ```
 
 **解決方法**:
@@ -253,98 +462,51 @@ docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 export OPENAI_API_KEY="sk-..."
 ```
 
----
+### 9.4 トークン数超過エラー
 
-## 📈 実行例と結果
+**症状**:
+```
+ValueError: Single text at index X has Y tokens, which exceeds MAX_TOKENS_PER_REQUEST (8000)
+```
 
-### 完全な実行例
+**解決方法**:
+- チャンク分割時の`max_tokens`を小さくする
+- または、長すぎるテキストを事前に分割
 
+### 9.5 検索でコレクション未指定
+
+**症状**:
+```
+[ERROR] 検索には --collection の指定が必要です
+```
+
+**解決方法**:
 ```bash
-# 1. 環境準備
-export OPENAI_API_KEY="sk-..."
-docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
-
-# 2. CSVファイル生成
-python a20_output_qa_csv.py
-
-# 3. Qdrantへの登録
-python a42_qdrant_registration.py --recreate --include-answer
-
-# 出力例：
-[INFO] 処理対象: 3 コレクション
-================================================================================
-
-📦 コレクション: qa_cc_news_a02_llm
-   説明: LLM生成方式（a02_make_qa.py）
-   ソース: qa_output/a02_qa_pairs_cc_news.csv
---------------------------------------------------------------------------------
-   データ件数: 5,042件
-   埋め込み生成中: primary (model=text-embedding-3-small)... ✓
-   アップサート中... ✓ 5,042件
-
-📦 コレクション: qa_cc_news_a03_rule
-   説明: ルールベース生成方式（a03_rag_qa_coverage_improved.py）
-   ソース: qa_output/a03_qa_pairs_cc_news.csv
---------------------------------------------------------------------------------
-   データ件数: 2,358件
-   埋め込み生成中: primary (model=text-embedding-3-small)... ✓
-   アップサート中... ✓ 2,358件
-
-📦 コレクション: qa_cc_news_a10_hybrid
-   説明: ハイブリッド生成方式（a10_qa_optimized_hybrid_batch.py）
-   ソース: qa_output/a10_qa_pairs_cc_news.csv
---------------------------------------------------------------------------------
-   データ件数: 731件
-   埋め込み生成中: primary (model=text-embedding-3-small)... ✓
-   アップサート中... ✓ 731件
-
-================================================================================
-✅ 完了: 総登録件数 8,131件
-
-[INFO] 検証検索を実行中...
-  qa_cc_news_a02_llm: 5,042件登録済み
-    サンプル検索結果: score=0.8234  Q: 気候変動がもたらす影響は？...
-
-  qa_cc_news_a03_rule: 2,358件登録済み
-    サンプル検索結果: score=0.7956  Q: 地球温暖化の主な原因は？...
-
-  qa_cc_news_a10_hybrid: 731件登録済み
-    サンプル検索結果: score=0.8012  Q: 再生可能エネルギーの種類は？...
+python a42_qdrant_registration.py --search "クエリ" --collection qa_cc_news_a02_llm
 ```
 
 ---
 
-## 🔗 関連ファイル
+## 付録: メタデータ
 
-| ファイル | 役割 | 関係 |
-|---|---|---|
-| `a02_make_qa.py` | LLMによるQ&A生成 | Q&Aペアの元データ生成 |
-| `a03_rag_qa_coverage_improved.py` | カバレージ分析とQ&A生成 | Q&Aペアの元データ生成 |
-| `a10_qa_optimized_hybrid_batch.py` | ハイブリッドQ&A生成 | Q&Aペアの元データ生成 |
-| `a20_output_qa_csv.py` | 統一フォーマットCSV作成 | **直接の入力元** |
-| `a40_show_qdrant_data.py` | Qdrantデータ表示UI | 登録されたデータの確認 |
-| `a41_qdrant_truncate.py` | コレクション削除ツール | データのクリーンアップ |
+| 項目 | 値 |
+|------|-----|
+| ファイル行数 | 901行 |
+| デフォルトQdrant URL | http://localhost:6333 |
+| デフォルトバッチサイズ | 32 |
+| 埋め込みモデル | text-embedding-3-small |
+| 埋め込み次元数 | 1536 |
+| 最大トークン/リクエスト | 8000 |
+| チャンクサイズ（TXT） | 500トークン |
+| コレクション数 | 8（Q&A 6 + raw 2） |
 
----
+## 関連ファイル
 
-## 🎯 主な改良点（a30との違い）
-
-| 項目 | a30_qdrant_registration.py（旧） | a42_qdrant_registration.py（新） |
-|---|---|---|
-| **コレクション構成** | 単一コレクション（qa_corpus） | 3つの独立コレクション |
-| **データ管理** | generation_methodでフィルタ | コレクションレベルで完全分離 |
-| **検索効率** | フィルタ条件が必要 | コレクション指定で高速検索 |
-| **削除・更新** | 条件付き削除が複雑 | コレクション単位で簡単管理 |
-| **拡張性** | 新方式追加時に影響大 | 新コレクション追加で独立管理 |
-
----
-
-## 📚 参考情報
-
-- [Qdrant Documentation](https://qdrant.tech/documentation/)
-- [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
-- [プロジェクトREADME](../README.md)
-
----
-
-*最終更新: 2025年11月1日*
+| ファイル | 役割 |
+|---------|------|
+| a02_make_qa_para.py | LLMによるQ&A生成 |
+| a03_rag_qa_coverage_improved.py | ルールベースQ&A生成 |
+| a10_qa_optimized_hybrid_batch.py | ハイブリッドQ&A生成 |
+| a40_show_qdrant_data.py | Qdrantデータ表示UI |
+| a41_qdrant_truncate.py | コレクション削除ツール |
+| a50_rag_search_local_qdrant.py | Qdrant検索UI |

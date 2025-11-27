@@ -61,10 +61,8 @@ python a42_qdrant_registration.py \
 """
 import argparse
 import os
-import json
-import glob
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Tuple, Optional, Any
+from typing import Dict, Iterable, List, Optional, Any
 from pathlib import Path
 
 import pandas as pd
@@ -238,7 +236,7 @@ def embed_texts(texts: List[str], model: str, batch_size: int = 128) -> List[Lis
 
     # 全て空文字列の場合はダミーベクトルを返す
     if not valid_texts:
-        print(f"\r   [WARN] 全てのテキストが空文字列です。ダミーベクトルを返します。", flush=True)
+        print("\r   [WARN] 全てのテキストが空文字列です。ダミーベクトルを返します。", flush=True)
         return [[0.0] * 1536] * len(texts)
 
     # 有効なテキストのみで埋め込み生成
@@ -798,7 +796,7 @@ def main():
             "type": data_type
         }]
 
-        print(f"\n[INFO] ローカルファイル登録モード")
+        print("\n[INFO] ローカルファイル登録モード")
         print(f"  ファイル: {args.input_file}")
         print(f"  コレクション: {collection_name}")
         print(f"  ドメイン: {domain}")
@@ -861,7 +859,7 @@ def main():
 
         # ポイント構築とアップサート
         points = build_points(df, vectors_by_name, domain, csv_file, generation_method, data_type=data_type)
-        print(f"   アップサート中... ", end="", flush=True)
+        print("   アップサート中... ", end="", flush=True)
         n = upsert_points(client, collection_name, points, batch_size=args.batch_size)
         print(f"✓ {n:,}件")
 
@@ -871,7 +869,7 @@ def main():
     print(f"✅ 完了: 総登録件数 {total:,}件")
 
     # 登録されたコレクション一覧を表示
-    print(f"\n[INFO] 登録されたコレクション一覧:")
+    print("\n[INFO] 登録されたコレクション一覧:")
     print("-" * 80)
     all_collections = client.get_collections()
     for col in all_collections.collections:
@@ -879,7 +877,7 @@ def main():
     print("-" * 80)
 
     # 検証検索
-    print(f"\n[INFO] 検証検索を実行中...")
+    print("\n[INFO] 検証検索を実行中...")
     model = embeddings_cfg["primary"]["model"]
 
     for mapping in target_mappings:

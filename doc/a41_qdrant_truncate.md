@@ -1,154 +1,237 @@
-# a41_qdrant_truncate.py - Qdrantコレクション削除ツール
+# a41_qdrant_truncate.py - 技術仕様書
 
-## 📋 概要
+## 目次
+
+1. [概要](#1-概要)
+2. [アーキテクチャ](#2-アーキテクチャ)
+3. [削除機能](#3-削除機能)
+4. [統計情報表示](#4-統計情報表示)
+5. [コマンドラインオプション](#5-コマンドラインオプション)
+6. [使用方法](#6-使用方法)
+7. [安全機能](#7-安全機能)
+8. [トラブルシューティング](#8-トラブルシューティング)
+
+---
+
+## 1. 概要
+
+### 1.1 目的
 
 `a41_qdrant_truncate.py`は、Qdrantベクトルデータベースに登録されたRAGデータを安全に削除するための管理ツールです。コレクション全体の削除、特定ドメインのみの削除、統計情報の表示など、柔軟なデータ管理機能を提供します。
 
-### 主な特徴
+### 1.2 実行コマンド
+
+```bash
+# 統計情報を表示（削除なし）
+python a41_qdrant_truncate.py --stats
+
+# 全コレクションを削除（危険！）
+python a41_qdrant_truncate.py --all-collections --force
+```
+
+### 1.3 主要機能
 
 - **段階的削除**: データのみ削除 → コレクション削除 → 全コレクション削除
-- **安全機能**: 確認プロンプト、ドライラン、除外リスト
+- **安全機能**: 確認プロンプト、ドライラン、除外リスト、カウントダウン
 - **詳細統計**: ドメイン別データ数、ベクトル設定、視覚的なグラフ表示
-- **バッチ処理**: 大量データの効率的な削除
+- **バッチ処理**: 大量データの効率的な削除（デフォルト100件ずつ）
 - **カラー出力**: 視認性の高いコンソール出力
 
----
+### 1.4 入出力
 
-## 📥 INPUT / 📤 OUTPUT
-
-### INPUT（入力ファイル）
-
-| ファイルパス | 説明 | オプション | 生成元 |
-|---|---|---|---|
-| `config.yml` | 設定ファイル（コレクション名、Qdrant URL） | オプション | 手動作成 |
-
-### OUTPUT（出力）
-
-| 出力先 | 形式 | 内容 |
-|---|---|---|
-| **標準出力（コンソール）** | カラーテキスト | 統計情報、削除進捗、確認プロンプト |
-| **Qdrantベクトルデータベース** | 削除操作 | コレクション/データの削除 |
+| 種別 | データソース | 形式 |
+|------|------------|------|
+| INPUT | config.yml（オプション） | YAML |
+| INPUT | Qdrant Vector Database | REST API |
+| OUTPUT | 標準出力（コンソール） | カラーテキスト |
+| OUTPUT | Qdrantベクトルデータベース | 削除操作 |
 
 ---
 
-## 🚀 使用方法
+## 2. アーキテクチャ
 
-### 基本的な使い方
+### 2.1 システム構成図
 
-#### 1. 統計情報の確認（削除なし）
-
-```bash
-# デフォルトコレクションの統計情報を表示
-python a41_qdrant_truncate.py --stats
-
-# 特定コレクションの統計情報を表示
-python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --stats
-
-# 全コレクションの統計情報を表示
-python a41_qdrant_truncate.py --stats
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    a41_qdrant_truncate.py (731行)               │
+├─────────────────────────────────────────────────────────────────┤
+│  Colors クラス (64-73)                                          │
+│  └── ANSIカラーコード定義                                        │
+├─────────────────────────────────────────────────────────────────┤
+│  ヘルパー関数                                                    │
+│  ├── print_colored (75-77) - カラー出力                         │
+│  ├── print_header (79-85) - ヘッダー出力                        │
+│  └── load_config (110-131) - 設定ファイル読み込み               │
+├─────────────────────────────────────────────────────────────────┤
+│  統計・表示関数                                                  │
+│  ├── get_collection_stats (133-193) - コレクション統計取得       │
+│  ├── display_stats (195-216) - 統計情報表示                     │
+│  ├── get_all_collections (369-390) - 全コレクション情報取得      │
+│  └── display_all_collections_stats (392-411) - 全コレクション統計表示│
+├─────────────────────────────────────────────────────────────────┤
+│  確認関数                                                        │
+│  ├── confirm_action (218-232) - 単一確認プロンプト               │
+│  └── confirm_all_collections_deletion (413-462) - 2段階確認      │
+├─────────────────────────────────────────────────────────────────┤
+│  削除関数                                                        │
+│  ├── delete_by_domain (234-297) - ドメイン別削除                │
+│  ├── delete_all_data (299-350) - 全データ削除                   │
+│  ├── drop_collection (352-367) - コレクション削除               │
+│  └── delete_all_collections (464-517) - 全コレクション削除       │
+├─────────────────────────────────────────────────────────────────┤
+│  main (519-728) - メインエントリポイント                         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-#### 2. ドライラン（削除対象の確認のみ）
+### 2.2 依存モジュール
 
-```bash
-# 全データの削除対象を確認（実行はしない）
-python a41_qdrant_truncate.py --all --dry-run
+```python
+import argparse
+import os
+import sys
+import time
+from typing import Dict, List, Optional, Any
+import yaml  # オプション
 
-# 特定ドメインの削除対象を確認
-python a41_qdrant_truncate.py --domain cc_news --dry-run
-
-# 全コレクションの削除対象を確認
-python a41_qdrant_truncate.py --all-collections --dry-run
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+from qdrant_client.http.exceptions import UnexpectedResponse
 ```
 
-#### 3. 特定ドメインのデータ削除
+### 2.3 デフォルト設定
 
-```bash
-# 確認プロンプト付きで削除
-python a41_qdrant_truncate.py --domain medical
-
-# 確認をスキップして強制削除
-python a41_qdrant_truncate.py --domain cc_news --force
+```python
+DEFAULTS = {
+    "rag": {
+        "collection": "qa_corpus",
+    },
+    "qdrant": {
+        "url": "http://localhost:6333"
+    }
+}
 ```
 
-#### 4. コレクション内の全データ削除（コレクションは残す）
+### 2.4 サポートされるドメイン
 
-```bash
-# 確認プロンプト付き
-python a41_qdrant_truncate.py --all
-
-# 強制削除
-python a41_qdrant_truncate.py --all --force
-
-# 特定コレクションのデータ削除
-python a41_qdrant_truncate.py --collection qa_cc_news_a03_rule --all --force
-```
-
-#### 5. コレクション自体を削除
-
-```bash
-# 確認プロンプト付き
-python a41_qdrant_truncate.py --drop-collection
-
-# 特定コレクションを強制削除
-python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --drop-collection --force
-```
-
-#### 6. 全コレクションの削除（危険！）
-
-```bash
-# ⚠️ 警告：全コレクションを削除（2段階確認あり）
-python a41_qdrant_truncate.py --all-collections --force
-
-# 特定コレクションを除外して削除
-python a41_qdrant_truncate.py --all-collections --exclude qa_corpus --exclude important_data --force
+```python
+SUPPORTED_DOMAINS = [
+    "customer",          # カスタマーサポート
+    "medical",           # 医療
+    "legal",             # 法律
+    "sciq",              # 科学
+    "trivia",            # トリビア
+    "unified",           # 統合データ
+    "cc_news_llm",       # CC News LLM生成方式
+    "cc_news_coverage",  # CC Newsカバレッジ改良方式
+    "cc_news_hybrid"     # CC Newsハイブリッド生成方式
+]
 ```
 
 ---
 
-## 💻 コマンドライン引数
+## 3. 削除機能
 
-| 引数 | 説明 | デフォルト | 例 |
-|---|---|---|---|
-| `--collection` | 対象コレクション名 | config.yml または 'qa_corpus' | `--collection qa_cc_news_a02_llm` |
-| `--qdrant-url` | QdrantサーバーのURL | http://localhost:6333 | `--qdrant-url http://192.168.1.10:6333` |
-| `--domain` | 削除対象のドメイン | なし | `--domain medical` |
-| `--all` | 全データを削除（コレクションは保持） | False | `--all` |
-| `--all-collections` | 全コレクションを削除（危険！） | False | `--all-collections` |
-| `--drop-collection` | コレクション自体を削除 | False | `--drop-collection` |
-| `--exclude` | 除外するコレクション（複数指定可） | なし | `--exclude qa_corpus --exclude backup` |
-| `--stats` | 統計情報のみ表示（削除なし） | False | `--stats` |
-| `--dry-run` | 削除対象を表示するが実行しない | False | `--dry-run` |
-| `--force` | 確認プロンプトをスキップ | False | `--force` |
-| `--batch-size` | 削除バッチサイズ | 100 | `--batch-size 200` |
+### 3.1 delete_by_domain (234-297)
 
-### サポートされるドメイン
+```python
+def delete_by_domain(
+    client: QdrantClient,
+    collection_name: str,
+    domain: str,
+    batch_size: int = 100,
+    dry_run: bool = False
+) -> int:
+    """特定ドメインのデータを削除
 
-| ドメイン名 | 説明 |
-|---|---|
-| `customer` | カスタマーサポート |
-| `medical` | 医療 |
-| `legal` | 法律 |
-| `sciq` | 科学 |
-| `trivia` | トリビア |
-| `unified` | 統合データ |
-| `cc_news_llm` | CC News LLM生成方式 |
-| `cc_news_coverage` | CC Newsカバレッジ改良方式 |
-| `cc_news_hybrid` | CC Newsハイブリッド生成方式 |
-| `cc_news` | CC Newsデータ |
-| `livedoor` | Livedoorデータ |
+    処理フロー:
+    1. 対象ドメインのデータ数をカウント
+    2. バッチサイズでポイントを検索
+    3. ポイントIDを取得して削除
+    4. 削除進捗を表示
+
+    Returns:
+        削除した件数
+    """
+```
+
+### 3.2 delete_all_data (299-350)
+
+```python
+def delete_all_data(
+    client: QdrantClient,
+    collection_name: str,
+    batch_size: int = 100,
+    dry_run: bool = False
+) -> int:
+    """全データを削除（コレクションは保持）
+
+    用途:
+    - コレクション再登録の前処理
+    - データのリフレッシュ
+    - テスト環境のクリーンアップ
+    """
+```
+
+### 3.3 drop_collection (352-367)
+
+```python
+def drop_collection(
+    client: QdrantClient,
+    collection_name: str,
+    dry_run: bool = False
+) -> bool:
+    """コレクション自体を削除
+
+    用途:
+    - 不要なコレクションの完全削除
+    - ベクトル設定の変更時の再作成
+    """
+```
+
+### 3.4 delete_all_collections (464-517)
+
+```python
+def delete_all_collections(
+    client: QdrantClient,
+    excluded: List[str] = None,
+    dry_run: bool = False
+) -> int:
+    """全コレクションを削除
+
+    - 2段階確認（--forceでスキップ可能）
+    - 除外リスト対応
+    - 順次削除で進捗表示
+    """
+```
 
 ---
 
-## 📊 統計情報の表示例
+## 4. 統計情報表示
 
-### 単一コレクションの統計
+### 4.1 get_collection_stats (133-193)
 
-```bash
-python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --stats
+```python
+def get_collection_stats(
+    client: QdrantClient,
+    collection_name: str
+) -> Optional[Dict[str, Any]]:
+    """コレクションの統計情報を取得
+
+    Returns:
+        {
+            "total_points": int,
+            "domain_stats": {domain: count, ...},
+            "vector_config": {name: {size, distance}, ...},
+            "status": str
+        }
+    """
 ```
 
-**出力例**:
+### 4.2 display_stats (195-216)
+
+統計情報を視覚的に表示:
+
 ```
 ================================================================================
  📊 コレクション 'qa_cc_news_a02_llm' の統計情報
@@ -166,13 +249,10 @@ python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --stats
   primary: size=1536, distance=Distance.COSINE
 ```
 
-### 全コレクションの統計
+### 4.3 display_all_collections_stats (392-411)
 
-```bash
-python a41_qdrant_truncate.py --stats
-```
+全コレクションの統計情報を表示:
 
-**出力例**:
 ```
 ================================================================================
  📊 全コレクションの統計情報
@@ -188,323 +268,136 @@ python a41_qdrant_truncate.py --stats
   qa_cc_news_a02_llm                   5,042      green
   qa_cc_news_a03_rule                  2,358      green
   qa_livedoor_a10_hybrid               1,845      green
-  raw_cc_news                          3,256      green
-  raw_livedoor                         2,733      green
-  qa_cc_news_a10_hybrid                  731      green
-  qa_livedoor_a02_20_llm                 189      green
-  qa_livedoor_a03_rule                    80      green
 ------------------------------------------------------------
 ```
 
 ---
 
-## 🔍 削除機能の詳細
+## 5. コマンドラインオプション
 
-### 1. ドメイン別削除
+### 5.1 全オプション一覧
 
-特定ドメインのデータのみを削除し、他のデータは保持します。
+| オプション | 型 | デフォルト | 説明 |
+|-----------|---|----------|------|
+| `--collection` | str | qa_corpus | 対象コレクション名 |
+| `--qdrant-url` | str | http://localhost:6333 | QdrantサーバーのURL |
+| `--domain` | str | なし | 削除対象のドメイン |
+| `--all` | flag | False | 全データを削除（コレクションは保持） |
+| `--all-collections` | flag | False | 全コレクションを削除（危険！） |
+| `--drop-collection` | flag | False | コレクション自体を削除 |
+| `--exclude` | str[] | なし | 除外するコレクション（複数指定可） |
+| `--stats` | flag | False | 統計情報のみ表示（削除なし） |
+| `--dry-run` | flag | False | 削除対象を表示するが実行しない |
+| `--force` | flag | False | 確認プロンプトをスキップ |
+| `--batch-size` | int | 100 | 削除バッチサイズ |
+
+### 5.2 排他的オプション
+
+以下のオプションは**1つのみ**指定可能（複数指定不可）:
+- `--domain`
+- `--all`
+- `--all-collections`
+- `--drop-collection`
+- `--stats`
+
+### 5.3 --exclude の制限
+
+`--exclude`は`--all-collections`と併用時のみ有効。
+
+---
+
+## 6. 使用方法
+
+### 6.1 統計情報の確認
 
 ```bash
-python a41_qdrant_truncate.py --domain cc_news --force
+# 全コレクションの統計情報を表示
+python a41_qdrant_truncate.py --stats
+
+# 特定コレクションの統計情報を表示
+python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --stats
 ```
 
-**処理フロー**:
-1. 対象ドメインのデータ数をカウント
-2. バッチサイズ（デフォルト100）でポイントを検索
-3. ポイントIDを取得して削除
-4. 削除進捗を表示
-
-**出力例**:
-```
-削除対象: ドメイン 'cc_news' のデータ 5,042 件
-  削除進捗: 100 / 5,042 (2.0%)
-  削除進捗: 200 / 5,042 (4.0%)
-  ...
-  削除進捗: 5,042 / 5,042 (100.0%)
-✅ 5,042 件のデータを削除しました。
-```
-
-### 2. 全データ削除（コレクション保持）
-
-コレクション構造を保持したまま、全データを削除します。
+### 6.2 ドライラン（削除対象の確認のみ）
 
 ```bash
+# 全データの削除対象を確認（実行はしない）
+python a41_qdrant_truncate.py --all --dry-run
+
+# 特定ドメインの削除対象を確認
+python a41_qdrant_truncate.py --domain cc_news_llm --dry-run
+
+# 全コレクションの削除対象を確認
+python a41_qdrant_truncate.py --all-collections --dry-run
+```
+
+### 6.3 特定ドメインのデータ削除
+
+```bash
+# 確認プロンプト付きで削除
+python a41_qdrant_truncate.py --domain medical
+
+# 確認をスキップして強制削除
+python a41_qdrant_truncate.py --domain cc_news_llm --force
+```
+
+### 6.4 コレクション内の全データ削除
+
+```bash
+# 確認プロンプト付き
+python a41_qdrant_truncate.py --all
+
+# 強制削除
 python a41_qdrant_truncate.py --all --force
+
+# 特定コレクションのデータ削除
+python a41_qdrant_truncate.py --collection qa_cc_news_a03_rule --all --force
 ```
 
-**用途**:
-- コレクション再登録の前処理
-- データのリフレッシュ
-- テスト環境のクリーンアップ
-
-### 3. コレクション削除
-
-コレクション自体を完全に削除します。
+### 6.5 コレクション自体を削除
 
 ```bash
-python a41_qdrant_truncate.py --drop-collection --force
+# 確認プロンプト付き
+python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --drop-collection
+
+# 特定コレクションを強制削除
+python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --drop-collection --force
 ```
 
-**用途**:
-- 不要なコレクションの完全削除
-- ベクトル設定の変更時の再作成
-
-### 4. 全コレクション削除（危険！）
-
-すべてのコレクションを削除します（2段階確認付き）。
+### 6.6 全コレクションの削除（危険！）
 
 ```bash
+# 全コレクションを削除（2段階確認あり）
 python a41_qdrant_truncate.py --all-collections --force
-```
 
-**安全機能**:
-1. **第一確認**: yes/no プロンプト
-2. **第二確認**: 3秒カウントダウン（Ctrl+Cで中止可能）
-3. **除外リスト**: `--exclude` で重要なコレクションを保護
-
-**除外機能の使用例**:
-```bash
-# qa_corpusとbackup_dataを除外して、他の全コレクションを削除
+# 特定コレクションを除外して削除
 python a41_qdrant_truncate.py --all-collections \
   --exclude qa_corpus \
-  --exclude backup_data \
+  --exclude important_data \
   --force
 ```
 
 ---
 
-## 🔄 処理フロー
+## 7. 安全機能
 
-### ドメイン別削除のフロー
-
-```mermaid
-graph TD
-    A[開始] --> B[統計情報表示]
-    B --> C{確認プロンプト}
-    C -->|キャンセル| Z[終了]
-    C -->|承認| D[対象データカウント]
-    D --> E{データ存在?}
-    E -->|なし| F[警告表示]
-    F --> Z
-    E -->|あり| G[バッチで削除実行]
-    G --> H[進捗表示]
-    H --> I{完了?}
-    I -->|未完了| G
-    I -->|完了| J[削除後統計表示]
-    J --> Z
-```
-
-### 全コレクション削除のフロー
-
-```mermaid
-graph TD
-    A[開始] --> B[全コレクション取得]
-    B --> C[統計情報表示]
-    C --> D[除外リスト適用]
-    D --> E{削除対象あり?}
-    E -->|なし| Z[終了]
-    E -->|あり| F[第一確認プロンプト]
-    F -->|キャンセル| Z
-    F -->|承認| G[第二確認: 3秒カウントダウン]
-    G -->|Ctrl+C| Z
-    G -->|タイムアウト| H[各コレクションを順次削除]
-    H --> I[削除後統計表示]
-    I --> Z
-```
-
----
-
-## 🎨 カラー出力
-
-### 色コードの意味
-
-| 色 | 意味 | 用途 |
-|---|---|---|
-| 🟣 **HEADER** | ヘッダー | セクション見出し |
-| 🔵 **OKBLUE** | 情報 | 統計情報のラベル |
-| 🔷 **OKCYAN** | 通知 | ドライラン表示、進捗バー |
-| 🟢 **OKGREEN** | 成功 | 完了メッセージ、正常ステータス |
-| 🟡 **WARNING** | 警告 | 確認プロンプト、注意事項 |
-| 🔴 **FAIL** | エラー | エラーメッセージ、危険な操作 |
-| **BOLD** | 強調 | 重要な数値、操作 |
-
-### 出力例
+### 7.1 確認プロンプト（confirm_action）
 
 ```
-================================================================================
- 📊 コレクション 'qa_cc_news_a02_llm' の統計情報
-================================================================================
-
-総ポイント数:        5,042
-ステータス:           green
-
-ドメイン別データ数:
-----------------------------------------
-  cc_news           5,042 ██████████████████████████████
-----------------------------------------
-
 ⚠️  ドメイン 'cc_news' のデータを削除します
 この操作は取り消せません！
 
-実行しますか？ (yes/no): yes
-
-削除対象: ドメイン 'cc_news' のデータ 5,042 件
-  削除進捗: 5,042 / 5,042 (100.0%)
-✅ 5,042 件のデータを削除しました。
+実行しますか？ (yes/no):
 ```
 
----
+### 7.2 2段階確認（confirm_all_collections_deletion）
 
-## 🛠️ トラブルシューティング
+全コレクション削除時のみ:
 
-### よくある問題と解決方法
-
-#### 1. Qdrantサーバーに接続できない
-
-```
-❌ Qdrant接続エラー: Connection refused
-URL: http://localhost:6333
-Qdrantが起動していることを確認してください。
-```
-
-**解決方法**:
-```bash
-# Qdrantサーバーを起動
-docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
-
-# または docker-compose
-docker-compose -f docker-compose/docker-compose.yml up -d
-```
-
-#### 2. コレクションが存在しない
+1. **第一確認**: yes/no プロンプト
+2. **第二確認**: 3秒カウントダウン（Ctrl+Cで中止可能）
 
 ```
-❌ コレクション 'qa_corpus' が存在しません。
-```
-
-**解決方法**:
-```bash
-# 全コレクションの確認
-python a41_qdrant_truncate.py --stats
-
-# 正しいコレクション名を指定
-python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --stats
-```
-
-#### 3. 削除権限エラー
-
-```
-❌ エラーが発生しました: Permission denied
-```
-
-**解決方法**:
-- Qdrantサーバーのアクセス権限を確認
-- Qdrant URLが正しいか確認
-- ファイアウォール設定を確認
-
-#### 4. アクションを指定していない
-
-```
-❌ アクションを指定してください（--stats, --domain, --all, --all-collections, --drop-collection）
-```
-
-**解決方法**:
-- 必ず1つのアクションを指定する
-- 複数のアクションを同時に指定しない
-
----
-
-## 📝 設定ファイル（config.yml）
-
-オプションで`config.yml`を使用してデフォルト設定をカスタマイズできます：
-
-```yaml
-rag:
-  collection: qa_corpus  # デフォルトのコレクション名
-
-qdrant:
-  url: http://localhost:6333  # QdrantサーバーのデフォルトURL
-```
-
-**優先順位**:
-1. コマンドライン引数（最優先）
-2. config.yml設定
-3. ハードコードされたデフォルト値
-
----
-
-## 📈 実行例と結果
-
-### 例1: ドメイン別削除（確認あり）
-
-```bash
-python a41_qdrant_truncate.py --domain cc_news
-```
-
-**インタラクション**:
-```
-================================================================================
- 🗑️  Qdrantデータ削除ツール
-================================================================================
-
-================================================================================
- 📊 コレクション 'qa_corpus' の統計情報
-================================================================================
-
-総ポイント数:        8,131
-ステータス:           green
-
-ドメイン別データ数:
-----------------------------------------
-  cc_news           8,131 ██████████████████████████████
-----------------------------------------
-
-⚠️  ドメイン 'cc_news' のデータを削除します
-この操作は取り消せません！
-
-実行しますか？ (yes/no): yes
-
-削除対象: ドメイン 'cc_news' のデータ 8,131 件
-  削除進捗: 100 / 8,131 (1.2%)
-  削除進捗: 200 / 8,131 (2.5%)
-  ...
-  削除進捗: 8,131 / 8,131 (100.0%)
-✅ 8,131 件のデータを削除しました。
-
-削除後の状態:
-================================================================================
- 📊 コレクション 'qa_corpus' の統計情報
-================================================================================
-
-総ポイント数:        0
-ステータス:           green
-```
-
-### 例2: 全コレクション削除（除外あり）
-
-```bash
-python a41_qdrant_truncate.py --all-collections --exclude qa_corpus --force
-```
-
-**出力**:
-```
-================================================================================
- 📊 全コレクションの統計情報
-================================================================================
-
-総コレクション数:     8
-総ポイント数:        15,234
-
-コレクション一覧:
-------------------------------------------------------------
-  名前                            ポイント数   ステータス
-------------------------------------------------------------
-  qa_cc_news_a02_llm                   5,042      green
-  qa_cc_news_a03_rule                  2,358      green
-  qa_corpus                            8,131      green
-  ...
-------------------------------------------------------------
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️  警告: 全コレクション削除
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -521,68 +414,128 @@ python a41_qdrant_truncate.py --all-collections --exclude qa_corpus --force
 
 最終確認：3秒後に削除を開始します。中止するにはCtrl+Cを押してください。
 3...2...1...
-
-削除を開始します...
-  削除中: qa_cc_news_a02_llm... ✓
-  削除中: qa_cc_news_a03_rule... ✓
-  ...
-
-✅ 7 コレクションを削除しました。
 ```
 
----
+### 7.3 ドライラン
 
-## 🔗 関連ファイル
+`--dry-run`オプションで削除対象のみ表示（実際の削除は実行しない）:
 
-| ファイル | 役割 | 関係 |
-|---|---|---|
-| `a42_qdrant_registration.py` | Qdrantへのデータ登録 | 削除後の再登録に使用 |
-| `a40_show_qdrant_data.py` | Qdrantデータ表示UI | 削除前後の確認に使用 |
-| `a50_rag_search_local_qdrant.py` | Streamlit検索UI | 削除したデータの検証 |
-| `config.yml` | 設定ファイル | デフォルト値の設定 |
+```
+削除対象: ドメイン 'cc_news' のデータ 5,042 件
+[DRY RUN] 実際の削除は実行されません。
+```
 
----
+### 7.4 除外リスト
 
-## ⚠️ 安全機能
+`--exclude`オプションで重要なコレクションを保護:
 
-### 1. 確認プロンプト
+```bash
+python a41_qdrant_truncate.py --all-collections \
+  --exclude qa_corpus \
+  --exclude backup_data \
+  --force
+```
 
-- デフォルトで全ての削除操作に確認プロンプトを表示
-- `--force`オプションで確認をスキップ可能
-- 全コレクション削除は2段階確認
+### 7.5 削除後の統計情報
 
-### 2. ドライラン
-
-- `--dry-run`オプションで削除対象のみ表示
-- 実際の削除は実行しない
-- テストや確認に最適
-
-### 3. 除外リスト
-
-- `--exclude`オプションで重要なコレクションを保護
-- 複数のコレクションを除外可能
-- `--all-collections`使用時のみ有効
-
-### 4. カウントダウン
-
-- 全コレクション削除時に3秒カウントダウン
-- Ctrl+Cで中止可能
-- 誤操作の防止
-
-### 5. 統計情報の表示
-
-- 削除前後の統計情報を自動表示
-- 削除対象の明確化
-- 削除結果の検証
+削除完了後に自動的に統計情報を表示して結果を検証。
 
 ---
 
-## 📚 参考情報
+## 8. トラブルシューティング
 
-- [Qdrant Documentation - Collection Management](https://qdrant.tech/documentation/concepts/collections/)
-- [Qdrant Documentation - Filtering](https://qdrant.tech/documentation/concepts/filtering/)
-- [プロジェクトREADME](../README.md)
+### 8.1 Qdrantサーバーに接続できない
+
+**症状**:
+```
+❌ Qdrant接続エラー: Connection refused
+URL: http://localhost:6333
+Qdrantが起動していることを確認してください。
+```
+
+**解決方法**:
+```bash
+# Qdrantサーバーを起動
+docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
+
+# または docker-compose
+cd docker-compose
+docker-compose up -d qdrant
+```
+
+### 8.2 コレクションが存在しない
+
+**症状**:
+```
+❌ コレクション 'qa_corpus' が存在しません。
+```
+
+**解決方法**:
+```bash
+# 全コレクションの確認
+python a41_qdrant_truncate.py --stats
+
+# 正しいコレクション名を指定
+python a41_qdrant_truncate.py --collection qa_cc_news_a02_llm --stats
+```
+
+### 8.3 アクションを指定していない
+
+**症状**:
+```
+❌ アクションを指定してください（--stats, --domain, --all, --all-collections, --drop-collection）
+```
+
+**解決方法**: 必ず1つのアクションを指定する。
+
+### 8.4 複数のアクションを指定している
+
+**症状**:
+```
+❌ 複数のアクションを同時に指定することはできません
+```
+
+**解決方法**: アクションは1つのみ指定する。
+
+### 8.5 --exclude を不正に使用
+
+**症状**:
+```
+❌ --exclude は --all-collections と併用してください
+```
+
+**解決方法**: `--exclude`は`--all-collections`と一緒に使用する。
 
 ---
 
-*最終更新: 2025年11月12日*
+## 付録: メタデータ
+
+| 項目 | 値 |
+|------|-----|
+| ファイル行数 | 731行 |
+| デフォルトコレクション | qa_corpus |
+| デフォルトQdrant URL | http://localhost:6333 |
+| デフォルトバッチサイズ | 100 |
+| サポートドメイン数 | 9種類 |
+| 確認カウントダウン | 3秒 |
+
+## カラーコード
+
+| 色 | ANSIコード | 用途 |
+|----|-----------|------|
+| HEADER | `\033[95m` | セクション見出し |
+| OKBLUE | `\033[94m` | 情報ラベル |
+| OKCYAN | `\033[96m` | ドライラン表示、進捗バー |
+| OKGREEN | `\033[92m` | 成功メッセージ、正常ステータス |
+| WARNING | `\033[93m` | 確認プロンプト、注意事項 |
+| FAIL | `\033[91m` | エラーメッセージ、危険な操作 |
+| BOLD | `\033[1m` | 重要な数値、操作 |
+
+## 関連ファイル
+
+| ファイル | 役割 |
+|---------|------|
+| a40_show_qdrant_data.py | Qdrantデータ表示UI |
+| a42_qdrant_registration.py | Qdrantへのデータ登録 |
+| a50_rag_search_local_qdrant.py | Qdrant検索UI |
+| config.yml | デフォルト設定ファイル |

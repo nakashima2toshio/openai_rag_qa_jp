@@ -6,7 +6,6 @@ conftest.py - テスト共通フィクスチャ
 pytest用のフィクスチャ定義
 """
 
-import os
 import sys
 import tempfile
 from pathlib import Path

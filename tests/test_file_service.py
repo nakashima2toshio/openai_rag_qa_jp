@@ -5,19 +5,15 @@ test_file_service.py - ファイルサービスのテスト
 ===============================================
 """
 
-import os
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
-import pytest
 
 from services.file_service import (
     load_qa_output_history,
     load_preprocessed_history,
-    save_to_output,
     load_sample_questions_from_csv,
     load_source_qa_data,
 )

@@ -1,231 +1,260 @@
-# a50_rag_search_local_qdrant.py
+# a50_rag_search_local_qdrant.py - 技術仕様書
 
-## 概要
+## 目次
 
-Qdrant RAG検索用のStreamlit UIアプリケーション。ローカルまたはリモートのQdrantベクトルデータベースに対して、自然言語クエリを使用したセマンティック検索を実行し、関連するQ&Aペアを取得して表示します。
+1. [概要](#1-概要)
+2. [アーキテクチャ](#2-アーキテクチャ)
+3. [対応コレクション](#3-対応コレクション)
+4. [UI構成](#4-ui構成)
+5. [検索機能](#5-検索機能)
+6. [OpenAI統合](#6-openai統合)
+7. [使用方法](#7-使用方法)
+8. [設定ファイル](#8-設定ファイル)
+9. [トラブルシューティング](#9-トラブルシューティング)
 
-## 対応データセット
+---
 
-### 基本コレクション
-- `product_embeddings`: 製品情報検索用（384次元）
-- `qa_corpus`: Q&Aコーパス検索用（1536次元、5つのドメインをサポート）
+## 1. 概要
 
-### CC News データセット（7,376件の生データから派生）
-- `raw_cc_news`: CC Newsの生データ（7,376件）
-- `qa_cc_news_a02_llm`: LLM生成方式によるQ&Aペア（1,344件）
-  - AIによる自然な質問・回答ペアの生成
-- `qa_cc_news_a03_rule`: ルールベース生成方式によるQ&Aペア（1,638件）
-  - テンプレートベースの構造化されたQ&A生成
-- `qa_cc_news_a10_hybrid`: ハイブリッド生成方式によるQ&Aペア（1,638件）
-  - LLMとルールベースを組み合わせた生成
+### 1.1 目的
 
-### Livedoor News データセット（7,376件の生データから派生）
-- `raw_livedoor`: Livedoorの生データ（7,376件）
-- `qa_livedoor_a02_20_llm`: LLM生成方式によるQ&Aペア（1,317件）
-  - AIによる自然な質問・回答ペアの生成
-- `qa_livedoor_a03_rule`: ルールベース生成方式によるQ&Aペア（1,638件）
-  - テンプレートベースの構造化されたQ&A生成
-- `qa_livedoor_a10_hybrid`: ハイブリッド生成方式によるQ&Aペア（1,638件）
-  - LLMとルールベースを組み合わせた生成
+`a50_rag_search_local_qdrant.py`は、ローカルまたはリモートのQdrantベクトルデータベースに対して、自然言語クエリを使用したセマンティック検索を実行するStreamlit UIアプリケーションです。
 
-## 主な機能
-
-### 1. 複数コレクション対応
-- 動的にQdrantサーバーから利用可能なコレクションを取得
-- 各コレクションごとに最適な埋め込み設定を自動適用
-- コレクション情報（モデル・次元数）をサイドバーに表示
-
-### 2. ドメイン別検索（qa_corpusコレクションのみ）
-以下の5つのドメインをサポート：
-- **customer**: カスタマーサポート・FAQ
-- **medical**: 医療QAデータ
-- **sciq**: 科学・技術QA
-- **legal**: 法律・判例QA
-- **trivia**: TriviaQA（トリビアQA）
-
-※他のコレクションではドメインフィルタリングは無効化され、"ALL"として扱われます
-
-### 3. 多言語対応
-- OpenAIの埋め込みモデルによる多言語サポート
-- 日本語クエリで英語データを検索可能（逆も可能）
-- 翻訳不要で日英間の意味的検索を実現
-- 例: 日本語「返金は可能ですか？」と英語「Can I get a refund?」の高い類似度（0.4957）
-
-### 4. 動的埋め込み次元対応
-- text-embedding-3系モデルで次元数の動的指定をサポート
-- 384次元: 高速処理用（product_embeddings）
-- 1536次元: 高精度用（qa_corpus、CC News、Livedoor）
-- コレクションごとに最適な次元数を自動設定
-
-### 5. Named Vectors切替
-config.ymlで定義された複数の埋め込みモデル設定を切替可能：
-- primary: text-embedding-3-small (1536次元)
-- ada-002: text-embedding-ada-002 (1536次元)
-- 3-small: text-embedding-3-small (1536次元)
-
-### 6. リアルタイム類似度スコア表示
-類似度スコアの閾値目安：
-- **0.8以上**: 非常に関連性が高い（ほぼ一致）
-- **0.6-0.8**: 関連性がある（有用な結果）
-- **0.4-0.6**: 部分的に関連（参考程度）
-- **0.4未満**: 関連性が低い（フィルタリング推奨）
-
-### 7. OpenAI GPT統合
-- 検索結果を基にGPT-4o-miniで日本語回答を生成
-- 検索結果の最高スコアのQ&Aペアを利用
-- ユーザーの元の質問と検索結果を組み合わせて回答を生成
-
-### 8. サンプル質問機能
-- コレクション・ドメインに応じた質問例を自動表示
-- CC Newsコレクション用の英語質問サンプル（5件）
-- Livedoorコレクション用の日本語質問サンプル（5件）
-- ドメイン別質問サンプル（customer, medical, legal, sciq, trivia）
-- ワンクリックでサンプル質問を入力フィールドに設定
-
-## 起動方法
+### 1.2 起動コマンド
 
 ```bash
-# デフォルトポート（8501）で起動
-streamlit run a50_rag_search_local_qdrant.py
-
-# カスタムポート（8504）で起動
 streamlit run a50_rag_search_local_qdrant.py --server.port=8504
 ```
 
-## 前提条件
+### 1.3 主要機能
 
-### 1. 環境変数
-`.env`ファイルに以下を設定：
-```bash
-OPENAI_API_KEY=your-openai-api-key
+- **複数コレクション対応**: 10種類のコレクションを動的に取得・選択
+- **ドメイン別検索**: qa_corpusで5ドメインをサポート
+- **Named Vectors切替**: ada-002、3-small等の切替
+- **動的埋め込み次元対応**: 384次元（高速）、1536次元（高精度）
+- **リアルタイム類似度スコア表示**: スコア閾値の目安表示
+- **OpenAI GPT-4o-mini統合**: 検索結果から日本語回答を生成
+- **多言語対応**: 日英間のクロスリンガル検索
+
+### 1.4 入出力
+
+| 種別 | データソース | 形式 |
+|------|------------|------|
+| INPUT | ユーザークエリ | テキスト |
+| INPUT | Qdrant Vector Database | REST API |
+| OUTPUT | Streamlit WebUI | HTML/CSS |
+| OUTPUT | 検索結果 + GPT回答 | DataFrame + テキスト |
+
+---
+
+## 2. アーキテクチャ
+
+### 2.1 システム構成図
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              a50_rag_search_local_qdrant.py (466行)             │
+├─────────────────────────────────────────────────────────────────┤
+│  設定・定数                                                      │
+│  ├── DEFAULTS (49-57) - デフォルト設定                          │
+│  ├── COLLECTION_EMBEDDINGS (60-71) - 10コレクション定義          │
+│  └── SAMPLE_QUESTIONS (137-179) - 7ドメイン質問例                │
+├─────────────────────────────────────────────────────────────────┤
+│  設定・ヘルパー                                                  │
+│  ├── load_config (73-94) - config.yml読み込み                   │
+│  └── embed_query (96-113) - クエリ埋め込み生成                  │
+├─────────────────────────────────────────────────────────────────┤
+│  Streamlit UI                                                   │
+│  ├── サイドバー (181-284) - 設定パネル                           │
+│  │   ├── Collection セレクタ                                    │
+│  │   ├── Using vector (named) セレクタ                          │
+│  │   ├── Domain セレクタ (qa_corpusのみ)                        │
+│  │   ├── TopK スライダー                                        │
+│  │   └── サンプル質問ボタン                                      │
+│  ├── メインエリア (290-405) - 検索と結果表示                     │
+│  │   ├── クエリ入力フォーム                                      │
+│  │   ├── 検索結果DataFrame                                      │
+│  │   ├── 最高スコア結果表示                                      │
+│  │   └── OpenAI応答（日本語）                                    │
+│  └── エラーハンドリング (449-465) - 接続・コレクションエラー     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Qdrantサーバー
-```bash
-# Dockerを使用する場合
-cd docker-compose
-docker-compose up -d
+### 2.2 依存モジュール
 
-# ローカルでQdrantを起動する場合
-qdrant
+```python
+import os
+from typing import Dict, Any, List, Optional
+import pandas as pd
+import streamlit as st
+import yaml  # オプション
+
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+from openai import OpenAI
 ```
 
-### 3. データ登録
-```bash
-# データをQdrantに登録
-python a42_qdrant_registration.py --recreate --limit 100
+### 2.3 データフロー
+
+```
+ユーザークエリ入力
+       │
+       ▼
+embed_query() - OpenAI Embedding生成
+       │
+       ▼
+QdrantClient.search() - ベクトル類似検索
+       │
+       ▼
+検索結果DataFrame表示
+       │
+       ▼
+OpenAI Responses API (gpt-4o-mini)
+       │
+       ▼
+日本語回答生成・表示
 ```
 
-## 設定ファイル
+---
 
-### config.yml
-```yaml
-rag:
-  collection: "product_embeddings"  # デフォルトコレクション
+## 3. 対応コレクション
 
-embeddings:
-  primary:
-    provider: "openai"
-    model: "text-embedding-3-small"
-    dims: 1536
-  ada-002:
-    provider: "openai"
-    model: "text-embedding-ada-002"
-    dims: 1536
+### 3.1 COLLECTION_EMBEDDINGS（全10コレクション）
 
-qdrant:
-  url: "http://localhost:6333"
+| コレクション名 | 埋め込みモデル | 次元数 | 説明 |
+|--------------|--------------|-------|------|
+| product_embeddings | text-embedding-3-small | 384 | 製品情報用（高速処理） |
+| qa_corpus | text-embedding-3-small | 1536 | Q&Aコーパス（5ドメイン） |
+| raw_cc_news | text-embedding-3-small | 1536 | CC News生データ |
+| raw_livedoor | text-embedding-3-small | 1536 | Livedoor生データ |
+| qa_cc_news_a02_llm | text-embedding-3-small | 1536 | CC News LLM生成方式 |
+| qa_cc_news_a03_rule | text-embedding-3-small | 1536 | CC News ルールベース方式 |
+| qa_cc_news_a10_hybrid | text-embedding-3-small | 1536 | CC News ハイブリッド方式 |
+| qa_livedoor_a02_20_llm | text-embedding-3-small | 1536 | Livedoor LLM生成方式 |
+| qa_livedoor_a03_rule | text-embedding-3-small | 1536 | Livedoor ルールベース方式 |
+| qa_livedoor_a10_hybrid | text-embedding-3-small | 1536 | Livedoor ハイブリッド方式 |
+
+### 3.2 ドメイン（qa_corpusのみ）
+
+| ドメイン | 説明 | 言語 |
+|---------|------|------|
+| customer | カスタマーサポート・FAQ | 日本語 |
+| medical | 医療QAデータ | 日本語 |
+| legal | 法律・判例QA | 日本語 |
+| sciq | 科学・技術QA | 日本語 |
+| trivia | TriviaQA（トリビアQA） | 日本語 |
+
+---
+
+## 4. UI構成
+
+### 4.1 サイドバー設定
+
+| 設定項目 | 説明 | デフォルト |
+|---------|------|----------|
+| Collection | 検索対象コレクション | product_embeddings |
+| Using vector (named) | 埋め込みモデル設定 | primary |
+| Domain | ドメインフィルタ（qa_corpusのみ） | ALL |
+| TopK | 取得する検索結果数 | 5（1-20） |
+| Qdrant URL | サーバーアドレス | http://localhost:6333 |
+| Debug Mode | デバッグ情報表示 | OFF |
+
+### 4.2 サンプル質問
+
+#### CC Newsコレクション（英語）
+
+```python
+SAMPLE_QUESTIONS["cc_news"] = [
+    "Which Boston Ballet dancers starred in their Super Bowl video?",
+    "What role does The Nutcracker play for ballet companies beyond being a performance piece?",
+    "What insight did the speaker gain from seeing Robert's McLaren documentary?",
+    "Under what circumstance can a firm still charge a fee for an SAR under GDPR?",
+    "Which two technologies did Vyas use to illustrate a 5G use case?"
+]
 ```
 
-## UI構成
+#### Livedoorコレクション（日本語）
 
-### サイドバー設定
-- **Collection**: 検索対象のコレクションを選択
-- **Using vector (named)**: 使用する埋め込みモデル設定を選択
-- **Domain**: ドメインフィルタ（qa_corpusのみ）
-- **TopK**: 取得する検索結果の数（1-20）
-- **Qdrant URL**: Qdrantサーバーのアドレス
-- **Debug Mode**: デバッグ情報の表示
+```python
+SAMPLE_QUESTIONS["livedoor"] = [
+    "ライブドアニュースについて教えてください",
+    "最新のテクノロジーニュースは？",
+    "スポーツニュースで話題になっていることは？",
+    "エンタメ関連のニュースを知りたい",
+    "経済ニュースの最新情報は？"
+]
+```
 
-### メイン画面
-1. **クエリ入力フィールド**: 検索クエリを入力
-2. **検索ボタン**: 検索を実行
-3. **結果表示**:
-   - DataFrameで全検索結果を表示
-   - 最高スコアの結果を詳細表示
-   - OpenAI応答を日本語で表示
+### 4.3 メイン画面
 
-### サイドバーの質問例
-コレクション・ドメインに応じた質問例を自動表示：
+| 要素 | 説明 |
+|------|------|
+| 機能説明 | コレクション・ドメインの説明、スコア目安 |
+| クエリ入力 | テキストボックス |
+| Searchボタン | 検索実行 |
+| Results | 検索結果DataFrame |
+| Highest Score Result | 最高スコアの詳細表示 |
+| OpenAI 応答（日本語） | GPT-4o-miniによる回答 |
 
-**CC Newsコレクション選択時:**
-- 英語での検索サンプル（5件）
-- コレクションタイプに応じたラベル表示（生データ/LLM生成/ルールベース/ハイブリッド）
+---
 
-**Livedoorコレクション選択時:**
-- 日本語での検索サンプル（5件）
-- コレクションタイプに応じたラベル表示（生データ/LLM生成/ルールベース/ハイブリッド）
+## 5. 検索機能
 
-**qa_corpusコレクション + 特定ドメイン選択時:**
-- 選択ドメインに対応した質問例（3-5件）
+### 5.1 embed_query関数 (96-113)
 
-**qa_corpusコレクション + ALL選択時:**
-- 各ドメイン（customer, medical, legal, sciq, trivia）から2件ずつ表示
-
-**product_embeddingsコレクション選択時:**
-- 製品関連の質問例を追加表示（4件）
-
-## エラーハンドリング
-
-### 接続エラー
-- Qdrantサーバーへの接続失敗時に詳細なエラーメッセージを表示
-- 解決方法の提案（Docker起動コマンド等）
-
-### コレクションエラー
-- コレクションが存在しない場合の対処法を表示
-- データ登録コマンドの案内
-
-### 埋め込み生成エラー
-- モデルや次元数の不一致を検出して報告
-- デバッグモードで詳細情報を表示
-
-## 技術的詳細
-
-### 埋め込みベクトル生成
 ```python
 def embed_query(text: str, model: str, dims: Optional[int] = None) -> List[float]:
+    """クエリテキストを埋め込みベクトルに変換
+
+    Args:
+        text: 埋め込むテキスト
+        model: 使用する埋め込みモデル
+        dims: ベクトルの次元数（text-embedding-3系のみ有効）
+
+    Returns:
+        埋め込みベクトル
     """
-    クエリテキストを埋め込みベクトルに変換
-    text-embedding-3系モデルは次元数の動的指定をサポート
-    """
-    client = OpenAI()
-    if dims and "text-embedding-3" in model:
-        return client.embeddings.create(
-            model=model,
-            input=[text],
-            dimensions=dims
-        ).data[0].embedding
-    else:
-        return client.embeddings.create(
-            model=model,
-            input=[text]
-        ).data[0].embedding
 ```
 
-### ベクトル検索
+### 5.2 ベクトル検索
+
 ```python
-# Qdrantでの類似検索
 hits = client.search(
     collection_name=collection,
     query_vector=qvec,
     limit=topk,
-    query_filter=qfilter  # ドメインフィルタ（オプション、qa_corpusのみ）
+    query_filter=qfilter  # ドメインフィルタ（qa_corpusのみ）
 )
 ```
 
-### OpenAI応答生成（GPT-4o-mini使用）
+### 5.3 フィールドマッピング
+
+検索結果から以下のフィールドを抽出（複数のフィールド名に対応）:
+
+| フィールド | 対応フィールド名 |
+|-----------|----------------|
+| score | 類似度スコア |
+| domain | domain |
+| question | question, text, content |
+| answer | answer, response, metadata |
+| source | source, file |
+
+### 5.4 類似度スコア目安
+
+| スコア範囲 | 意味 |
+|-----------|------|
+| 0.8以上 | 非常に関連性が高い（ほぼ一致） |
+| 0.6-0.8 | 関連性がある（有用な結果） |
+| 0.4-0.6 | 部分的に関連（参考程度） |
+| 0.4未満 | 関連性が低い（フィルタリング推奨） |
+
+---
+
+## 6. OpenAI統合
+
+### 6.1 日本語回答生成
+
 ```python
-# 検索結果を基にした日本語回答生成
 qa_prompt_jp = (
     "以下の検索結果（スコア・質問・回答）とユーザーの元の質問を踏まえて、"
     "日本語で簡潔かつ正確に回答してください。必要に応じて箇条書きを用いてください。\n\n"
@@ -243,43 +272,169 @@ oai_resp = oai_client.responses.create(
 generated_answer = getattr(oai_resp, "output_text", None) or ""
 ```
 
-### フィールドマッピング（柔軟な対応）
-検索結果から以下のフィールドを抽出（複数のフィールド名に対応）：
-- `score`: 類似度スコア
-- `domain`: ドメイン情報（存在する場合）
-- `question`: 質問テキスト
-  - 対応フィールド名: `question`, `text`, `content`
-  - テキストフィールドがない場合は最初に見つかった文字列フィールド（200文字まで）
-- `answer`: 回答テキスト
-  - 対応フィールド名: `answer`, `response`, `metadata`
-- `source`: ソース情報
-  - 対応フィールド名: `source`, `file`
+### 6.2 多言語対応
 
-※デバッグモードでpayload構造の詳細を確認可能
+- OpenAI埋め込みモデルが多言語対応
+- 日英間でのクロスリンガル検索が可能
+- 例: 日本語「返金は可能ですか？」と英語「Can I get a refund?」の高い類似度（0.4957）
 
-## 依存関係
+---
 
-```python
-# 主要なライブラリ
-pandas          # データフレーム処理
-streamlit       # Web UI フレームワーク
-qdrant-client   # Qdrantクライアント
-openai          # OpenAI API
-pyyaml          # 設定ファイル読み込み（オプション）
+## 7. 使用方法
+
+### 7.1 前提条件
+
+```bash
+# 1. OpenAI APIキーの設定
+export OPENAI_API_KEY="sk-..."
+
+# 2. Qdrantサーバーの起動
+cd docker-compose
+docker-compose up -d qdrant
+
+# 3. データ登録（未実行の場合）
+python a42_qdrant_registration.py --recreate --include-answer
 ```
 
-## 今後の改善点
+### 7.2 起動
 
-1. **パフォーマンス最適化**
-   - 埋め込みベクトルのキャッシング
-   - バッチ処理の実装
+```bash
+# デフォルトポートで起動
+streamlit run a50_rag_search_local_qdrant.py
 
-2. **機能拡張**
-   - より多くのコレクションタイプへの対応
-   - カスタムフィルタの追加
-   - 検索履歴の保存
+# カスタムポートで起動
+streamlit run a50_rag_search_local_qdrant.py --server.port=8504
+```
 
-3. **UI改善**
-   - より直感的なフィルタリングインターフェース
-   - 検索結果のビジュアライゼーション
-   - エクスポート機能の追加
+### 7.3 基本操作
+
+1. **コレクション選択**: サイドバーでコレクションを選択
+2. **ドメイン選択**（qa_corpusのみ）: customer, medical等を選択
+3. **クエリ入力**: テキストボックスにクエリを入力
+4. **Search実行**: ボタンをクリック
+5. **結果確認**: DataFrame + 最高スコア結果 + GPT回答を確認
+
+### 7.4 サンプル質問の使用
+
+サイドバーの「質問例」セクションでボタンをクリックすると、自動的にクエリ入力フィールドに設定されます。
+
+---
+
+## 8. 設定ファイル
+
+### 8.1 config.yml
+
+```yaml
+rag:
+  collection: "product_embeddings"  # デフォルトコレクション
+
+embeddings:
+  primary:
+    provider: "openai"
+    model: "text-embedding-3-small"
+    dims: 1536
+  ada-002:
+    provider: "openai"
+    model: "text-embedding-ada-002"
+    dims: 1536
+  3-small:
+    provider: "openai"
+    model: "text-embedding-3-small"
+    dims: 1536
+
+qdrant:
+  url: "http://localhost:6333"
+```
+
+### 8.2 デフォルト設定
+
+```python
+DEFAULTS = {
+    "rag": {"collection": "product_embeddings"},
+    "embeddings": {
+        "primary": {"provider": "openai", "model": "text-embedding-3-small", "dims": 1536},
+        "ada-002": {"provider": "openai", "model": "text-embedding-ada-002", "dims": 1536},
+        "3-small": {"provider": "openai", "model": "text-embedding-3-small", "dims": 1536},
+    },
+    "qdrant": {"url": "http://localhost:6333"},
+}
+```
+
+---
+
+## 9. トラブルシューティング
+
+### 9.1 Qdrantサーバーに接続できない
+
+**症状**:
+```
+❌ Qdrantサーバーに接続できません: http://localhost:6333
+```
+
+**解決方法**:
+```bash
+# Qdrantサーバーを起動
+cd docker-compose
+docker-compose up -d qdrant
+```
+
+### 9.2 コレクションが見つからない
+
+**症状**:
+```
+❌ コレクション 'qa_cc_news_a02_llm' が見つかりません
+```
+
+**解決方法**:
+```bash
+# データを登録
+python a42_qdrant_registration.py --recreate --include-answer
+```
+
+### 9.3 埋め込み生成エラー
+
+**症状**:
+```
+❌ Embedding generation failed
+```
+
+**解決方法**:
+- OpenAI APIキーを確認
+- デバッグモードを有効にして詳細を確認
+- モデル名と次元数が一致しているか確認
+
+### 9.4 OpenAI応答生成エラー
+
+**症状**:
+```
+OpenAI応答生成に失敗しました
+```
+
+**解決方法**:
+- OpenAI APIキーを確認
+- APIのレート制限を確認
+- ネットワーク接続を確認
+
+---
+
+## 付録: メタデータ
+
+| 項目 | 値 |
+|------|-----|
+| ファイル行数 | 466行 |
+| ポート | 8504（デフォルト） |
+| Qdrant URL | http://localhost:6333 |
+| 埋め込みモデル | text-embedding-3-small |
+| 回答生成モデル | gpt-4o-mini |
+| コレクション数 | 10 |
+| サンプル質問ドメイン数 | 7 |
+
+## 関連ファイル
+
+| ファイル | 役割 |
+|---------|------|
+| a40_show_qdrant_data.py | Qdrantデータ表示UI |
+| a41_qdrant_truncate.py | Qdrantデータ削除 |
+| a42_qdrant_registration.py | Qdrantへのデータ登録 |
+| a34_rag_search_cloud_vs.py | OpenAI Vector Store検索UI |
+| config.yml | 設定ファイル |

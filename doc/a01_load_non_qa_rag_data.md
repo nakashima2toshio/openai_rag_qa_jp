@@ -3,26 +3,15 @@
 ## 目次
 
 1. [概要](#1-概要)
-   - 1.1 [目的](#11-目的)
-   - 1.2 [主要機能](#12-主要機能)
-   - 1.3 [対応データセット](#13-対応データセット)
-2. [推奨データセット（サイエンス・AI・プログラミング）](#2-推奨データセットサイエンスaiプログラミング)
-   - 2.1 [arXiv論文データセット](#21-arxiv論文データセット)
-   - 2.2 [Scientific Papers](#22-scientific-papers)
-   - 2.3 [CodeSearchNet](#23-codesearchnet)
-   - 2.4 [その他のデータセット](#24-その他のデータセット)
-3. [アーキテクチャ](#3-アーキテクチャ)
-   - 3.1 [システム構成図](#31-システム構成図)
-   - 3.2 [UIレイアウト](#32-uiレイアウト)
-   - 3.3 [主要コンポーネント](#33-主要コンポーネント)
-4. [データセット設定](#4-データセット設定)
-   - 4.1 [NonQARAGConfigクラス](#41-nonqaragconfigクラス)
-   - 4.2 [データセット別設定](#42-データセット別設定)
-5. [データ検証機能](#5-データ検証機能)
+2. [アーキテクチャ](#2-アーキテクチャ)
+3. [データセット設定](#3-データセット設定)
+4. [データ検証機能](#4-データ検証機能)
+5. [Livedoorコーパス処理](#5-livedoorコーパス処理)
 6. [データ処理](#6-データ処理)
 7. [使用方法](#7-使用方法)
 8. [出力・保存](#8-出力保存)
 9. [エラーハンドリング](#9-エラーハンドリング)
+10. [拡張候補データセット](#10-拡張候補データセット)
 
 ---
 
@@ -32,217 +21,35 @@
 
 非Q&A型のRAGデータセットをHugging Faceや外部ソースからダウンロードし、前処理・検証を行うStreamlitベースのWebアプリケーション。
 
-### 1.2 主要機能
+### 1.2 起動コマンド
 
-- ✅ **多言語対応**: 日本語・英語データセットの処理
-- ✅ **データ検証**: 品質チェック・必須カラム確認
-- ✅ **RAG用前処理**: テキスト抽出・クレンジング
-- ✅ **トークン推定**: OpenAI APIトークン使用量計算
-- ✅ **複数形式出力**: CSV/TXT/JSON形式でエクスポート
-- ✅ **HuggingFace統合**: 自動ダウンロード・ストリーミング対応
+```bash
+streamlit run a01_load_non_qa_rag_data.py --server.port=8502
+```
 
-### 1.3 対応データセット
+### 1.3 主要機能
 
-#### 動作確認済み（日本語）
-1. **Wikipedia日本語版** 📚 - 百科事典的知識
-2. **CC100日本語** 📰 - Webテキストコーパス
-3. **Livedoorニュースコーパス** 📰 - 日本語ニュース（9カテゴリ、7,376件）
+- ✅ **日本語・英語データセットの処理**
+- ✅ **データ検証・品質チェック**
+- ✅ **RAG用テキスト抽出・前処理**
+- ✅ **トークン使用量推定**
+- ✅ **CSV/TXT/JSON形式出力**
+- ✅ **HuggingFace自動ダウンロード・ストリーミング対応**
 
-#### 動作確認済み（英語）
-4. **CC-News** 🌐 - 英語ニュース記事
+### 1.4 対応データセット（動作確認済み）
+
+| データセット | アイコン | 言語 | 内容 | 件数 |
+|------------|--------|------|------|------|
+| Wikipedia日本語版 | 📚 | 日本語 | 百科事典的知識 | ストリーミング |
+| CC100日本語 | 📰 | 日本語 | Webテキストコーパス | ストリーミング |
+| CC-News | 🌐 | 英語 | ニュース記事 | 7,376件 |
+| Livedoorニュースコーパス | 📰 | 日本語 | ニュース（9カテゴリ） | 7,376件 |
 
 ---
 
-## 2. 推奨データセット（サイエンス・AI・プログラミング）
+## 2. アーキテクチャ
 
-### 2.1 arXiv論文データセット 📄 ⭐推奨
-
-#### 概要
-```python
-"arxiv": {
-    "name": "arXiv論文アブストラクト",
-    "icon": "📄",
-    "description": "arXiv論文のアブストラクト（CS/AI/ML分野中心）",
-    "hf_dataset": "arxiv_dataset",
-    "hf_config": None,
-    "split": "train",
-    "text_field": "abstract",
-    "title_field": "title",
-    "sample_size": 1000,
-    "min_text_length": 100,
-    "categories": ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
-}
-```
-
-#### 詳細情報
-- **内容**: 科学論文のアブストラクト
-- **分野**: Computer Science, AI, Machine Learning, NLP, Computer Vision
-- **件数**: 約217万件
-- **言語**: 英語
-- **用途**: 技術的なRAG、学術検索、最新研究トレンド把握
-- **特徴**: 高品質な論文テキスト、最新研究が随時追加
-
-#### 推奨理由
-1. AI/ML/CS分野の最新研究が豊富
-2. 高品質で構造化されたデータ
-3. カテゴリ別フィルタリングが可能
-4. 学術的な正確性が高い
-
-#### カテゴリ一覧
-- `cs.AI`: Artificial Intelligence
-- `cs.LG`: Machine Learning
-- `cs.CL`: Computation and Language (NLP)
-- `cs.CV`: Computer Vision
-- `stat.ML`: Statistics - Machine Learning
-
----
-
-### 2.2 Scientific Papers 🔬 ⭐推奨
-
-#### 概要
-```python
-"scientific_papers": {
-    "name": "科学論文（PubMed + arXiv）",
-    "icon": "🔬",
-    "description": "PubMedとarXivの論文データセット",
-    "hf_dataset": "scientific_papers",
-    "hf_config": "arxiv",  # または "pubmed"
-    "split": "train",
-    "text_field": "article",
-    "title_field": "abstract",
-    "sample_size": 1000,
-    "min_text_length": 100
-}
-```
-
-#### 詳細情報
-- **内容**: 論文のフルテキストまたはアブストラクト
-- **分野**: サイエンス全般（医学・物理・CS）
-- **件数**: 数十万件
-- **言語**: 英語
-- **用途**: 学術研究支援、文献調査、科学的知識ベース構築
-- **特徴**: フルテキストとアブストラクト両方利用可能
-
-#### Config選択
-- **`arxiv`**: Computer Science論文中心
-- **`pubmed`**: 医学・生命科学論文中心
-
-#### 推奨理由
-1. 幅広いサイエンス分野をカバー
-2. フルテキストで詳細な情報を取得可能
-3. 医学・CS両方に対応
-
----
-
-### 2.3 CodeSearchNet 💻 ⭐推奨
-
-#### 概要
-```python
-"code_search_net": {
-    "name": "CodeSearchNet（コード+ドキュメント）",
-    "icon": "💻",
-    "description": "GitHubのコードとドキュメントペア",
-    "hf_dataset": "code_search_net",
-    "hf_config": "python",  # python, java, go, php, javascript, ruby
-    "split": "train",
-    "text_field": "func_documentation_string",
-    "title_field": "func_name",
-    "sample_size": 1000,
-    "min_text_length": 50
-}
-```
-
-#### 詳細情報
-- **内容**: 関数コード + ドキュメンテーション
-- **分野**: プログラミング（6言語対応）
-- **件数**: 約600万件
-- **言語**: 英語（コメント・ドキュメント）
-- **用途**: プログラミング支援RAG、コード検索、API学習
-- **特徴**: 実用的なコードとドキュメントのペア
-
-#### 対応プログラミング言語
-- Python
-- Java
-- Go
-- PHP
-- JavaScript
-- Ruby
-
-#### 推奨理由
-1. コード + 説明のペアでプログラミング学習に最適
-2. 実用的なコードサンプルが豊富
-3. 複数言語対応で幅広い用途
-
----
-
-### 2.4 その他のデータセット
-
-#### Papers with Code 🤖
-```python
-"papers_with_code": {
-    "name": "Papers with Code",
-    "icon": "🤖",
-    "description": "AI/ML論文とコード実装",
-    "hf_dataset": "neural-bridge/papers-with-code",
-    "split": "train",
-    "text_field": "abstract",
-    "title_field": "title",
-    "sample_size": 1000
-}
-```
-- **内容**: AI/ML論文 + GitHub実装リンク
-- **分野**: AI/ML専門
-- **特徴**: 論文と実装コードの紐付け
-
-#### Wikipedia英語版（科学技術）🌐
-```python
-"wikipedia_en_science": {
-    "name": "Wikipedia英語版（科学技術）",
-    "icon": "🌐",
-    "hf_dataset": "wikimedia/wikipedia",
-    "hf_config": "20231101.en",
-    "text_field": "text",
-    "title_field": "title",
-    "filter_categories": ["Science", "Technology", "Computing"]
-}
-```
-- **内容**: 百科事典記事（科学技術分野）
-- **件数**: 数百万件（フィルタ前）
-
-#### S2ORC（Semantic Scholar）📚
-```python
-"s2orc": {
-    "name": "Semantic Scholar Open Research Corpus",
-    "icon": "📚",
-    "hf_dataset": "allenai/s2orc",
-    "text_field": "abstract",
-    "title_field": "title"
-}
-```
-- **内容**: 学術論文のメタデータ + アブストラクト
-- **分野**: 全学術分野
-- **件数**: 約1億件以上
-
-#### The Stack（GitHub）🐙
-```python
-"github_code": {
-    "name": "The Stack（GitHubコード）",
-    "icon": "🐙",
-    "hf_dataset": "bigcode/the-stack",
-    "hf_config": "python",
-    "text_field": "content",
-    "title_field": "path"
-}
-```
-- **内容**: GitHubのソースコード
-- **件数**: 数TB規模
-- **注意**: 非常に大規模なデータセット
-
----
-
-## 3. アーキテクチャ
-
-### 3.1 システム構成図
+### 2.1 システム構成図
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -259,50 +66,59 @@
 │  ├─────────────────┤ │  │  - データセット固有検証          │ │
 │  │ データセット    │ │  ├─────────────────────────────────┤ │
 │  │ 固有設定        │ │  │ Tab3: 前処理実行                 │ │
-│  └─────────────────┘ │  │  - テキスト抽出                  │ │
-│                       │  │  - クレンジング                  │ │
+│  └─────────────────┘ │  │  - テキスト抽出・クレンジング    │ │
 │                       │  ├─────────────────────────────────┤ │
 │                       │  │ Tab4: 結果・ダウンロード         │ │
-│                       │  │  - 統計情報表示                  │ │
-│                       │  │  - CSV/TXT/JSON出力              │ │
+│                       │  │  - 統計情報・CSV/TXT/JSON出力    │ │
 │                       │  └─────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    helper_rag.py                             │
-│  - validate_data()                                           │
-│  - load_dataset()                                            │
-│  - estimate_token_usage()                                    │
-│  - clean_text()                                              │
-│  - save_files_to_output()                                    │
+│  - select_model()           - validate_data()                │
+│  - show_model_info()        - estimate_token_usage()         │
+│  - clean_text()             - save_files_to_output()         │
+│  - safe_execute()                                            │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │               External Data Sources                          │
-│  - HuggingFace Hub                                          │
-│  - Rondhuit (Livedoor)                                      │
+│  - HuggingFace Hub (datasets ライブラリ)                     │
+│  - Rondhuit (Livedoor tar.gz直接ダウンロード)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 UIレイアウト
+### 2.2 主要コンポーネント
 
-- **サイドバー**: データセット選択、モデル選択、固有設定
-- **メインエリア**: 4つのタブでワークフロー管理
+| コンポーネント | 役割 |
+|--------------|------|
+| `NonQARAGConfig` | データセット設定管理クラス |
+| `validate_*_specific()` | データセット別検証関数群 |
+| `extract_text_content()` | テキスト抽出・結合処理 |
+| `download_livedoor_corpus()` | Livedoor tar.gzダウンロード |
+| `load_livedoor_corpus()` | Livedoorデータ読み込み |
 
-### 3.3 主要コンポーネント
+### 2.3 依存モジュール（helper_rag.pyからのインポート）
 
-1. **NonQARAGConfig**: データセット設定管理
-2. **データ検証関数**: データセット別の検証ロジック
-3. **データ処理関数**: テキスト抽出・前処理
-4. **Livedoor専用関数**: tar.gzダウンロード・解凍
+```python
+from helper_rag import (
+    select_model,           # モデル選択UI
+    show_model_info,        # モデル情報表示
+    validate_data,          # 基本データ検証
+    estimate_token_usage,   # トークン使用量推定
+    save_files_to_output,   # OUTPUT保存
+    clean_text,             # テキストクレンジング
+    safe_execute            # 安全実行デコレータ
+)
+```
 
 ---
 
-## 4. データセット設定
+## 3. データセット設定
 
-### 4.1 NonQARAGConfigクラス
+### 3.1 NonQARAGConfigクラス
 
 ```python
 class NonQARAGConfig:
@@ -315,161 +131,300 @@ class NonQARAGConfig:
             "required_columns": ["必須カラム"],
             "description": "説明",
             "hf_dataset": "HuggingFaceデータセット名",
-            "hf_config": "Config名",
+            "hf_config": "Config名（オプション）",
             "split": "train/test/validation",
             "streaming": True/False,
             "text_field": "テキストフィールド名",
-            "title_field": "タイトルフィールド名",
+            "title_field": "タイトルフィールド名（オプション）",
             "sample_size": サンプル数
         }
     }
+
+    @classmethod
+    def get_config(cls, dataset_type: str) -> Dict[str, Any]:
+        """データセット設定の取得"""
+
+    @classmethod
+    def get_all_datasets(cls) -> List[str]:
+        """全データセットタイプのリストを取得"""
 ```
 
-### 4.2 データセット別設定
+### 3.2 データセット別設定詳細
 
-#### Wikipedia日本語版
-- **HuggingFace**: `wikimedia/wikipedia`
-- **Config**: `20231101.ja`
-- **フィールド**: title, text
-- **サンプル数**: 1000件
+#### Wikipedia日本語版 (`wikipedia_ja`)
 
-#### CC100日本語
-- **HuggingFace**: `range3/cc100-ja`
-- **フィールド**: text
-- **サンプル数**: 1000件
+```python
+{
+    "name": "Wikipedia日本語版",
+    "icon": "📚",
+    "required_columns": ["title", "text"],
+    "description": "Wikipedia日本語版の記事データ",
+    "hf_dataset": "wikimedia/wikipedia",
+    "hf_config": "20231101.ja",
+    "split": "train",
+    "streaming": True,
+    "text_field": "text",
+    "title_field": "title",
+    "sample_size": 1000
+}
+```
 
-#### CC-News
-- **HuggingFace**: `cc_news`
-- **フィールド**: title, text
-- **サンプル数**: 500件
+#### CC100日本語 (`japanese_text`)
 
-#### Livedoor
-- **ダウンロード**: 直接tar.gz取得
-- **カテゴリ**: 9種類
-- **フィールド**: url, date, title, content, category
-- **サンプル数**: 7,376件（全記事）
+```python
+{
+    "name": "日本語Webテキスト（CC100）",
+    "icon": "📰",
+    "required_columns": ["text"],
+    "description": "日本語Webテキストコーパス",
+    "hf_dataset": "range3/cc100-ja",
+    "hf_config": None,
+    "split": "train",
+    "streaming": True,
+    "text_field": "text",
+    "title_field": None,
+    "sample_size": 1000
+}
+```
+
+#### CC-News (`cc_news`)
+
+```python
+{
+    "name": "CC-News（英語ニュース）",
+    "icon": "🌐",
+    "required_columns": ["title", "text"],
+    "description": "Common Crawl英語ニュース記事",
+    "hf_dataset": "cc_news",
+    "hf_config": None,
+    "split": "train",
+    "streaming": True,
+    "text_field": "text",
+    "title_field": "title",
+    "sample_size": 500
+}
+```
+
+#### Livedoorニュースコーパス (`livedoor`)
+
+```python
+{
+    "name": "Livedoorニュースコーパス",
+    "icon": "📰",
+    "required_columns": ["url", "title", "content", "category"],
+    "description": "Livedoorニュース日本語記事（9カテゴリ）",
+    "hf_dataset": None,  # 直接ダウンロード
+    "download_url": "https://www.rondhuit.com/download/ldcc-20140209.tar.gz",
+    "hf_config": None,
+    "split": None,
+    "streaming": False,
+    "text_field": "content",
+    "title_field": "title",
+    "sample_size": 7376  # 全記事数
+}
+```
 
 ---
 
-## 5. データ検証機能
+## 4. データ検証機能
 
-### 5.1 Wikipedia特有の検証
-- 平均テキスト長チェック（100文字未満で警告）
-- Wikiマークアップ検出（`==`, `[[`, `]]`）
-- タイトル重複チェック
+### 4.1 Wikipedia特有の検証 (`validate_wikipedia_data_specific`)
 
-### 5.2 ニュースデータ特有の検証
-- 記事長分析
-- 短い記事検出（<100文字）
-- カテゴリ分布表示（Livedoorの場合）
+| 検証項目 | 説明 |
+|---------|------|
+| 平均テキスト長 | 100文字未満で警告 |
+| Wikiマークアップ | `==`, `[[`, `]]`の検出・割合表示 |
+| タイトル重複 | 重複件数の報告 |
 
-### 5.3 学術論文データ特有の検証
-- 要旨長分析
-- 学術キーワード検出（research, study, method等）
-- 医学用語検出（PubMedの場合）
+### 4.2 ニュースデータ特有の検証 (`validate_news_data_specific`)
 
-### 5.4 コードデータ特有の検証
-- コード長分析
-- ドキュメント存在確認
-- プログラミング言語キーワード検出
+| 検証項目 | 説明 |
+|---------|------|
+| 平均記事長 | 文字数統計 |
+| 短い記事検出 | 100文字未満の記事数 |
+| カテゴリ分布 | Livedoorの場合、カテゴリ別件数 |
 
-### 5.5 Stack Overflow特有の検証
-- 質問長分析
-- タグ付き質問の割合
-- 人気タグTop5表示
-- 技術キーワード検出
+### 4.3 学術論文データ特有の検証 (`validate_scientific_data_specific`)
+
+| 検証項目 | 説明 |
+|---------|------|
+| 平均要旨長 | 文字数統計 |
+| 学術キーワード | research, study, method, result等の検出 |
+| 医学用語 | PubMedの場合、patient, treatment等の検出 |
+| 本文存在確認 | arXivの場合、articleフィールド確認 |
+
+### 4.4 コードデータ特有の検証 (`validate_code_data_specific`)
+
+| 検証項目 | 説明 |
+|---------|------|
+| 平均コード長 | 文字数統計 |
+| ドキュメント存在 | func_documentation_stringの有無 |
+| コードキーワード | def, class, import, function, return |
+
+### 4.5 Stack Overflow特有の検証 (`validate_stackoverflow_data_specific`)
+
+| 検証項目 | 説明 |
+|---------|------|
+| 平均質問長 | 文字数統計 |
+| タグ付き質問 | タグ付き割合 |
+| 人気タグTop5 | タグのカウント |
+| 技術キーワード | python, javascript, java, error等 |
+
+---
+
+## 5. Livedoorコーパス処理
+
+### 5.1 ダウンロード関数
+
+```python
+def download_livedoor_corpus(save_dir: str = "datasets") -> str:
+    """Livedoorニュースコーパスをダウンロード
+
+    Args:
+        save_dir: ダウンロード先ディレクトリ
+
+    Returns:
+        解凍先ディレクトリのパス
+    """
+```
+
+**処理フロー**:
+1. `datasets/ldcc-20140209.tar.gz`にダウンロード
+2. `datasets/livedoor/text/`に解凍（filterパラメータでセキュリティ対策）
+3. 解凍済みの場合はスキップ
+
+### 5.2 読み込み関数
+
+```python
+def load_livedoor_corpus(data_dir: str) -> pd.DataFrame:
+    """Livedoorニュースコーパスを読み込み
+
+    Args:
+        data_dir: Livedoorコーパスの解凍ディレクトリ
+
+    Returns:
+        記事データのDataFrame
+    """
+```
+
+**カテゴリ一覧（9種類）**:
+- `dokujo-tsushin` - 独女通信
+- `it-life-hack` - ITライフハック
+- `kaden-channel` - 家電チャンネル
+- `livedoor-homme` - livedoor HOMME
+- `movie-enter` - MOVIE ENTER
+- `peachy` - Peachy
+- `smax` - エスマックス
+- `sports-watch` - Sports Watch
+- `topic-news` - トピックニュース
+
+**ファイル形式**:
+```
+1行目: URL
+2行目: 日付
+3行目: タイトル
+4行目以降: 本文
+```
 
 ---
 
 ## 6. データ処理
 
-### 6.1 テキスト抽出（extract_text_content）
+### 6.1 テキスト抽出関数
 
 ```python
+@safe_execute
 def extract_text_content(df: pd.DataFrame, dataset_type: str) -> pd.DataFrame:
     """データセットからテキストコンテンツを抽出"""
-    # タイトルとテキストを結合
-    # 空のテキストを除外
-    # Combined_Textカラムを作成
 ```
 
 **処理フロー**:
-1. title_field + text_field → Combined_Text
-2. clean_text()でクレンジング
-3. 空文字列の除外
+1. 設定からtext_field、title_fieldを取得
+2. タイトルとテキストを結合 → `Combined_Text`カラム
+3. `clean_text()`でクレンジング
+4. 空文字列の行を除外
 
-### 6.2 前処理オプション
+**フォールバック処理**:
+- フィールドが見つからない場合、候補を探索
+- 候補: `text`, `content`, `body`, `document`, `abstract`, `description`
+- それでも見つからない場合、全カラムを結合
 
-#### データセット別オプション
+### 6.2 前処理オプション（サイドバー）
 
-**Wikipedia**:
-- Wikiマークアップ除去
-- 最小テキスト長: 200文字
+#### Wikipedia日本語版
+- Wikiマークアップ除去（チェックボックス）
+- 最小テキスト長: 200文字（デフォルト）
 
-**CC100日本語**:
-- URL除去
-- 最小テキスト長: 10文字
+#### CC100日本語
+- URL除去（チェックボックス）
+- 最小テキスト長: 10文字（デフォルト）
 
-**CC-News**:
-- URL除去
-- 最小テキスト長: 100文字
+#### CC-News
+- URL除去（チェックボックス）
+- 最小テキスト長: 100文字（デフォルト）
 
-**arXiv/Scientific Papers**:
-- アブストラクト長フィルタ
-- 最小テキスト長: 100文字
+### 6.3 共通前処理オプション（Tab3）
 
-**CodeSearchNet**:
-- ドキュメント文字列抽出
-- 最小テキスト長: 50文字
+| オプション | デフォルト | 説明 |
+|-----------|----------|------|
+| 短いテキストを除外 | ON | 最小文字数未満を除外 |
+| 最小文字数 | 100 | 除外基準 |
+| 重複を除去 | ON | 完全一致テキストを除外 |
 
 ---
 
 ## 7. 使用方法
 
-### 7.1 起動方法
+### 7.1 基本ワークフロー
 
-```bash
-streamlit run a01_load_non_qa_rag_data.py --server.port=8502
+```
+1. サイドバーでデータセット選択
+        │
+        ▼
+2. Tab1: データアップロード
+   ├── CSVファイルをアップロード
+   └── または HuggingFaceから自動ロード
+        │
+        ▼
+3. Tab2: データ検証
+   ├── 基本検証結果を確認
+   └── データセット固有検証を確認
+        │
+        ▼
+4. Tab3: 前処理実行
+   ├── オプション設定
+   ├── 「前処理を実行」ボタン
+   └── トークン使用量推定
+        │
+        ▼
+5. Tab4: 結果・ダウンロード
+   ├── CSV/TXT/JSONダウンロード
+   └── OUTPUTフォルダに保存
 ```
 
-### 7.2 基本ワークフロー
+### 7.2 HuggingFaceからのロード
 
-1. **データセット選択** (サイドバー)
-2. **データアップロード** (Tab1)
-   - CSVファイルアップロード、または
-   - HuggingFace自動ロード
-3. **データ検証** (Tab2)
-   - 基本検証結果確認
-   - データセット固有検証結果確認
-4. **前処理実行** (Tab3)
-   - オプション設定
-   - 前処理実行
-   - トークン使用量推定
-5. **結果ダウンロード** (Tab4)
-   - CSV/TXT/JSON形式でダウンロード
-   - OUTPUTフォルダに保存
+**推奨設定（データセット別）**:
 
-### 7.3 推奨設定
+| データセット | dataset名 | Config | サンプル数 |
+|------------|----------|--------|----------|
+| Wikipedia | `wikimedia/wikipedia` | `20231101.ja` | 1000 |
+| CC100 | `range3/cc100-ja` | なし | 1000 |
+| CC-News | `cc_news` | なし | 500 |
+| Livedoor | (自動ダウンロード) | - | 7376 |
 
-#### arXiv論文の場合
-- サンプル数: 500〜1000件
-- 最小テキスト長: 100文字
-- ストリーミング: ON
+### 7.3 データプレビュー
 
-#### CodeSearchNetの場合
-- サンプル数: 500〜1000件
-- 最小テキスト長: 50文字
-- Config: python（または希望の言語）
-
-#### Scientific Papersの場合
-- サンプル数: 500件
-- Config: arxiv（CS論文）または pubmed（医学論文）
+Tab1でデータロード後に表示される情報:
+- データ件数・カラム数
+- 先頭10件のプレビュー
+- カラム詳細（データ型、NULL数、ユニーク数）
 
 ---
 
 ## 8. 出力・保存
 
-### 8.1 出力ファイル形式
+### 8.1 ダウンロード形式
 
 #### CSVファイル
 ```csv
@@ -486,18 +441,25 @@ Combined_Text,title,text,...
 #### JSONメタデータ
 ```json
 {
-  "dataset_type": "arxiv",
-  "dataset_name": "arXiv論文アブストラクト",
-  "processed_at": "2025-11-21T14:30:22",
+  "dataset_type": "wikipedia_ja",
+  "dataset_name": "Wikipedia日本語版",
+  "processed_at": "2025-11-27T14:30:22",
   "row_count": 987,
-  "csv_file": "preprocessed_arxiv.csv",
-  "txt_file": "arxiv.txt"
+  "original_count": 1000,
+  "removed_count": 13,
+  "config": {
+    "dataset_type": "wikipedia_ja",
+    "options": {},
+    "remove_short_text": true,
+    "min_length": 100,
+    "remove_duplicates": true
+  }
 }
 ```
 
-### 8.2 保存先
+### 8.2 保存先ディレクトリ
 
-**OUTPUTフォルダ**:
+**OUTPUTフォルダ（最終出力）**:
 ```
 OUTPUT/
 ├── preprocessed_{dataset_type}.csv
@@ -505,12 +467,25 @@ OUTPUT/
 └── metadata_{dataset_type}.json
 ```
 
-**datasetsフォルダ（中間ファイル）**:
+**datasetsフォルダ（中間ファイル・HuggingFaceダウンロード）**:
 ```
 datasets/
 ├── {dataset_name}_{split}_{size}_{timestamp}.csv
-└── {dataset_name}_{split}_{size}_{timestamp}_metadata.json
+├── {dataset_name}_{split}_{size}_{timestamp}_metadata.json
+├── ldcc-20140209.tar.gz          # Livedoor tar.gz
+└── livedoor/
+    └── text/
+        ├── dokujo-tsushin/
+        ├── it-life-hack/
+        └── ...
 ```
+
+### 8.3 処理サマリー
+
+Tab4で表示される統計:
+- 処理件数
+- 除外件数
+- 残存率（%）
 
 ---
 
@@ -518,52 +493,113 @@ datasets/
 
 ### 9.1 HuggingFaceエラー
 
-#### "Dataset scripts are no longer supported"
-- **原因**: スクリプトベースのデータセットが廃止
-- **解決**: 動作確認済みデータセットを使用
+| エラーメッセージ | 原因 | 解決策 |
+|----------------|------|--------|
+| "Dataset scripts are no longer supported" | スクリプトベースのデータセットが廃止 | 動作確認済みデータセットを使用 |
+| "doesn't exist on the Hub" | データセット名が間違っている | HuggingFace Hubで確認 |
 
-#### "doesn't exist on the Hub"
-- **原因**: データセット名が間違っている
-- **解決**: HuggingFace Hubでデータセット名を確認
+### 9.2 共通エラー対策
 
-### 9.2 データ処理エラー
+| 問題 | 原因 | 解決策 |
+|-----|------|--------|
+| メモリ不足 | 大規模データの一括読み込み | サンプル数を減らす |
+| フィールド不一致 | 想定カラムが存在しない | text_field/title_fieldを確認 |
+| tar解凍エラー | セキュリティフィルタ | filter='data'パラメータ使用 |
 
-#### メモリ不足
-- **原因**: 大規模データセットの一括読み込み
-- **解決**: サンプル数を減らす、ストリーミングモード有効化
-
-#### フィールド不一致
-- **原因**: 想定カラムが存在しない
-- **解決**: データセット設定のtext_field/title_fieldを確認
-
----
-
-## 10. 今後の改善案
-
-### 10.1 機能拡張
-- カテゴリフィルタリング機能（arXivカテゴリ等）
-- 多言語対応の拡張
-- バッチ処理機能
-
-### 10.2 パフォーマンス最適化
-- 並列処理の実装
-- キャッシュ機構の強化
-- ストリーミング処理の最適化
-
----
-
-## 付録: データセット追加方法
-
-新しいデータセットを追加する場合:
+### 9.3 Streamlit設定エラー
 
 ```python
-"新データセット名": {
+try:
+    st.set_page_config(...)
+except st.errors.StreamlitAPIException:
+    pass  # 既に設定済みの場合はスキップ
+```
+
+---
+
+## 10. 拡張候補データセット
+
+将来対応を検討しているデータセット一覧。
+
+### 10.1 サイエンス・AI分野
+
+#### arXiv論文 📄
+```python
+{
+    "hf_dataset": "arxiv_dataset",
+    "text_field": "abstract",
+    "title_field": "title",
+    "categories": ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
+}
+```
+
+#### Scientific Papers 🔬
+```python
+{
+    "hf_dataset": "scientific_papers",
+    "hf_config": "arxiv",  # または "pubmed"
+    "text_field": "article",
+    "title_field": "abstract"
+}
+```
+
+### 10.2 プログラミング分野
+
+#### CodeSearchNet 💻
+```python
+{
+    "hf_dataset": "code_search_net",
+    "hf_config": "python",  # python, java, go, php, javascript, ruby
+    "text_field": "func_documentation_string",
+    "title_field": "func_name"
+}
+```
+
+#### The Stack 🐙
+```python
+{
+    "hf_dataset": "bigcode/the-stack",
+    "hf_config": "python",
+    "text_field": "content",
+    "title_field": "path"
+}
+```
+
+### 10.3 その他
+
+#### Stack Overflow ❓
+```python
+{
+    "hf_dataset": "pacovaldez/stackoverflow-questions",
+    "text_field": "body",
+    "title_field": "title"
+}
+```
+
+#### Wikipedia英語版 🌐
+```python
+{
+    "hf_dataset": "wikimedia/wikipedia",
+    "hf_config": "20231101.en",
+    "text_field": "text",
+    "title_field": "title"
+}
+```
+
+---
+
+## 付録: データセット追加手順
+
+### A.1 DATASET_CONFIGSに追加
+
+```python
+"新データセット": {
     "name": "表示名",
     "icon": "📄",
     "required_columns": ["必須カラム"],
     "description": "説明",
     "hf_dataset": "HuggingFaceパス",
-    "hf_config": "Config名（オプション）",
+    "hf_config": "Config名",
     "split": "train",
     "streaming": True,
     "text_field": "テキストフィールド",
@@ -572,11 +608,27 @@ datasets/
 }
 ```
 
-対応する検証関数も追加推奨:
+### A.2 検証関数の追加（推奨）
+
 ```python
 def validate_新データセット_specific(df: pd.DataFrame) -> List[str]:
     """新データセット特有の検証"""
     issues = []
-    # 検証ロジック
+
+    # テキスト長分析
+    if 'text_field' in df.columns:
+        text_lengths = df['text_field'].str.len()
+        issues.append(f"📊 平均長: {text_lengths.mean():.0f}文字")
+
+    # 固有のチェック
+    # ...
+
     return issues
+```
+
+### A.3 Tab2の検証分岐に追加
+
+```python
+elif selected_dataset == "新データセット":
+    specific_issues = validate_新データセット_specific(df)
 ```

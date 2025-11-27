@@ -35,7 +35,7 @@ def test_simple():
     for i in range(30):
         if task.ready():
             result = task.get(timeout=1)
-            print(f"✅ タスク完了!")
+            print("✅ タスク完了!")
             print(f"成功: {result.get('success')}")
             print(f"Q/A数: {len(result.get('qa_pairs', []))}")
             if result.get('qa_pairs'):

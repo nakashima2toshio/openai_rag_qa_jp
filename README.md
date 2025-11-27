@@ -132,16 +132,35 @@ flowchart TD
 
 ## プログラム一覧
 
+### 統合Streamlitアプリケーション（推奨）
+
+| プログラム名 | 概要 |
+|-------------|------|
+| rag_qa_pair_qdrant.py | 6画面構成の統合RAGツール。データDL→Q/A生成→Qdrant登録・検索を<br>1つのUIで操作可能。Celery並列処理対応。**新規ユーザーはこちらから開始推奨。** |
+
+```bash
+# 統合アプリの起動
+streamlit run rag_qa_pair_qdrant.py --server.port=8500
+```
+
+**画面構成:**
+1. 📖 説明 - システムのデータフロー・ディレクトリ構造を表示
+2. 📥 RAGデータDL - HuggingFaceまたはローカルファイルからデータ取得・前処理
+3. 🤖 Q/A生成 - OpenAI APIによるQ&Aペア自動生成（Celery並列処理対応）
+4. 🗄️ Qdrant登録 - Q&AペアをQdrantベクトルDBに登録
+5. 🔍 Show-Qdrant - Qdrantコレクション内容の閲覧
+6. 🔎 Qdrant検索 - セマンティック検索によるQ&A検索
+
 ### データ処理・Q&A生成系
 
 
 | プログラム名                     | 概要                                                                                                                                                                                     |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | a01_load_non_qa_rag_data.py      | 非Q&A型RAGデータ処理ツール。Wikipedia日本語版、CC100日本語、CC-News英語などのデータセットから<br>RAG用テキストを抽出・前処理し、CSV/TXT/JSON形式で出力。Streamlit UIで対話的に操作可能。 |
-| a02_make_qa.py (v2.8)            | OUTPUTフォルダ内のpreprocessedファイル（CC-News、日本語Webテキスト、Wikipedia）から<br>OpenAI APIを使用してQ&Aペアを生成。動的Q/A調整と位置バイアス補正により90-95%のカバレッジ達成。 |
+| a02_make_qa_para.py              | **Celery並列処理版**Q&A生成ツール。OUTPUTフォルダ内のpreprocessedファイルから<br>OpenAI APIを使用してQ&Aペアを生成。最大48ワーカーでの並列処理に対応。**推奨** |
+| a02_make_qa_single.py            | シングルプロセス版Q&A生成ツール。Celeryを使用せずに順次処理。<br>動的Q/A調整と位置バイアス補正により90-95%のカバレッジ達成。 |
 | a03_rag_qa_coverage_improved.py  | セマンティックカバレッジ分析とQ&A生成の改良版。カバレッジ率99.7%を達成し、<br>実行時間2分でチャンクごとに複数の詳細なQ&Aを生成。API呼び出しを最小化。                                    |
 | a10_qa_optimized_hybrid_batch.py | バッチ処理版ハイブリッドQ&A生成システム。API呼び出しを95.4%削減し処理を高速化。<br>**品質モード追加（2024/11）**: 階層的生成でカバレージ95%目標。`--quality-mode`で利用可能。              |
-| a20_output_qa_csv.py             | 各Q&A生成プログラムの最新出力CSVから question と answer 列のみを抽出し、<br>統一フォーマットのCSVファイルを作成。複数の生成方式の結果を統合。                                            |
 
 ### ベクトルストア・検索系
 
@@ -191,6 +210,73 @@ flowchart TD
 | setup.py             | プロジェクト環境のセットアップスクリプト。依存パッケージのインストール、<br>環境変数の設定、初期設定ファイルの生成などを自動化。     |
 | test_mecab_format.py | MeCabの出力形式を確認するテストスクリプト。<br>各種出力フォーマットの検証と形態素解析の動作確認を実行。                              |
 
+## モジュール構成
+
+統合アプリ `rag_qa_pair_qdrant.py` は以下のモジュール構成で実装されています。
+
+### services/ - ビジネスロジック層
+
+| モジュール | 機能 |
+|-----------|------|
+| dataset_service.py | データセット操作（ダウンロード、前処理、HuggingFace連携） |
+| qdrant_service.py | Qdrant操作（CRUD、ヘルスチェック、埋め込み生成） |
+| file_service.py | ファイル操作（履歴読み込み、Q/A保存、CSV/JSON出力） |
+| qa_service.py | Q/A生成（OpenAI API、a02_make_qa_para.py連携） |
+
+### ui/pages/ - UIコンポーネント
+
+| ページ | 機能 |
+|-------|------|
+| explanation_page.py | システム説明・データフロー表示 |
+| download_page.py | RAGデータダウンロード・前処理 |
+| qa_generation_page.py | Q/A生成（Celery並列処理対応） |
+| qdrant_registration_page.py | Qdrantへのデータ登録 |
+| qdrant_show_page.py | Qdrantコレクション内容表示 |
+| qdrant_search_page.py | セマンティック検索 |
+
+### 共通モジュール
+
+| モジュール | 機能 |
+|-----------|------|
+| models.py | 共通Pydanticモデル定義（QAPair, ChunkData等） |
+| config.py | 設定管理（DATASET_CONFIGS, ModelConfig） |
+| celery_tasks.py | Celeryタスク定義（Q/A生成の並列処理） |
+| celery_config.py | Celery設定（Redis接続、ワーカー設定） |
+| helper_text.py | テキスト処理ヘルパー（チャンキング、トークン計算） |
+| qdrant_client_wrapper.py | Qdrantクライアントラッパー |
+
+### ディレクトリ構造
+
+```
+openai_rag_qa_jp/
+├── rag_qa_pair_qdrant.py    # 統合アプリ（エントリポイント）
+├── services/                 # ビジネスロジック層
+│   ├── __init__.py
+│   ├── dataset_service.py
+│   ├── qdrant_service.py
+│   ├── file_service.py
+│   └── qa_service.py
+├── ui/                       # UIレイヤー
+│   ├── __init__.py
+│   └── pages/
+│       ├── __init__.py
+│       ├── explanation_page.py
+│       ├── download_page.py
+│       ├── qa_generation_page.py
+│       ├── qdrant_registration_page.py
+│       ├── qdrant_show_page.py
+│       └── qdrant_search_page.py
+├── models.py                 # 共通データモデル
+├── config.py                 # 設定管理
+├── celery_tasks.py          # Celeryタスク
+├── celery_config.py         # Celery設定
+├── helper_*.py              # ヘルパーモジュール群
+├── a01_*.py 〜 a50_*.py     # 個別処理スクリプト
+├── OUTPUT/                   # 前処理済みデータ出力先
+├── qa_output/               # Q/Aペア出力先
+└── datasets/                # ダウンロードデータ保存先
+```
+
 ## セットアップ
 
 ### 1. 環境構築
@@ -223,16 +309,54 @@ docker-compose up -d
 python server.py
 ```
 
+### 4. Celery並列処理の準備（オプション）
+
+大規模データ処理時に推奨。Q/A生成を並列化して高速化できます。
+
+```bash
+# Redisサーバー起動（Celeryのブローカー）
+redis-server
+
+# Redisキャッシュクリア（必要に応じて）
+redis-cli FLUSHDB
+
+# Celeryワーカー起動（24ワーカーの例）
+./start_celery.sh restart -w 24
+
+# または直接起動
+celery -A celery_config worker --loglevel=info --concurrency=24
+
+# Flower監視UI（任意）
+celery -A celery_config flower --port=5555
+```
+
+**注意事項:**
+- Celeryを使用しない場合は、`--use-celery`フラグを省略してください
+- `gpt-5-nano`モデルは推論に多くのトークンを消費するため、`gpt-4o-mini`の使用を推奨
+
 ## 基本的な使用方法
 
-### 1. データ準備とQ&A生成
+### 0. 統合アプリで一括操作（推奨）
+
+```bash
+# 統合アプリを起動（6画面で全操作可能）
+streamlit run rag_qa_pair_qdrant.py --server.port=8500
+```
+
+**クイックスタート:**
+1. 📥 RAGデータDL画面でデータセットをダウンロード
+2. 🤖 Q/A生成画面でQ/Aペアを生成（モデルは`gpt-4o-mini`推奨）
+3. 🗄️ Qdrant登録画面でベクトルDBに登録
+4. 🔎 Qdrant検索画面で検索実行
+
+### 1. データ準備とQ&A生成（CLI）
 
 ```bash
 # RAGデータの前処理
 streamlit run a01_load_non_qa_rag_data.py --server.port=8502
 
-# Q&Aペアの生成（標準版・推奨設定）
-python a02_make_qa.py \
+# Q&Aペアの生成（Celery並列処理版・推奨）
+python a02_make_qa_para.py \
     --dataset cc_news \
     --batch-chunks 3 \     # 5→3: より丁寧な処理
     --merge-chunks \
@@ -546,12 +670,13 @@ python a20_output_qa_csv.py
 
 ## 技術スタック
 
-- **言語処理**: OpenAI API (GPT-4o-mini, text-embedding-3)
+- **言語処理**: OpenAI API (GPT-4o-mini, GPT-5シリーズ, text-embedding-3)
 - **ベクトルDB**: Qdrant
 - **形態素解析**: MeCab
 - **UI**: Streamlit
-- **データ処理**: pandas, numpy
-- **並列処理**: asyncio, batch processing
+- **データ処理**: pandas, numpy, Pydantic
+- **並列処理**: Celery, Redis, asyncio
+- **タスク監視**: Flower (Celery監視UI)
 
 ## ライセンス
 

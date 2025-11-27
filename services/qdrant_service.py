@@ -165,7 +165,7 @@ class QdrantDataFetcher:
                             "Status": info.status,
                         }
                     )
-                except:
+                except Exception:
                     data.append(
                         {
                             "Collection": collection.name,
@@ -389,7 +389,7 @@ def get_all_collections(client: QdrantClient) -> List[Dict[str, Any]]:
                     "status": info.status,
                 }
             )
-        except Exception as e:
+        except Exception:
             collection_list.append(
                 {"name": collection.name, "points_count": 0, "status": "unknown"}
             )
@@ -542,7 +542,7 @@ def create_or_recreate_collection_for_qdrant(
     if recreate:
         try:
             client.delete_collection(collection_name=name)
-        except:
+        except Exception:
             pass
         client.create_collection(collection_name=name, vectors_config=vectors_config)
     else:
@@ -558,7 +558,7 @@ def create_or_recreate_collection_for_qdrant(
         client.create_payload_index(
             name, field_name="domain", field_schema=models.PayloadSchemaType.KEYWORD
         )
-    except:
+    except Exception:
         pass
 
 

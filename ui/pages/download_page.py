@@ -13,7 +13,6 @@ HuggingFaceからのデータダウンロードと前処理
 """
 
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 from pathlib import Path
 

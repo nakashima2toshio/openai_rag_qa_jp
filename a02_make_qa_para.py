@@ -196,7 +196,7 @@ import argparse
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from datetime import datetime
 import tiktoken
 from openai import OpenAI
@@ -208,13 +208,11 @@ from collections import Counter
 # ===================================================================
 # 共通モジュールからインポート
 # ===================================================================
-from models import QAPair, QAPairsResponse
+from models import QAPairsResponse
 from config import (
     DATASET_CONFIGS,
     QAGenerationConfig,
-    ModelConfig,
 )
-from helper_text import count_tokens, clean_text
 
 # ローカルモジュール
 from a03_rag_qa_coverage_improved import SemanticCoverage
@@ -312,7 +310,7 @@ class KeywordExtractor:
             tagger = MeCab.Tagger()
             tagger.parse("テスト")
             return True
-        except (ImportError, RuntimeError) as e:
+        except (ImportError, RuntimeError):
             return False
 
     def extract(self, text: str, top_n: int = 5) -> List[str]:
@@ -623,7 +621,7 @@ def load_uploaded_file(file_path: str) -> pd.DataFrame:
                     lambda row: " ".join([str(v) for v in row.values if v is not None]),
                     axis=1
                 )
-                logger.info(f"  ✅ 全カラムを結合してCombined_Textを生成")
+                logger.info("  ✅ 全カラムを結合してCombined_Textを生成")
 
         # 空のテキストを除外
         before_len = len(df)
@@ -1427,7 +1425,7 @@ def check_celery_workers(required_workers: int = 8) -> bool:
             logger.info("以下のコマンドでワーカーを起動してください:")
             logger.info(f"  ./start_celery.sh start -w {required_workers}")
             logger.info("\nまたは:")
-            logger.info(f"  redis-cli FLUSHDB")
+            logger.info("  redis-cli FLUSHDB")
             logger.info(f"  ./start_celery.sh restart -w {required_workers}")
             return False
 

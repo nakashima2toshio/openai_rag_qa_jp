@@ -66,7 +66,6 @@ python a03_rag_qa_coverage_improved.py \
 
 from helper_rag_qa import (
     SemanticCoverage,
-    TemplateBasedQAGenerator,
 )
 import os
 import sys
@@ -130,7 +129,7 @@ class KeywordExtractor:
             tagger = MeCab.Tagger()
             tagger.parse("テスト")
             return True
-        except (ImportError, RuntimeError) as e:
+        except (ImportError, RuntimeError):
             return False
 
     def extract(self, text: str, top_n: int = 5) -> List[str]:
@@ -473,15 +472,12 @@ def generate_advanced_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_chunk
     # 複雑度に基づく質問タイプの選択
     if complexity["complexity_level"] == "high":
         # 高複雑度：理解・応用レベル中心
-        preferred_categories = ["understanding", "application"]
         qa_distribution = {"basic": 1, "understanding": 3, "application": 1}
     elif complexity["complexity_level"] == "medium":
         # 中複雑度：バランス型
-        preferred_categories = ["basic", "understanding"]
         qa_distribution = {"basic": 2, "understanding": 2, "application": 1}
     else:
         # 低複雑度：基礎レベル中心
-        preferred_categories = ["basic"]
         qa_distribution = {"basic": 3, "understanding": 1, "application": 0}
 
     # 高度なQ/A生成戦略を呼び出し
@@ -550,7 +546,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
     if len(chunk_text) > 50:
         # チャンク全体の要約的な質問
         qa = {
-            'question': f"What information is discussed in this section?" if is_english else f"このセクションにはどのような情報が含まれていますか？",
+            'question': "What information is discussed in this section?" if is_english else "このセクションにはどのような情報が含まれていますか？",
             'answer': chunk_text[:500],  # より長い回答
             'type': 'comprehensive',
             'chunk_idx': chunk_idx,
@@ -648,7 +644,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
     if len(chunk_text) > 100:
         # チャンクの最初と最後の文を組み合わせた質問
         first_sent = sentences[0] if sentences else chunk_text[:100]
-        last_sent = sentences[-1] if sentences else chunk_text[-100:]
+        sentences[-1] if sentences else chunk_text[-100:]
 
         if is_english:
             # 英語: 主要概念を抽出してテーマ質問を作成
@@ -662,7 +658,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
                 }
             else:
                 qa = {
-                    'question': f"What is the main theme discussed in this content?",
+                    'question': "What is the main theme discussed in this content?",
                     'answer': chunk_text[:400],
                     'type': 'thematic',
                     'chunk_idx': chunk_idx
@@ -680,7 +676,7 @@ def generate_comprehensive_qa_for_chunk(chunk_text: str, chunk_idx: int, qa_per_
                 }
             else:
                 qa = {
-                    'question': f"この内容の主要テーマは何ですか？",
+                    'question': "この内容の主要テーマは何ですか？",
                     'answer': chunk_text[:400],
                     'type': 'thematic',
                     'chunk_idx': chunk_idx
@@ -833,7 +829,6 @@ def process_with_improved_methods(
 
     # カバレッジ戦略の設定
     total_chunks = len(chunks)
-    target_coverage = 0.8  # 80%目標
 
     # チャンク処理の最大数を設定
     max_chunks_to_process = min(total_chunks, max_chunks)
@@ -1001,7 +996,7 @@ def main():
 
     # APIキーチェック
     api_key = os.getenv('OPENAI_API_KEY')
-    print(f"\n📋 環境チェック:")
+    print("\n📋 環境チェック:")
     print(f"  OpenAI APIキー: {'✅ 設定済み' if api_key else '❌ 未設定'}")
 
     # データ読み込み
@@ -1063,23 +1058,23 @@ def main():
                     threshold=args.coverage_threshold
                 )
 
-                print(f"\n📊 カバレッジ分析結果:")
+                print("\n📊 カバレッジ分析結果:")
                 print(f"  カバレッジ率: {coverage_results['coverage_rate']:.1%}")
                 print(f"  カバー済みチャンク: {coverage_results['covered_chunks']}/{coverage_results['total_chunks']}")
                 print(f"  閾値: {coverage_results['threshold']}")
                 print(f"  平均最大類似度: {coverage_results['avg_max_similarity']:.3f}")
-                print(f"\n  カバレッジ分布:")
+                print("\n  カバレッジ分布:")
                 print(f"    高カバレッジ (≥0.7): {coverage_results['coverage_distribution']['high_coverage']}チャンク")
                 print(f"    中カバレッジ (0.5-0.7): {coverage_results['coverage_distribution']['medium_coverage']}チャンク")
                 print(f"    低カバレッジ (<0.5): {coverage_results['coverage_distribution']['low_coverage']}チャンク")
 
                 # カバレッジが低い場合の警告
                 if coverage_results['coverage_rate'] < 0.7:
-                    print(f"\n⚠️ カバレッジが目標の80%に達していません。")
-                    print(f"  推奨事項:")
+                    print("\n⚠️ カバレッジが目標の80%に達していません。")
+                    print("  推奨事項:")
                     print(f"  1. 閾値を{args.coverage_threshold - 0.05:.2f}に下げる")
                     print(f"  2. より多くのQ/Aを生成する（現在: {len(qa_pairs)}個）")
-                    print(f"  3. LLMベースの手法を追加する（--methods rule template llm）")
+                    print("  3. LLMベースの手法を追加する（--methods rule template llm）")
 
             except Exception as e:
                 logger.warning(f"カバレッジ分析中にエラー: {e}")
@@ -1094,13 +1089,13 @@ def main():
         print("処理完了")
         print("=" * 80)
         print(f"\n✅ 生成されたQ/Aペア数: {len(qa_pairs)}")
-        print(f"✅ 保存ファイル:")
+        print("✅ 保存ファイル:")
         for file_type, file_path in saved_files.items():
             print(f"  - {file_type}: {file_path}")
 
         # Q/Aタイプ統計
         if qa_pairs:
-            print(f"\n📊 Q/Aペア統計:")
+            print("\n📊 Q/Aペア統計:")
             type_counts = {}
             for qa in qa_pairs:
                 qa_type = qa.get('type', 'unknown')

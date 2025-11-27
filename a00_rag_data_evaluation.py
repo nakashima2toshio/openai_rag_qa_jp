@@ -9,14 +9,12 @@ QAペアとQdrantコレクションの回答を比較し、コサイン類似度
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 from qdrant_client import QdrantClient
 from openai import OpenAI
 import os
 from sklearn.metrics.pairwise import cosine_similarity
-from typing import List, Dict, Tuple
+from typing import List, Tuple
 import time
-from pathlib import Path
 
 # Streamlitページ設定
 st.set_page_config(

@@ -8,7 +8,6 @@ import re
 import io
 import logging
 import json
-import os
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
@@ -24,8 +23,6 @@ logger = logging.getLogger(__name__)
 # 共通モジュールからインポート
 # ===================================================================
 # テキスト処理関数をhelper_text.pyから参照可能にする
-from helper_text import clean_text as _clean_text_impl
-from helper_text import count_tokens, split_into_chunks
 
 # 設定はconfig.pyから参照可能（後方互換性維持）
 try:
@@ -432,7 +429,7 @@ def validate_data(df: pd.DataFrame, dataset_type: str = None) -> List[str]:
         required_columns = config_data["required_columns"]
 
         # 大文字小文字を考慮した列名チェック
-        available_columns = [col.lower() for col in df.columns]
+        [col.lower() for col in df.columns]
         missing_columns = []
         found_columns = []
 

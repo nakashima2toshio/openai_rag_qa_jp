@@ -5,7 +5,6 @@ debug_celery.py - Celeryタスクのデバッグツール
 """
 
 import time
-from celery import Celery
 import redis
 import json
 import logging
@@ -64,7 +63,7 @@ def check_worker_queues():
     if active_queues:
         for worker, queues in active_queues.items():
             print(f"\nワーカー: {worker}")
-            print(f"監視キュー:")
+            print("監視キュー:")
             for q in queues:
                 print(f"  - {q.get('name')} (routing_key: {q.get('routing_key')})")
     else:

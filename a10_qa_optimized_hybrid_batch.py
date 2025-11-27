@@ -127,7 +127,7 @@ import argparse
 import pandas as pd
 import time
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 from datetime import datetime
 import logging
 from tqdm import tqdm
@@ -415,7 +415,7 @@ def compare_with_normal_version(
     batch_generator = BatchHybridQAGenerator(model=model, batch_size=5)
 
     batch_start = time.time()
-    batch_results = batch_generator.generate_batch_hybrid_qa(
+    batch_generator.generate_batch_hybrid_qa(
         texts=texts,
         qa_count=3,
         use_llm=True,

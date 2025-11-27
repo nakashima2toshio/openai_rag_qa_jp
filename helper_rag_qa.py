@@ -9,7 +9,7 @@ QAOptimizedExtractor
 """
 
 from regex_mecab import KeywordExtractor
-from typing import List, Dict, Tuple, Optional, Any, Set
+from typing import List, Dict, Tuple, Optional, Any
 import re
 import math
 import json
@@ -1335,7 +1335,6 @@ class QAOptimizedExtractor(SmartKeywordSelector):
             return 0.0
 
         # キーワードがカバーする文字数を計算
-        covered_chars = 0
         covered_positions = set()
 
         for keyword in keywords:
@@ -1743,7 +1742,7 @@ class SemanticCoverage:
 
         while node:
             surface = node.surface
-            features = node.feature.split(',')
+            node.feature.split(',')
 
             if surface:
                 current_sentence.append(surface)
@@ -2427,17 +2426,6 @@ class AdvancedQAGenerationTechniques:
     def generate_multi_hop_qa(self, text: str) -> List[Dict]:
         """マルチホップ推論が必要なQ/A生成"""
 
-        prompt = f"""
-        以下のテキストから、複数の情報を組み合わせて答える必要がある質問を生成してください。
-
-        例：
-        - AがBである、BがCである → AとCの関係は？
-        - XはYより大きい、YはZより大きい → X、Y、Zの順序は？
-
-        テキスト：{text}
-
-        JSON形式で3つ生成してください。
-        """
 
         # LLM呼び出し（実装略）
         return []
@@ -2445,11 +2433,6 @@ class AdvancedQAGenerationTechniques:
     def generate_counterfactual_qa(self, text: str) -> List[Dict]:
         """反事実的Q/A（もし〜だったら）の生成"""
 
-        counterfactual_templates = [
-            "もし{condition}でなかったら、{outcome}はどうなっていましたか？",
-            "{event}が起こらなかった場合、何が変わっていましたか？",
-            "{factor}が異なっていたら、結果はどう変わりますか？"
-        ]
 
         # テキストから条件と結果を抽出して適用
         return []
@@ -2503,7 +2486,7 @@ class QAGenerationOptimizer:
         """既存Q/Aを分析して適応的に生成"""
 
         # カバレッジ分析
-        coverage_analysis = self.analyze_coverage(text, initial_qa)
+        self.analyze_coverage(text, initial_qa)
 
         # 不足している質問タイプを特定
         missing_types = self.identify_missing_question_types(initial_qa)
@@ -2957,7 +2940,7 @@ class BatchHybridQAGenerator(OptimizedHybridQAGenerator):
         """
         # 文書の特徴分析
         text_length = len(text)
-        sentences = re.split(r'[。！？\.\!\?]+', text)
+        re.split(r'[。！？\.\!\?]+', text)
         unique_concepts = len(set(re.findall(r'[ァ-ヴー]{3,}|[A-Z]{2,}|[一-龥]{4,}', text)))
         information_density = unique_concepts / (text_length / 1000) if text_length > 0 else 0
 
@@ -3550,7 +3533,6 @@ IMPORTANT: Return your response in JSON format.
         show_progress: bool
     ) -> List[Dict]:
         """バッチ処理でカバレージ計算"""
-        from tqdm import tqdm
 
         all_coverages = []
 
@@ -3668,19 +3650,19 @@ IMPORTANT: Return your response in JSON format.
         print("📊 バッチ処理統計")
         print("=" * 80)
         print(f"処理文書数: {total_docs}")
-        print(f"\nLLM処理:")
+        print("\nLLM処理:")
         print(f"  - バッチ数: {self.batch_stats['llm_batches']}")
         print(f"  - API呼び出し: {self.batch_stats['total_llm_calls']}回")
         print(f"  - 削減率: {(1 - self.batch_stats['total_llm_calls']/max(1, total_docs)) * 100:.1f}%")
 
-        print(f"\n埋め込み処理:")
+        print("\n埋め込み処理:")
         print(f"  - バッチ数: {self.batch_stats['embedding_batches']}")
         print(f"  - API呼び出し: {self.batch_stats['total_embedding_calls']}回")
 
         total_calls = self.batch_stats['total_llm_calls'] + self.batch_stats['total_embedding_calls']
         original_calls = total_docs + total_docs * 2  # 個別処理の場合
 
-        print(f"\n総合:")
+        print("\n総合:")
         print(f"  - 総API呼び出し: {total_calls}回")
         print(f"  - 従来方式: {original_calls}回")
         print(f"  - 削減率: {(1 - total_calls/max(1, original_calls)) * 100:.1f}%")
@@ -3708,7 +3690,7 @@ if __name__ == "__main__":
     # SmartKeywordSelectorのテスト
     print("\n【SmartKeywordSelectorのテスト】")
     smart_result = get_smart_keywords(sample_text, mode="auto")
-    print(f"スマート選択結果:")
+    print("スマート選択結果:")
     print(f"  キーワード: {', '.join(smart_result['keywords'][:5])}")
     print(f"  選択手法: {smart_result['method']}")
     print(f"  決定理由: {smart_result['reason']}")

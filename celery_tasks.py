@@ -9,8 +9,8 @@ Q/Aペア生成の並列処理のためのCeleryタスク定義
 import os
 import json
 import logging
-from typing import List, Dict, Optional
-from celery import Celery, group
+from typing import List, Dict
+from celery import Celery
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -18,7 +18,7 @@ from openai import OpenAI
 load_dotenv()
 
 # 共通モジュールからインポート
-from models import QAPair, QAPairsResponse
+from models import QAPairsResponse
 from config import ModelConfig, CeleryConfig
 
 # ログ設定
@@ -109,7 +109,7 @@ def _extract_parsed_response(response, model: str) -> QAPairsResponse:
     # 方法1: output_parsed属性を直接確認（GPT-5シリーズ対応）
     if hasattr(response, 'output_parsed') and response.output_parsed:
         parsed_response = response.output_parsed
-        logger.info(f"GPT-5形式のレスポンス（output_parsed）を使用")
+        logger.info("GPT-5形式のレスポンス（output_parsed）を使用")
         return parsed_response
 
     # 方法2: output配列から探索（GPT-4o対応）
@@ -122,7 +122,7 @@ def _extract_parsed_response(response, model: str) -> QAPairsResponse:
             # ReasoningItemはスキップ
             if hasattr(output, 'type'):
                 if output.type == "reasoning":
-                    logger.info(f"  -> reasoning タイプをスキップ")
+                    logger.info("  -> reasoning タイプをスキップ")
                     continue
                 elif output.type == "message" and hasattr(output, 'content') and output.content:
                     logger.info(f"  -> message タイプ、content長さ: {len(output.content)}")
@@ -133,7 +133,7 @@ def _extract_parsed_response(response, model: str) -> QAPairsResponse:
                         # parsed属性をチェック
                         if hasattr(item, 'type') and item.type == "output_text" and hasattr(item, 'parsed') and item.parsed:
                             parsed_response = item.parsed
-                            logger.info(f"GPT-4o形式のレスポンス（output配列 -> parsed）を使用")
+                            logger.info("GPT-4o形式のレスポンス（output配列 -> parsed）を使用")
                             return parsed_response
 
                         # text属性がある場合もログ出力
@@ -156,7 +156,7 @@ def _extract_parsed_response(response, model: str) -> QAPairsResponse:
                             if 'qa_pairs' in json_data:
                                 # JSONからQAPairsResponseを構築
                                 parsed_response = QAPairsResponse(**json_data)
-                                logger.info(f"JSONテキストから直接解析成功")
+                                logger.info("JSONテキストから直接解析成功")
                                 return parsed_response
                         except json.JSONDecodeError as e:
                             logger.debug(f"JSON解析失敗（JSONDecodeError）: {str(e)[:100]}")
@@ -172,18 +172,18 @@ def _extract_parsed_response(response, model: str) -> QAPairsResponse:
             json_data = json.loads(response.output_text)
             if 'qa_pairs' in json_data:
                 parsed_response = QAPairsResponse(**json_data)
-                logger.info(f"output_textから直接解析成功")
+                logger.info("output_textから直接解析成功")
                 return parsed_response
         except Exception as e:
             logger.debug(f"output_text解析失敗: {str(e)[:100]}")
 
     if not parsed_response:
-        logger.error(f"OpenAI APIが解析可能なレスポンスを返しませんでした")
+        logger.error("OpenAI APIが解析可能なレスポンスを返しませんでした")
         # レスポンスの詳細をログ出力（デバッグ用）
         try:
             response_str = str(response)[:1000]
             logger.error(f"レスポンス全体（最初の1000文字）: {response_str}")
-        except:
+        except Exception:
             pass
         raise ValueError("No parsable response from OpenAI API")
 
@@ -303,7 +303,7 @@ Output in JSON format:
                 max_output_tokens=2000  # JSON切れ防止のため増加
             )
 
-            logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
+            logger.info("OpenAI API呼び出し成功（構造化出力API）")
 
             # レスポンスから解析済みデータを取得
             parsed_response = _extract_parsed_response(response, model)
@@ -352,7 +352,7 @@ Output in JSON format:
 
                 response = client.chat.completions.create(**completion_params)
 
-                logger.info(f"OpenAI API呼び出し成功（フォールバック）")
+                logger.info("OpenAI API呼び出し成功（フォールバック）")
 
                 # レスポンス解析（空レスポンス対策）
                 import json
@@ -360,7 +360,7 @@ Output in JSON format:
 
                 # 空レスポンスチェック
                 if not response_text or response_text.strip() == "":
-                    logger.error(f"OpenAI APIが空のレスポンスを返しました")
+                    logger.error("OpenAI APIが空のレスポンスを返しました")
                     raise ValueError("Empty response from OpenAI API")
 
                 logger.debug(f"API応答（最初の200文字）: {response_text[:200]}...")
@@ -536,7 +536,7 @@ Output in JSON format:
                 max_output_tokens=4000  # バッチ処理（3チャンク）のJSON切れ防止のため増加
             )
 
-            logger.info(f"OpenAI API呼び出し成功（構造化出力API）")
+            logger.info("OpenAI API呼び出し成功（構造化出力API）")
 
             # レスポンスから解析済みデータを取得（共通関数を使用）
             parsed_response = _extract_parsed_response(response, model)
@@ -824,7 +824,7 @@ def collect_results(tasks: List, timeout: int = 300) -> List[Dict]:
                         # 結果を取得（短いタイムアウト）
                         try:
                             result = task.get(timeout=1, propagate=False)
-                        except:
+                        except Exception:
                             pass
 
                         if result and isinstance(result, dict) and result.get('success'):

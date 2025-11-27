@@ -6,7 +6,6 @@ test_celery.py - Celeryワーカーの動作確認
 
 import time
 import sys
-from celery import Celery
 from celery_tasks import app, generate_qa_for_chunk_async
 import logging
 
@@ -104,7 +103,7 @@ def test_simple_task():
         result = task.get(timeout=1)
 
         if result.get('success'):
-            print(f"✅ タスク成功!")
+            print("✅ タスク成功!")
             print(f"  生成Q/A数: {len(result.get('qa_pairs', []))}")
             if result.get('qa_pairs'):
                 print(f"  サンプル質問: {result['qa_pairs'][0].get('question', '')[:50]}...")

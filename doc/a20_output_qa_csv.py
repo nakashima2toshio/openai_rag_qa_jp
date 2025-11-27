@@ -24,7 +24,6 @@ python a20_output_qa_csv.py
 import csv
 import glob
 import os
-from pathlib import Path
 
 
 def extract_qa_pairs(input_file: str, output_file: str) -> None:

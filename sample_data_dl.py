@@ -92,10 +92,10 @@ def create_qa_pairs(input_csv: str, output_dir: str = "data"):
     # データ統計
     print("\n📊 データ統計:")
     print(f"  - 総Q/Aペア数: {len(df_qa)}")
-    print(f"  - ドメイン別:")
+    print("  - ドメイン別:")
     for domain, count in df_qa['domain'].value_counts().items():
         print(f"    - {domain}: {count}件")
-    print(f"  - タイプ別:")
+    print("  - タイプ別:")
     for qtype, count in df_qa['type'].value_counts().items():
         print(f"    - {qtype}: {count}件")
 
@@ -103,7 +103,7 @@ def create_qa_pairs(input_csv: str, output_dir: str = "data"):
     df_qa['question_len'] = df_qa['question'].str.len()
     df_qa['answer_len'] = df_qa['answer'].str.len()
 
-    print(f"\n📏 文字数統計:")
+    print("\n📏 文字数統計:")
     print(f"  - 質問文: 平均 {df_qa['question_len'].mean():.1f}文字 (最小{df_qa['question_len'].min()}, 最大{df_qa['question_len'].max()})")
     print(f"  - 回答文: 平均 {df_qa['answer_len'].mean():.1f}文字 (最小{df_qa['answer_len'].min()}, 最大{df_qa['answer_len'].max()})")
 
@@ -174,7 +174,7 @@ def create_qa_pairs(input_csv: str, output_dir: str = "data"):
     print("\n" + "=" * 80)
     print("✨ 処理完了！")
     print("=" * 80)
-    print(f"\n📁 出力ファイル:")
+    print("\n📁 出力ファイル:")
     print(f"  1. {simple_csv}")
     print(f"  2. {full_csv}")
     print(f"  3. {jsonl_file}")

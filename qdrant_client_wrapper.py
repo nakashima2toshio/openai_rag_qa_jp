@@ -18,7 +18,6 @@ import time
 import traceback
 from typing import Dict, List, Optional, Any, Tuple, Iterable
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pandas as pd
 import tiktoken
@@ -276,7 +275,7 @@ def get_all_collections(client: QdrantClient) -> List[Dict[str, Any]]:
                     "status": info.status,
                 }
             )
-        except Exception as e:
+        except Exception:
             collection_list.append(
                 {"name": collection.name, "points_count": 0, "status": "unknown"}
             )
@@ -340,7 +339,7 @@ def create_or_recreate_collection(
     if recreate:
         try:
             client.delete_collection(collection_name=name)
-        except:
+        except Exception:
             pass
         client.create_collection(collection_name=name, vectors_config=vectors_config)
     else:
@@ -356,7 +355,7 @@ def create_or_recreate_collection(
         client.create_payload_index(
             name, field_name="domain", field_schema=models.PayloadSchemaType.KEYWORD
         )
-    except:
+    except Exception:
         pass
 
 
@@ -624,7 +623,7 @@ class QdrantDataFetcher:
                             "Status": info.status,
                         }
                     )
-                except:
+                except Exception:
                     data.append(
                         {
                             "Collection": collection.name,

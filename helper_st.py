@@ -8,7 +8,6 @@ import re
 import io
 import logging
 import json
-import os
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
@@ -567,7 +566,7 @@ def show_usage_instructions(dataset_type: str = "customer_support_faq") -> None:
     """使用方法の説明を表示"""
     st.markdown("---")
     st.subheader("📖 使用方法")
-    st.markdown(f"""
+    st.markdown("""
     1. **モデル選択**: サイドバーでRAG用途に適したモデルを選択
     2. **CSVファイルをアップロード**: question, answer 列を含むCSVファイルを選択
     3. **前処理を実行**: 以下の処理が自動で実行されます：
@@ -640,12 +639,12 @@ def main():
 
     # カスタマーサポートデータ特有の設定
     with st.sidebar.expander("💬 サポートデータ設定", expanded=False):
-        preserve_formatting = st.checkbox(
+        st.checkbox(
             "書式を保護",
             value=True,
             help="回答内の重要な書式を保護"
         )
-        normalize_questions = st.checkbox(
+        st.checkbox(
             "質問を正規化",
             value=True,
             help="質問文の表記ゆれを統一"
@@ -821,7 +820,7 @@ def main():
                         st.download_button(
                             label="📝 テキスト形式でダウンロード",
                             data=text_data,
-                            file_name=f"customer_support_faq.txt",
+                            file_name="customer_support_faq.txt",
                             mime="text/plain",
                             help="Vector Store/RAG用に最適化された結合テキスト"
                         )

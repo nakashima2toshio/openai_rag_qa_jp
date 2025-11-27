@@ -11,8 +11,6 @@ Q/Aペアの自動生成機能
 - カバレージ分析
 """
 
-import sys
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -312,7 +310,7 @@ def show_qa_generation_page():
                     try:
                         Path(input_file_path).unlink()
                         add_log("  🗑️ 一時ファイルを削除しました")
-                    except:
+                    except Exception:
                         pass
 
                 if result["success"]:

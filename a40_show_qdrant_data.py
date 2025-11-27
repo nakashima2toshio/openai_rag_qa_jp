@@ -23,13 +23,11 @@ a40_show_qdrant_data.py - Qdrantデータ表示ツール
 
 import streamlit as st
 import pandas as pd
-import json
 import time
 import logging
 import traceback
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
-from pathlib import Path
 import socket
 
 # ログ設定
@@ -136,7 +134,7 @@ class QdrantDataFetcher:
                         "Indexed Vectors": info.indexed_vectors_count,
                         "Status": info.status
                     })
-                except:
+                except Exception:
                     data.append({
                         "Collection": collection.name,
                         "Vectors Count": "N/A",
@@ -392,7 +390,7 @@ def main():
                     
                     # メトリクス表示
                     if metrics and debug_mode:
-                        with st.expander(f"詳細情報", expanded=False):
+                        with st.expander("詳細情報", expanded=False):
                             for key, value in metrics.items():
                                 st.text(f"{key}: {value}")
                 else:
@@ -411,7 +409,7 @@ def main():
                             st.code(cmd, language="bash")
     
     # メインエリア（右ペイン）
-    st.header(f"📊 Qdrant データ表示")
+    st.header("📊 Qdrant データ表示")
     
     # Qdrantが利用可能かチェック
     if not QDRANT_AVAILABLE:

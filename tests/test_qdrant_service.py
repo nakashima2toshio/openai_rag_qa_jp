@@ -16,8 +16,6 @@ from services.qdrant_service import (
     batched,
     QdrantHealthChecker,
     QdrantDataFetcher,
-    get_collection_stats,
-    get_all_collections,
     load_csv_for_qdrant,
     build_inputs_for_embedding,
     build_points_for_qdrant,
