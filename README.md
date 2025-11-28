@@ -162,7 +162,7 @@ streamlit run rag_qa_pair_qdrant.py
 | 5 | **Show-Qdrant** | コレクション表示 | データ確認、統計情報              |
 | 6 | **Qdrant検索**  | 類似度検索       | 質問入力→検索→AI応答            |
 
-![RAG.png](assets/RAGデータダウンロード.png)
+![RAG.png](assets/RAGデータダウンロード.png
 
 ### 3.2 画面フロー
 
