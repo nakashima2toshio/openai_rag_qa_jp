@@ -30,6 +30,7 @@ from services.qdrant_service import (
     create_or_recreate_collection_for_qdrant,
     build_points_for_qdrant,
     upsert_points_to_qdrant,
+    merge_collections,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,10 +54,12 @@ def show_qdrant_registration_page():
 
         operation_mode = st.radio(
             "操作モードを選択",
-            options=["all_collections", "individual_csv"],
-            format_func=lambda x: "📊 全コレクション操作"
-            if x == "all_collections"
-            else "📄 個別CSV操作",
+            options=["all_collections", "individual_csv", "collection_merge"],
+            format_func=lambda x: {
+                "all_collections": "📊 全コレクション操作",
+                "individual_csv": "📄 個別CSV操作",
+                "collection_merge": "🔗 コレクション統合",
+            }[x],
             key="qdrant_operation_mode",
         )
 
@@ -258,7 +261,7 @@ def show_qdrant_registration_page():
         else:
             st.warning("Qdrantに接続できていません")
 
-    else:
+    elif operation_mode == "individual_csv":
         # ===================================================================
         # 個別CSV操作モード
         # ===================================================================
@@ -400,3 +403,198 @@ def show_qdrant_registration_page():
                 st.text_area("処理ログ", value=log_text, height=300, disabled=True)
             else:
                 st.info("登録処理を開始するとここにログが表示されます")
+
+    else:
+        # ===================================================================
+        # コレクション統合モード
+        # ===================================================================
+        st.subheader("🔗 コレクション統合")
+        st.caption("複数のコレクションを選択して、1つの新しいコレクションに統合します")
+
+        if not qdrant_connected or not client:
+            st.warning("Qdrantに接続できていません")
+            return
+
+        # コレクション一覧を取得
+        try:
+            collections = get_all_collections(client)
+        except Exception as e:
+            st.error(f"コレクション一覧取得エラー: {e}")
+            return
+
+        if not collections:
+            st.info("統合可能なコレクションがありません")
+            return
+
+        if len(collections) < 2:
+            st.warning("統合には2つ以上のコレクションが必要です")
+            return
+
+        # コレクション選択UI
+        st.markdown("### 統合対象コレクションを選択")
+        st.caption("統合するコレクションを2つ以上選択してください")
+
+        # コレクション情報を表示
+        collection_names = [c["name"] for c in collections]
+        collection_info_map = {c["name"]: c for c in collections}
+
+        # チェックボックスで複数選択
+        selected_collections = []
+        selected_total_points = 0
+
+        for col_info in collections:
+            col_name = col_info["name"]
+            points_count = col_info["points_count"]
+
+            # チェックボックスを表示（コレクション名とポイント数を表示）
+            is_selected = st.checkbox(
+                f"{col_name} ({points_count:,} ポイント)",
+                value=False,
+                key=f"merge_checkbox_{col_name}",
+            )
+
+            if is_selected:
+                selected_collections.append(col_name)
+                selected_total_points += points_count
+
+        # 選択されたコレクションのサマリー
+        if selected_collections:
+            st.divider()
+            st.markdown("#### 選択されたコレクション")
+            st.success(f"**{len(selected_collections)}** 件選択中 / 統合後の予想ポイント数: **{selected_total_points:,}** 件")
+
+        st.divider()
+
+        # 統合先コレクション名の設定
+        st.markdown("### 統合先コレクション名")
+
+        # デフォルト名を生成
+        if selected_collections:
+            default_merge_name = f"integration_{selected_collections[0]}"
+        else:
+            default_merge_name = "integration_"
+
+        merge_collection_name = st.text_input(
+            "新しいコレクション名",
+            value=default_merge_name,
+            help="統合先のコレクション名を入力してください",
+            key="merge_collection_name_input",
+        )
+
+        # 名前の重複チェック
+        name_exists = merge_collection_name in collection_names
+        if name_exists:
+            st.warning(f"コレクション '{merge_collection_name}' は既に存在します。上書きされます。")
+
+        recreate_merge = st.checkbox(
+            "既存コレクションを削除して再作成",
+            value=True,
+            help="同名のコレクションが存在する場合、削除して新規作成します",
+            key="merge_recreate_checkbox",
+        )
+
+        st.divider()
+
+        # 統合実行ボタン
+        can_merge = len(selected_collections) >= 2 and merge_collection_name.strip()
+
+        run_merge = st.button(
+            "🔗 コレクションを統合",
+            type="primary",
+            use_container_width=True,
+            disabled=not can_merge,
+        )
+
+        if not can_merge:
+            if len(selected_collections) < 2:
+                st.info("統合には2つ以上のコレクションを選択してください")
+            elif not merge_collection_name.strip():
+                st.info("統合先のコレクション名を入力してください")
+
+        # ログ表示エリア
+        st.subheader("📜 処理ログ")
+        merge_log_container = st.container()
+
+        if "merge_logs" not in st.session_state:
+            st.session_state["merge_logs"] = []
+
+        def add_merge_log(message: str):
+            """統合ログを追加"""
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            st.session_state["merge_logs"].append(f"[{timestamp}] {message}")
+
+        # プログレスバー用のプレースホルダー
+        progress_placeholder = st.empty()
+        status_placeholder = st.empty()
+
+        # 統合処理実行
+        if run_merge:
+            st.session_state["merge_logs"] = []  # ログクリア
+            add_merge_log(f"🔗 統合処理開始")
+            add_merge_log(f"統合元: {', '.join(selected_collections)}")
+            add_merge_log(f"統合先: {merge_collection_name}")
+
+            # プログレスバーを表示
+            progress_bar = progress_placeholder.progress(0)
+
+            def progress_callback(message: str, current: int, total: int):
+                """進捗コールバック"""
+                add_merge_log(message)
+                if total > 0:
+                    progress_bar.progress(current / total)
+                status_placeholder.text(message)
+
+            try:
+                # 統合処理を実行
+                result = merge_collections(
+                    client=client,
+                    source_collections=selected_collections,
+                    target_collection=merge_collection_name,
+                    recreate=recreate_merge,
+                    progress_callback=progress_callback,
+                )
+
+                if result["success"]:
+                    add_merge_log("🎉 統合処理完了！")
+
+                    # 各コレクションからの取得件数をログ
+                    for src_name, count in result["points_per_collection"].items():
+                        add_merge_log(f"  - {src_name}: {count:,} 件")
+
+                    add_merge_log(f"合計: {result['total_points']:,} 件")
+
+                    st.success(
+                        f"✅ {result['total_points']:,}件のデータを '{merge_collection_name}' に統合しました"
+                    )
+
+                    # 統計情報を表示
+                    try:
+                        stats = get_collection_stats(client, merge_collection_name)
+                        if stats:
+                            st.divider()
+                            st.subheader("📊 統合結果")
+                            st.json(stats)
+                    except Exception as e:
+                        logger.warning(f"統計情報取得エラー: {e}")
+
+                else:
+                    add_merge_log(f"❌ エラー: {result['error']}")
+                    st.error(f"統合エラー: {result['error']}")
+
+            except Exception as e:
+                add_merge_log(f"❌ エラー発生: {str(e)}")
+                st.error(f"エラーが発生しました: {str(e)}")
+                logger.error(f"コレクション統合エラー: {e}")
+
+            finally:
+                # プログレスバーをクリア
+                progress_placeholder.empty()
+                status_placeholder.empty()
+
+        # ログ表示
+        with merge_log_container:
+            if st.session_state["merge_logs"]:
+                log_text = "\n".join(st.session_state["merge_logs"])
+                st.text_area("処理ログ", value=log_text, height=300, disabled=True)
+            else:
+                st.info("統合処理を開始するとここにログが表示されます")

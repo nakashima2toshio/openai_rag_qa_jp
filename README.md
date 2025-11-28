@@ -1,742 +1,546 @@
-# OpenAI RAG Q&A JP
+# RAG Q/A 生成・検索システム
 
-日本語RAG（Retrieval-Augmented Generation）システムのQ&A生成・評価・検索ツール集
+日本語RAG（Retrieval-Augmented Generation）システム。ドキュメントからQ/Aペアを自動生成し、Qdrantベクトルデータベースで類似度検索・AI応答生成を行う統合アプリケーション。
 
-## システムアーキテクチャ（Q&A生成処理フロー）
+## 目次
 
-3つのQ&A生成プログラム（a02, a03, a10）の共通処理フローと各手法の特徴を示します：
+- [1. 概要](#1-概要)
+- [2. クイックスタート](#2-クイックスタート)
+- [3. 統合アプリ rag_qa_pair_qdrant.py](#3-統合アプリ-rag_qa_pair_qdrantpy)
+- [4. 技術コンポーネント](#4-技術コンポーネント)
+- [5. 環境構築詳細](#5-環境構築詳細)
+- [6. プログラム一覧](#6-プログラム一覧)
+- [7. ドキュメント一覧](#7-ドキュメント一覧)
+- [8. ディレクトリ構造](#8-ディレクトリ構造)
+- [9. 対応データセット](#9-対応データセット)
+- [10. 技術スタック](#10-技術スタック)
+- [11. ライセンス・貢献](#11-ライセンス貢献)
 
-```mermaid
-flowchart TD
-    Start([開始])
-    Input[preprocessedデータ読み込み]
-    Clean[データクレンジング]
-    LangDetect{言語判定}
-    MeCabCheck{MeCab利用可能}
-    RegexSplit[正規表現による文分割 英語]
-    MeCabSplit[MeCabによる文境界検出]
-    RegexSplitJa[正規表現による文分割 日本語]
-    Chunk[セマンティックチャンク作成]
-    MergeCheck{小チャンク統合}
-    Merge[チャンク統合]
-    QAGen[QA生成方式選択]
-    Method{手法}
+---
 
-    A02_Dynamic[動的QA数決定]
-    A02_Batch[バッチ処理]
-    A02_QA[高品質QA生成]
+## 1. 概要
 
-    A03_Keyword[キーワード抽出]
-    A03_Template[テンプレート生成]
-    A03_QA[大量QA生成]
+### 1.1 プロジェクト説明
 
-    A10_Mode{処理モード}
-    A10_Hybrid[ハイブリッド生成]
-    A10_Hierarchical[階層的生成]
-    A10_Batch[大規模バッチ処理]
+本システムは、日本語ドキュメントからQ/Aペアを自動生成し、ベクトル検索による質問応答（RAG）を実現する統合アプリケーションです。
 
-    Embedding[埋め込みベクトル生成]
-    Coverage[セマンティックカバレージ分析]
-    Eval{カバレージ目標達成}
-    A10_Feedback[未カバー領域特定]
-    Output[結果保存]
-    End([終了])
+### 1.2 主要機能
 
-    Start --> Input
-    Input --> Clean
-    Clean --> LangDetect
+| 機能 | 説明 |
+|------|------|
+| **Q/Aペア自動生成** | LLM（GPT-4o等）を使用してドキュメントからQ/Aを生成 |
+| **Celery並列処理** | 大規模データの高速処理（24ワーカーで約20倍高速化） |
+| **Qdrant登録** | Q/AペアをEmbedding化してベクトルDBに登録 |
+| **類似度検索** | コサイン類似度によるセマンティック検索 |
+| **RAG応答生成** | 検索結果を基にAIが回答を生成 |
+| **カバレージ分析** | Q/Aがドキュメントをどの程度網羅しているか評価 |
 
-    LangDetect -->|日本語| MeCabCheck
-    LangDetect -->|英語| RegexSplit
+### 1.3 システムアーキテクチャ
 
-    MeCabCheck -->|Yes| MeCabSplit
-    MeCabCheck -->|No| RegexSplitJa
-
-    MeCabSplit --> Chunk
-    RegexSplitJa --> Chunk
-    RegexSplit --> Chunk
-
-    Chunk --> MergeCheck
-    MergeCheck -->|Yes a02 a10| Merge
-    MergeCheck -->|No a03| QAGen
-    Merge --> QAGen
-
-    QAGen --> Method
-
-    Method -->|a02| A02_Dynamic
-    A02_Dynamic --> A02_Batch
-    A02_Batch --> A02_QA
-
-    Method -->|a03| A03_Keyword
-    A03_Keyword --> A03_Template
-    A03_Template --> A03_QA
-
-    Method -->|a10| A10_Mode
-    A10_Mode -->|通常| A10_Hybrid
-    A10_Mode -->|品質重視| A10_Hierarchical
-    A10_Hybrid --> A10_Batch
-    A10_Hierarchical --> A10_Batch
-
-    A02_QA --> Embedding
-    A03_QA --> Embedding
-    A10_Batch --> Embedding
-
-    Embedding --> Coverage
-    Coverage --> Eval
-
-    Eval -->|No a10品質| A10_Feedback
-    A10_Feedback --> A10_Hierarchical
-
-    Eval -->|Yes| Output
-    Output --> End
-
-    classDef inputStyle fill:#000000,stroke:#00bcd4,stroke-width:2px,color:#ffffff
-    classDef processStyle fill:#000000,stroke:#9c27b0,stroke-width:2px,color:#ffffff
-    classDef methodStyle fill:#000000,stroke:#ff9800,stroke-width:2px,color:#ffffff
-    classDef outputStyle fill:#000000,stroke:#4caf50,stroke-width:2px,color:#ffffff
-    classDef decisionStyle fill:#000000,stroke:#e91e63,stroke-width:2px,color:#ffffff
-
-    class Input,Clean inputStyle
-    class MeCabSplit,RegexSplit,RegexSplitJa,Chunk,Merge,Embedding,Coverage processStyle
-    class A02_Dynamic,A02_Batch,A02_QA,A03_Keyword,A03_Template,A03_QA,A10_Hybrid,A10_Hierarchical,A10_Batch,A10_Feedback methodStyle
-    class Output outputStyle
-    class LangDetect,MeCabCheck,MergeCheck,Method,A10_Mode,Eval decisionStyle
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      rag_qa_pair_qdrant.py（統合アプリ）                     │
+├─────────┬─────────┬─────────┬─────────┬─────────┬─────────┐                │
+│  説明   │ RAGデータ│  Q/A   │ Qdrant  │  Show   │ Qdrant  │                │
+│ (About) │   DL    │  生成   │  登録   │ Qdrant  │  検索   │                │
+└────┬────┴────┬────┴────┬────┴────┬────┴────┬────┴────┬────┘                │
+     │         │         │         │         │         │                     │
+     ▼         ▼         ▼         ▼         ▼         ▼                     │
+┌─────────────────────────────────────────────────────────────────────────────┤
+│                           処理パイプライン                                   │
+│                                                                             │
+│  [データセット] → [チャンク分割] → [Q/A生成] → [Embedding] → [Qdrant登録]   │
+│       │              │              │             │              │         │
+│       │         SemanticCoverage   LLM/Celery   OpenAI API    Vector DB    │
+│       │              │              │             │              │         │
+│       ▼              ▼              ▼             ▼              ▼         │
+│  cc_news        段落優先       GPT-4o-mini   text-embedding   コサイン     │
+│  livedoor       文分割         並列処理      -3-small        類似度検索   │
+│  wikipedia      MeCab                        1536次元                      │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 処理フローの特徴
+### 1.4 処理パイプライン（データフロー）
 
-#### 共通処理部分
-1. **データ前処理**: 全手法で同一のクレンジング処理
-2. **言語別文分割**: 日本語はMeCab優先、英語は正規表現
-3. **チャンク作成**: 200-300トークンのセマンティックチャンク
-4. **埋め込み生成**: OpenAI text-embedding-3を使用
-5. **カバレージ分析**: コサイン類似度による評価
+```
+[入力]                    [処理]                         [出力]
+────────────────────────────────────────────────────────────────────────
+                         ┌─────────────────┐
+[データセット] ─────────▶│ 1. チャンク分割  │─────────▶ chunks[]
+(cc_news, livedoor等)    │   SemanticCoverage         (段落/文単位)
+                         └────────┬────────┘
+                                  ▼
+                         ┌─────────────────┐
+                         │ 2. Q/A生成      │─────────▶ qa_pairs[]
+                         │   LLM + Celery  │           (question, answer)
+                         └────────┬────────┘
+                                  ▼
+                         ┌─────────────────┐
+                         │ 3. Embedding    │─────────▶ vectors[]
+                         │   OpenAI API    │           (1536次元)
+                         └────────┬────────┘
+                                  ▼
+                         ┌─────────────────┐
+                         │ 4. Qdrant登録   │─────────▶ Collection
+                         │   PointStruct   │           (id, vector, payload)
+                         └────────┬────────┘
+                                  ▼
+                         ┌─────────────────┐
+[ユーザー質問] ─────────▶│ 5. 検索 + RAG   │─────────▶ [AI応答]
+                         │   類似度検索    │
+                         └─────────────────┘
+```
 
-#### 各手法の独自処理
-- **a02（LLM直接生成）**: 動的Q&A数調整、位置バイアス補正
-- **a03（テンプレート）**: キーワード抽出、ルールベース生成
-- **a10（ハイブリッド）**: 階層的生成、フィードバックループ
+---
 
-## プロジェクト概要
+## 2. クイックスタート
 
-このプロジェクトは、日本語および英語のドキュメントからQ&Aペアを自動生成し、セマンティックカバレッジ分析を行い、Qdrantベクトルデータベースを使用した高精度な検索システムを提供します。
+### 2.1 前提条件
 
-## 主要機能
+- Python 3.10以上
+- Docker / Docker Compose
+- OpenAI APIキー
 
-- 📚 多様なデータソースからのRAGデータ処理（Wikipedia、CC-News、Web文書等）
-- 🤖 OpenAI APIを使用した高品質なQ&Aペア自動生成
-- 📊 セマンティックカバレッジ分析（99.7%のカバレッジ率達成）
-- 🔍 Qdrantベクトルデータベースによる高速検索
-- 🌐 多言語対応（日本語・英語のクロスリンガル検索）
-- 💬 GPT-4o-miniによる日本語回答生成
-
-## プログラム一覧
-
-### 統合Streamlitアプリケーション（推奨）
-
-| プログラム名 | 概要 |
-|-------------|------|
-| rag_qa_pair_qdrant.py | 6画面構成の統合RAGツール。データDL→Q/A生成→Qdrant登録・検索を<br>1つのUIで操作可能。Celery並列処理対応。**新規ユーザーはこちらから開始推奨。** |
+### 2.2 インストール
 
 ```bash
-# 統合アプリの起動
-streamlit run rag_qa_pair_qdrant.py --server.port=8500
+# リポジトリのクローン
+git clone <repository-url>
+cd openai_rag_qa_jp
+
+# 依存パッケージのインストール
+pip install -r requirements.txt
+
+# 環境変数の設定
+cp .env.example .env
+# .envにOPENAI_API_KEYを設定
 ```
 
-**画面構成:**
-1. 📖 説明 - システムのデータフロー・ディレクトリ構造を表示
-2. 📥 RAGデータDL - HuggingFaceまたはローカルファイルからデータ取得・前処理
-3. 🤖 Q/A生成 - OpenAI APIによるQ&Aペア自動生成（Celery並列処理対応）
-4. 🗄️ Qdrant登録 - Q&AペアをQdrantベクトルDBに登録
-5. 🔍 Show-Qdrant - Qdrantコレクション内容の閲覧
-6. 🔎 Qdrant検索 - セマンティック検索によるQ&A検索
+### 2.3 サービス起動
 
-### データ処理・Q&A生成系
+```bash
+# Qdrant + Redis の起動
+docker-compose -f docker-compose/docker-compose.yml up -d
 
+# Celeryワーカー起動（並列処理を使う場合）
+./start_celery.sh start -w 8
 
-| プログラム名                     | 概要                                                                                                                                                                                     |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a01_load_non_qa_rag_data.py      | 非Q&A型RAGデータ処理ツール。Wikipedia日本語版、CC100日本語、CC-News英語などのデータセットから<br>RAG用テキストを抽出・前処理し、CSV/TXT/JSON形式で出力。Streamlit UIで対話的に操作可能。 |
-| a02_make_qa_para.py              | **Celery並列処理版**Q&A生成ツール。OUTPUTフォルダ内のpreprocessedファイルから<br>OpenAI APIを使用してQ&Aペアを生成。最大48ワーカーでの並列処理に対応。**推奨** |
-| a02_make_qa_single.py            | シングルプロセス版Q&A生成ツール。Celeryを使用せずに順次処理。<br>動的Q/A調整と位置バイアス補正により90-95%のカバレッジ達成。 |
-| a03_rag_qa_coverage_improved.py  | セマンティックカバレッジ分析とQ&A生成の改良版。カバレッジ率99.7%を達成し、<br>実行時間2分でチャンクごとに複数の詳細なQ&Aを生成。API呼び出しを最小化。                                    |
-| a10_qa_optimized_hybrid_batch.py | バッチ処理版ハイブリッドQ&A生成システム。API呼び出しを95.4%削減し処理を高速化。<br>**品質モード追加（2024/11）**: 階層的生成でカバレージ95%目標。`--quality-mode`で利用可能。              |
+# 統合アプリの起動
+streamlit run rag_qa_pair_qdrant.py
+```
 
-### ベクトルストア・検索系
+### 2.4 動作確認
 
+ブラウザで http://localhost:8501 を開き、統合アプリが表示されることを確認。
 
-| プログラム名                        | 概要                                                                                                                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| a31_make_cloud_vector_store_vsid.py | OpenAI Vector Store作成用Streamlitアプリ。CSVファイルからVector Storeを作成し、<br>ベクトルストアIDの管理と保存をサポート。UIで対話的にデータをアップロード。                  |
-| a34_rag_search_cloud_vs.py          | OpenAI Responses APIとfile_searchツールを使用したRAG検索アプリケーション。<br>動的Vector Store対応で、環境変数からAPIキーを取得。Streamlit UIで検索実行。                      |
-| a40_show_qdrant_data.py             | Qdrantデータ表示ツール。Qdrantサーバーの接続状態チェック、コレクション一覧表示、<br>データ統計情報の確認などをStreamlit UIで提供。                                             |
-| a41_qdrant_truncate.py              | Qdrantコレクションのデータ削除ツール。コレクション全体の削除、特定ドメインのみの削除、<br>統計情報の表示など、RAGデータを安全に削除するためのユーティリティ。                  |
-| a42_qdrant_registration.py          | QdrantへのQ&Aデータ登録ツール。cc_newsドメインのデータを生成方法ごとに<br>異なるコレクションに分離登録。埋め込みベクトルの作成と保存を実行。                                   |
-| a50_rag_search_local_qdrant.py      | Qdrant RAG検索用Streamlit UI。複数コレクション対応、ドメイン別検索、動的埋め込み次元対応。<br>OpenAI GPT-4o-miniによる日本語回答生成機能付き。類似度スコアをリアルタイム表示。 |
+**詳細な環境構築手順**: [doc/01_install.md](doc/01_install.md)
 
-### カバレッジ分析・翻訳系
+---
 
+## 3. 統合アプリ rag_qa_pair_qdrant.py
 
-| プログラム名         | 概要                                                                                                                                            |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| coverage_japan.py    | 日本語文書のセマンティックカバレッジ分析とQ/A自動生成デモンストレーション。<br>文書の意味的な網羅性を評価し、不足している領域のQ&Aを自動生成。  |
-| translate_cc_news.py | CC-Newsの英語テキストを日本語に翻訳。OpenAI Responses APIを使用し、<br>チャンキング処理で大量テキストを効率的に翻訳。省略なしの完全翻訳を実現。 |
+### 3.1 6画面構成
 
-### ヘルパー・ユーティリティ系
+統合アプリは以下の6つの画面で構成されています。
 
+| # | 画面名 | 機能 | 主な操作 |
+|---|--------|------|----------|
+| 1 | **説明** | プロジェクト概要 | ドキュメント確認 |
+| 2 | **RAGデータDL** | データセット取得 | cc_news, livedoor等のダウンロード |
+| 3 | **Q/A生成** | Q/Aペア生成 | LLM生成、Celery並列処理 |
+| 4 | **Qdrant登録** | ベクトルDB登録 | CSV→Embedding→登録 |
+| 5 | **Show-Qdrant** | コレクション表示 | データ確認、統計情報 |
+| 6 | **Qdrant検索** | 類似度検索 | 質問入力→検索→AI応答 |
 
-| プログラム名     | 概要                                                                                                                                           |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| helper_api.py    | OpenAI API関連のコア機能を提供。APIコール、エラーハンドリング、レート制限管理、<br>コスト計算、ロギング機能などの共通処理を集約。              |
-| helper_rag.py    | RAGデータ前処理の共通機能。データクリーニング、テキスト正規化、チャンク分割、<br>設定管理（AppConfigクラス）などの前処理ユーティリティを提供。 |
-| helper_rag_qa.py | RAG Q&A用ユーティリティ。BestKeywordSelector、SmartKeywordSelector、<br>QAOptimizedExtractorクラスを提供し、キーワード抽出の最適化を実現。     |
-| helper_st.py     | Streamlit UIのカスタマーサポートFAQデータ処理用ヘルパー。<br>モデル選択機能付きでRAG前処理をサポート。UI部品の共通化。                         |
+### 3.2 画面フロー
 
-### キーワード抽出・テキスト処理系
+```
+[説明] → [RAGデータDL] → [Q/A生成] → [Qdrant登録] → [Qdrant検索]
+                              ↓
+                        [Show-Qdrant]（データ確認）
+```
 
+### 3.3 各画面の概要
 
-| プログラム名            | 概要                                                                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| qa_keyword_extractor.py | Q&Aペア作成用の最適化されたキーワード抽出モジュール。<br>MeCab複合名詞版と改善版を統合し、効率的なキーワード抽出を実現。              |
-| regex_mecab.py          | MeCab複合名詞版と正規表現版を統合したロバストなキーワード抽出システム。<br>日本語テキストから重要な複合名詞と固有名詞を高精度で抽出。 |
-| regex_vs_mecab.py       | MeCabを使用した日本語キーワード抽出の改良版。複合名詞の抽出オプション、<br>品詞フィルタリング、頻度分析などの高度な機能を提供。       |
+#### 画面1: 説明（About）
+プロジェクトの概要とドキュメントへのリンクを表示。
 
-### システム管理系
+#### 画面2: RAGデータDL
+Hugging Faceからデータセットをダウンロード・前処理。
+- 対応データセット: cc_news, livedoor, wikipedia_ja
 
+#### 画面3: Q/A生成
+チャンク分割 → LLMによるQ/Aペア生成。
+- 同期処理 / Celery並列処理を選択可能
+- カバレージ分析オプション
 
-| プログラム名         | 概要                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| server.py            | Qdrantベクトルデータベースサーバーの起動・管理スクリプト。<br>ヘルスチェック、ポート設定、テストモードなどのサーバー制御機能を提供。 |
-| setup.py             | プロジェクト環境のセットアップスクリプト。依存パッケージのインストール、<br>環境変数の設定、初期設定ファイルの生成などを自動化。     |
-| test_mecab_format.py | MeCabの出力形式を確認するテストスクリプト。<br>各種出力フォーマットの検証と形態素解析の動作確認を実行。                              |
+#### 画面4: Qdrant登録
+CSVファイルからQdrantへベクトルデータを登録。
+- Embedding生成（text-embedding-3-small）
+- コレクション統合機能
 
-## モジュール構成
+#### 画面5: Show-Qdrant
+登録済みコレクションの確認・統計表示。
 
-統合アプリ `rag_qa_pair_qdrant.py` は以下のモジュール構成で実装されています。
+#### 画面6: Qdrant検索
+質問を入力 → 類似Q/A検索 → AI応答生成。
 
-### services/ - ビジネスロジック層
+**詳細な操作方法**: [doc/02_rag.md](doc/02_rag.md)
 
-| モジュール | 機能 |
-|-----------|------|
-| dataset_service.py | データセット操作（ダウンロード、前処理、HuggingFace連携） |
-| qdrant_service.py | Qdrant操作（CRUD、ヘルスチェック、埋め込み生成） |
-| file_service.py | ファイル操作（履歴読み込み、Q/A保存、CSV/JSON出力） |
-| qa_service.py | Q/A生成（OpenAI API、a02_make_qa_para.py連携） |
+---
 
-### ui/pages/ - UIコンポーネント
+## 4. 技術コンポーネント
 
-| ページ | 機能 |
-|-------|------|
-| explanation_page.py | システム説明・データフロー表示 |
-| download_page.py | RAGデータダウンロード・前処理 |
-| qa_generation_page.py | Q/A生成（Celery並列処理対応） |
-| qdrant_registration_page.py | Qdrantへのデータ登録 |
-| qdrant_show_page.py | Qdrantコレクション内容表示 |
-| qdrant_search_page.py | セマンティック検索 |
+### 4.1 チャンク分割（SemanticCoverage）
 
-### 共通モジュール
+ドキュメントを意味のある単位に分割する技術。
 
-| モジュール | 機能 |
-|-----------|------|
-| models.py | 共通Pydanticモデル定義（QAPair, ChunkData等） |
-| config.py | 設定管理（DATASET_CONFIGS, ModelConfig） |
-| celery_tasks.py | Celeryタスク定義（Q/A生成の並列処理） |
-| celery_config.py | Celery設定（Redis接続、ワーカー設定） |
-| helper_text.py | テキスト処理ヘルパー（チャンキング、トークン計算） |
-| qdrant_client_wrapper.py | Qdrantクライアントラッパー |
+| 項目 | 内容 |
+|------|------|
+| 分割エンジン | MeCab / 正規表現 |
+| 分割モード | 段落優先 / 文優先 |
+| トークン制限 | 200トークン/チャンク（デフォルト） |
 
-### ディレクトリ構造
+**3方式のQ/A生成比較:**
+
+| 方式 | ファイル | 特徴 |
+|------|---------|------|
+| LLM生成 | a02_make_qa_para.py | 高品質、コスト高 |
+| ルールベース | a03_make_qa_rule.py | 高速、低コスト |
+| ハイブリッド | a10_make_qa_hybrid.py | バランス型 |
+
+**詳細**: [doc/03_chunk.md](doc/03_chunk.md)
+
+### 4.2 プロンプト設計
+
+Q/A生成のためのプロンプト構造。
+
+```
+[システムプロンプト]
+- 役割定義（教育コンテンツ作成の専門家）
+- 生成ルール（明確さ、簡潔さ、正確さ）
+
+[ユーザープロンプト]
+- テキスト（チャンク内容）
+- 生成指示（Q/A数、出力形式）
+```
+
+**特徴:**
+- 言語別対応（日本語/英語）
+- 型安全出力（Pydanticモデル）
+- 質問タイプ階層（fact/reason/comparison/application）
+
+**詳細**: [doc/04_prompt.md](doc/04_prompt.md)
+
+### 4.3 Q/Aペア生成
+
+Celery並列処理によるスケーラブルなQ/A生成。
+
+```
+[同期処理]                    [非同期処理（Celery）]
+1チャンク → 1API呼び出し      N個のワーカーが並列実行
+    ↓                              ↓
+約50分/1000チャンク            約2-3分/1000チャンク（24ワーカー）
+```
+
+**主要パラメータ:**
+
+| パラメータ | デフォルト | 説明 |
+|-----------|-----------|------|
+| --use-celery | false | 並列処理を有効化 |
+| --celery-workers | 4 | ワーカー数 |
+| --batch-chunks | 3 | 1API呼び出しのチャンク数 |
+| --analyze-coverage | false | カバレージ分析 |
+
+**詳細**: [doc/05_qa_pair.md](doc/05_qa_pair.md)
+
+### 4.4 Embedding・Qdrant登録
+
+Q/AペアをベクトルDBに登録するフロー。
+
+| 項目 | 設定 |
+|------|------|
+| Embeddingモデル | text-embedding-3-small |
+| ベクトル次元 | 1536 |
+| 距離メトリクス | コサイン類似度 |
+| バッチサイズ | 128ポイント/バッチ |
+
+**コレクション命名規則:**
+```
+qa_{dataset}_{method}
+例: qa_cc_news_a02_llm, qa_livedoor_a03_rule
+```
+
+**詳細**: [doc/06_embedding_qdrant.md](doc/06_embedding_qdrant.md)
+
+### 4.5 ベクトル検索・RAG
+
+類似度検索とAI応答生成。
+
+```
+[ユーザー質問]
+      ↓
+[Embedding生成] ← OpenAI API
+      ↓
+[Qdrant検索] ← HNSW近似最近傍探索
+      ↓
+[Top-K Q/A取得]
+      ↓
+[RAG応答生成] ← GPT-4o-mini
+      ↓
+[最終回答]
+```
+
+**スコア解釈:**
+
+| スコア | 解釈 | 推奨アクション |
+|--------|------|---------------|
+| 0.90〜1.00 | 極めて高い類似度 | そのまま回答として使用 |
+| 0.80〜0.89 | 高い類似度 | AI回答で補完推奨 |
+| 0.70〜0.79 | 中程度 | 参考情報として表示 |
+| 0.60未満 | 低い類似度 | 別の検索を促す |
+
+**詳細**: [doc/07_qdrant_integration_add.md](doc/07_qdrant_integration_add.md)
+
+---
+
+## 5. 環境構築詳細
+
+### 5.1 Python環境
+
+```bash
+# Python 3.10以上が必要
+python --version
+
+# 仮想環境の作成（推奨）
+python -m venv venv
+source venv/bin/activate  # Mac/Linux
+```
+
+### 5.2 依存パッケージ
+
+```bash
+pip install -r requirements.txt
+
+# Celery関連（並列処理を使う場合）
+pip install "celery[redis]" kombu flower
+```
+
+### 5.3 Docker（Qdrant + Redis）
+
+```bash
+# docker-compose.ymlの場所
+docker-compose -f docker-compose/docker-compose.yml up -d
+
+# 起動確認
+curl http://localhost:6333/collections  # Qdrant
+redis-cli ping                           # Redis
+```
+
+### 5.4 MeCab（日本語形態素解析）
+
+```bash
+# Mac
+brew install mecab mecab-ipadic
+
+# Ubuntu
+sudo apt-get install mecab libmecab-dev mecab-ipadic-utf8
+
+# Python バインディング
+pip install mecab-python3
+```
+
+### 5.5 環境変数
+
+`.env`ファイルを作成:
+
+```env
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+QDRANT_URL=http://localhost:6333
+REDIS_URL=redis://localhost:6379/0
+```
+
+**詳細な環境構築手順**: [doc/01_install.md](doc/01_install.md)
+
+---
+
+## 6. プログラム一覧
+
+### 6.1 統合アプリ
+
+| ファイル | 説明 |
+|---------|------|
+| `rag_qa_pair_qdrant.py` | 6画面構成の統合Streamlitアプリ |
+| `server.py` | Qdrantサーバー管理スクリプト |
+
+### 6.2 データ処理・Q&A生成
+
+| ファイル | 説明 |
+|---------|------|
+| `a01_load_set_rag_data.py` | データセットのロード・前処理 |
+| `a02_make_qa_para.py` | Q/A生成（LLM + Celery並列） |
+| `a03_make_qa_rule.py` | Q/A生成（ルールベース） |
+| `a10_make_qa_hybrid.py` | Q/A生成（ハイブリッド） |
+| `celery_tasks.py` | Celeryタスク定義 |
+
+### 6.3 ベクトルストア・検索
+
+| ファイル | 説明 |
+|---------|------|
+| `a30_qdrant_registration.py` | Qdrantへのデータ登録（CLI） |
+| `a35_qdrant_truncate.py` | Qdrantコレクション削除 |
+| `a40_show_qdrant_data.py` | Qdrantデータ表示 |
+| `a50_rag_search_local_qdrant.py` | RAG検索（CLI/Streamlit） |
+
+### 6.4 サービス層
+
+| ファイル | 説明 |
+|---------|------|
+| `services/qdrant_service.py` | Qdrant操作サービス |
+| `services/qa_service.py` | Q/A生成サービス |
+| `helper_api.py` | OpenAI API ユーティリティ |
+| `helper_rag.py` | RAGデータ処理ユーティリティ |
+| `rag_qa.py` | SemanticCoverageクラス |
+
+---
+
+## 7. ドキュメント一覧
+
+### 7.1 ドキュメント相関図
+
+```
+                        ┌─────────────────┐
+                        │   README.md     │
+                        │ プロジェクト概要 │
+                        └────────┬────────┘
+                                 │
+           ┌─────────────────────┼─────────────────────┐
+           ▼                     ▼                     ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ doc/01_install.md│  │ doc/02_rag.md    │  │ doc/03〜07       │
+│   環境構築       │  │ 統合アプリ操作   │  │   技術詳細       │
+└──────────────────┘  └────────┬─────────┘  └──────────────────┘
+                               │
+         ┌───────────┬─────────┼─────────┬───────────┐
+         ▼           ▼         ▼         ▼           ▼
+   ┌──────────┐┌──────────┐┌──────────┐┌──────────┐┌──────────┐
+   │03_chunk  ││04_prompt ││05_qa_pair││06_embed  ││07_qdrant │
+   │チャンク  ││プロンプト││Q/A生成   ││Embedding ││検索・統合│
+   └──────────┘└──────────┘└──────────┘└──────────┘└──────────┘
+```
+
+### 7.2 ドキュメント概要
+
+| ドキュメント | 主題 | 対象読者 |
+|-------------|------|----------|
+| [doc/01_install.md](doc/01_install.md) | 環境構築ガイド | 導入者・開発者 |
+| [doc/02_rag.md](doc/02_rag.md) | 統合アプリ操作マニュアル | 利用者・開発者 |
+| [doc/03_chunk.md](doc/03_chunk.md) | チャンク分割技術 | 開発者 |
+| [doc/04_prompt.md](doc/04_prompt.md) | プロンプト設計 | 開発者 |
+| [doc/05_qa_pair.md](doc/05_qa_pair.md) | Q/Aペア生成処理 | 開発者 |
+| [doc/06_embedding_qdrant.md](doc/06_embedding_qdrant.md) | Embedding・Qdrant登録 | 開発者 |
+| [doc/07_qdrant_integration_add.md](doc/07_qdrant_integration_add.md) | Qdrant検索・統合 | 開発者 |
+
+---
+
+## 8. ディレクトリ構造
 
 ```
 openai_rag_qa_jp/
-├── rag_qa_pair_qdrant.py    # 統合アプリ（エントリポイント）
-├── services/                 # ビジネスロジック層
-│   ├── __init__.py
-│   ├── dataset_service.py
-│   ├── qdrant_service.py
-│   ├── file_service.py
-│   └── qa_service.py
-├── ui/                       # UIレイヤー
-│   ├── __init__.py
-│   └── pages/
-│       ├── __init__.py
-│       ├── explanation_page.py
-│       ├── download_page.py
+├── rag_qa_pair_qdrant.py      # 統合アプリ（メインエントリポイント）
+├── server.py                   # サーバー管理
+│
+├── a01_load_set_rag_data.py   # データロード
+├── a02_make_qa_para.py        # Q/A生成（LLM）
+├── a03_make_qa_rule.py        # Q/A生成（ルール）
+├── a10_make_qa_hybrid.py      # Q/A生成（ハイブリッド）
+├── a30_qdrant_registration.py # Qdrant登録
+├── a50_rag_search_local_qdrant.py # RAG検索
+│
+├── celery_tasks.py            # Celeryタスク
+├── config.py                  # 設定管理
+├── models.py                  # Pydanticモデル
+│
+├── helper_api.py              # OpenAI API ユーティリティ
+├── helper_rag.py              # RAGデータ処理
+├── rag_qa.py                  # SemanticCoverageクラス
+│
+├── services/                  # サービス層
+│   ├── qdrant_service.py      # Qdrant操作
+│   └── qa_service.py          # Q/A生成
+│
+├── ui/                        # UIコンポーネント
+│   └── pages/                 # 各画面のページ
 │       ├── qa_generation_page.py
 │       ├── qdrant_registration_page.py
-│       ├── qdrant_show_page.py
-│       └── qdrant_search_page.py
-├── models.py                 # 共通データモデル
-├── config.py                 # 設定管理
-├── celery_tasks.py          # Celeryタスク
-├── celery_config.py         # Celery設定
-├── helper_*.py              # ヘルパーモジュール群
-├── a01_*.py 〜 a50_*.py     # 個別処理スクリプト
-├── OUTPUT/                   # 前処理済みデータ出力先
-├── qa_output/               # Q/Aペア出力先
-└── datasets/                # ダウンロードデータ保存先
+│       ├── qdrant_search_page.py
+│       └── qdrant_show_page.py
+│
+├── doc/                       # ドキュメント
+│   ├── 01_install.md
+│   ├── 02_rag.md
+│   ├── 03_chunk.md
+│   ├── 04_prompt.md
+│   ├── 05_qa_pair.md
+│   ├── 06_embedding_qdrant.md
+│   └── 07_qdrant_integration_add.md
+│
+├── docker-compose/            # Docker設定
+│   └── docker-compose.yml
+│
+├── qa_output/                 # 生成されたQ/Aデータ
+├── OUTPUT/                    # 前処理済みデータ
+│
+├── requirements.txt           # 依存パッケージ
+├── .env                       # 環境変数（gitignore）
+├── config.yml                 # アプリ設定
+└── CLAUDE.md                  # Claude Code用ガイド
 ```
 
-## セットアップ
+---
 
-### 1. 環境構築
+## 9. 対応データセット
 
-```bash
-# 依存パッケージのインストール
-python setup.py
+| データセット | 言語 | 内容 | ソース |
+|-------------|------|------|--------|
+| cc_news | 日本語 | ニュース記事 | Hugging Face |
+| livedoor | 日本語 | ブログ記事 | Hugging Face |
+| wikipedia_ja | 日本語 | Wikipedia記事 | Hugging Face |
+| japanese_text | 日本語 | 汎用テキスト | カスタム |
 
-# または個別にインストール
-pip install -r requirements.txt
-```
+---
 
-### 2. 環境変数設定
+## 10. 技術スタック
 
-`.env`ファイルを作成し、以下を設定：
+| カテゴリ | 技術 |
+|---------|------|
+| **言語** | Python 3.10+ |
+| **LLM** | OpenAI GPT-4o, GPT-4o-mini |
+| **Embedding** | OpenAI text-embedding-3-small |
+| **ベクトルDB** | Qdrant |
+| **並列処理** | Celery + Redis |
+| **Web UI** | Streamlit |
+| **形態素解析** | MeCab |
+| **コンテナ** | Docker / Docker Compose |
 
-```bash
-OPENAI_API_KEY=your-openai-api-key
-QDRANT_URL=http://localhost:6333  # オプション
-```
+---
 
-### 3. Qdrantサーバー起動
+## 11. ライセンス・貢献
 
-```bash
-# Dockerを使用
-cd docker-compose
-docker-compose up -d
+### ライセンス
 
-# またはローカル起動
-python server.py
-```
+MIT License
 
-### 4. Celery並列処理の準備（オプション）
+### 貢献
 
-大規模データ処理時に推奨。Q/A生成を並列化して高速化できます。
+1. Issueを作成して問題を報告
+2. Pull Requestで改善を提案
+3. ドキュメントの改善も歓迎
 
-```bash
-# Redisサーバー起動（Celeryのブローカー）
-redis-server
+### フィードバック
 
-# Redisキャッシュクリア（必要に応じて）
-redis-cli FLUSHDB
+問題報告・機能要望は [GitHub Issues](https://github.com/anthropics/claude-code/issues) へ
 
-# Celeryワーカー起動（24ワーカーの例）
-./start_celery.sh restart -w 24
+---
 
-# または直接起動
-celery -A celery_config worker --loglevel=info --concurrency=24
-
-# Flower監視UI（任意）
-celery -A celery_config flower --port=5555
-```
-
-**注意事項:**
-- Celeryを使用しない場合は、`--use-celery`フラグを省略してください
-- `gpt-5-nano`モデルは推論に多くのトークンを消費するため、`gpt-4o-mini`の使用を推奨
-
-## 基本的な使用方法
-
-### 0. 統合アプリで一括操作（推奨）
-
-```bash
-# 統合アプリを起動（6画面で全操作可能）
-streamlit run rag_qa_pair_qdrant.py --server.port=8500
-```
-
-**クイックスタート:**
-1. 📥 RAGデータDL画面でデータセットをダウンロード
-2. 🤖 Q/A生成画面でQ/Aペアを生成（モデルは`gpt-4o-mini`推奨）
-3. 🗄️ Qdrant登録画面でベクトルDBに登録
-4. 🔎 Qdrant検索画面で検索実行
-
-### 1. データ準備とQ&A生成（CLI）
-
-```bash
-# RAGデータの前処理
-streamlit run a01_load_non_qa_rag_data.py --server.port=8502
-
-# Q&Aペアの生成（Celery並列処理版・推奨）
-python a02_make_qa_para.py \
-    --dataset cc_news \
-    --batch-chunks 3 \     # 5→3: より丁寧な処理
-    --merge-chunks \
-    --min-tokens 100 \     # 150→100: 小チャンク削減
-    --max-tokens 300 \     # 400→300: 過度な統合防止
-    --model gpt-5-mini \
-    --analyze-coverage
-
-# カバレッジ分析付きQ&A生成（高速版・推奨設定）
-python a03_rag_qa_coverage_improved.py \
-    --input OUTPUT/preprocessed_cc_news.csv \
-    --dataset cc_news \
-    --analyze-coverage \
-    --coverage-threshold 0.60 \
-    --qa-per-chunk 10 \
-    --max-chunks 2000 \
-    --output qa_output
-
-# バッチ処理ハイブリッドQ&A生成（推奨）
-python a10_qa_optimized_hybrid_batch.py --dataset cc_news --model gpt-5-mini
-
-# 品質重視モード（カバレージ95%目標、階層的生成）
-python a10_qa_optimized_hybrid_batch.py \
-    --dataset cc_news \
-    --model gpt-5-mini \
-    --quality-mode \
-    --target-coverage 0.95 \
-    --batch-size 5
-```
-
-### 2. Qdrantへのデータ登録
-
-```bash
-# データ登録
-python a42_qdrant_registration.py --recreate --limit 100
-
-# データ確認
-streamlit run a40_show_qdrant_data.py --server.port=8502
-```
-
-### 3. 検索システムの起動
-
-```bash
-# ローカルQdrant検索UI
-streamlit run a50_rag_search_local_qdrant.py --server.port=8504
-
-# OpenAI Vector Store検索
-streamlit run a34_rag_search_cloud_vs.py --server.port=8503
-```
-
-## 主な特徴
-
-### 🚀 高性能
-
-- カバレッジ率99.7%を2分で達成
-- バッチ処理による高速化
-- API呼び出しの最小化
-
-### 🌏 多言語対応
-
-- 日本語・英語のクロスリンガル検索
-- 翻訳不要の意味的検索
-- OpenAI埋め込みモデルによる多言語サポート
-
-### 📊 詳細な分析
-
-- セマンティックカバレッジ分析
-- 類似度スコアのリアルタイム表示
-- 統計情報とメトリクスの提供
-
-### 🎯 柔軟な設定
-
-- 複数の埋め込みモデル対応
-- 動的な次元数調整（384/1536次元）
-- ドメイン別フィルタリング
-
-## 対応データセット
-
-- 📰 CC-News（英語ニュース）
-- 📖 Wikipedia日本語版
-- 🌐 CC100日本語Webテキスト
-- 💬 カスタマーサポートFAQ
-- 🏥 医療QAデータ
-- ⚖️ 法律・判例QA
-- 🔬 科学・技術QA
-- 🎯 TriviaQA
-
-## Q/Aペア生成ワークフロー
-
-### （1）データDL・前処理
-`a01_load_non_qa_rag_data.py`を使用してRAGデータをダウンロード・前処理し、`OUTPUT/preprocessed_*.csv`として保存します。
-
-### （2）チャンク作成
-各Q/A生成プログラムが独自のチャンキング戦略を実装しています：
-- **a02**: MeCabベースの文境界検出チャンキング（言語別・設定可能なトークン数）
-- **a03**: MeCab/正規表現ベースのキーワード抽出を含む高度なチャンキング
-- **a10**: バッチ処理最適化されたハイブリッドチャンキング
-
-### （3）Q/Aペア生成の3つの手法
-
-#### 手法1: a02_make_qa.py（LLM直接生成方式）v2.8
-
-**概要**: OpenAI APIを使用してチャンクから直接Q/Aペアを生成する標準的なアプローチ。v2.8でカバレッジ改善機能を実装し、動的Q/A調整により90-95%の高カバレッジを達成。
-
-**処理フロー**:
-1. **データ読み込み**: preprocessed CSVファイルから文書を読み込み
-2. **MeCabベースチャンク作成**:
-   - 言語別の文境界検出（日本語: 。！？、英語: .!?）
-   - 設定可能なトークン数制御（デフォルト: 200-300トークン）
-   - 文境界を保持したセマンティックチャンキング
-3. **動的Q/A数調整**（v2.8新機能）:
-   - チャンク長に応じた最適Q/A数の自動決定（2-8個/チャンク）
-   - 文書後半の位置バイアス補正（6チャンク目以降+1個）
-   - ベースQ/A数を3→5に引き上げ（cc_newsの場合）
-4. **チャンク統合**（オプション）:
-   - 150トークン未満の小さいチャンクを統合
-   - 最大400トークンまで同一文書内でマージ
-5. **バッチQ/A生成**:
-   - 最大5チャンクを一度にLLMに送信（バッチ処理）
-   - 質問タイプを指定（fact/reason/comparison/application）
-   - OpenAI Responses API (client.responses.parse)でPydanticモデルを使用
-6. **カバレージ分析**（オプション）:
-   - 生成されたQ/Aがチャンクをどれだけカバーしているか評価
-   - 多段階閾値評価（strict 0.80/standard 0.70/lenient 0.60）
-
-**実行例（v2.8推奨設定）**:
-```bash
-python a02_make_qa.py \
-    --dataset cc_news \
-    --batch-chunks 5 \
-    --merge-chunks \
-    --min-tokens 150 \
-    --max-tokens 400 \
-    --model gpt-5-mini \
-    --analyze-coverage \
-    --output qa_output/a02
-```
-
-**特徴**:
-- ✅ 高品質なQ/A（LLMが内容を理解して生成）
-- ✅ バッチ処理によるAPI呼び出し最適化
-- ✅ **v2.8: 動的Q/A調整で90-95%の高カバレッジ達成**
-- ✅ **v2.8: 位置バイアス補正で文書後半もカバー**
-- ⚠️ **v2.8: 処理時間が長い（6-7時間/497文書、改善前の1.5-1.7倍）**
-- ⚠️ **v2.8: APIコストが増加（$0.40-0.60、Q/A数1.8-2.2倍）**
-
-#### 手法2: a03_rag_qa_coverage_improved.py（テンプレート＋カバレッジ重視方式）
-
-**概要**: カバレッジ率99.7%を2分で達成する高速・高カバレッジ特化型アプローチ
-
-**処理フロー**:
-1. **キーワード抽出**:
-   - MeCab（利用可能な場合）または正規表現でキーワード抽出
-   - 複合名詞、固有名詞を優先的に抽出
-2. **TemplateBasedQAGenerator使用**:
-   - 抽出したキーワードに基づいてテンプレートからQ/A生成
-   - LLM呼び出しなしでルールベース生成
-3. **詳細なQ/A生成**:
-   - 1チャンクあたり最大12個のQ/Aペアを生成
-   - より長く、より具体的な質問・回答を作成
-4. **カバレージ最適化**:
-   - 閾値を0.52まで下げて高カバレッジを実現
-   - チャンク全体をカバーする戦略的Q/A配置
-
-**実行例**:
-```bash
-python a03_rag_qa_coverage_improved.py \
-    --input OUTPUT/preprocessed_cc_news.csv \
-    --dataset cc_news \
-    --analyze-coverage \
-    --coverage-threshold 0.52 \
-    --qa-per-chunk 12 \
-    --max-chunks 609 \
-    --max-docs 150
-```
-
-**特徴**:
-- ✅ 超高速処理（2分で完了）
-- ✅ 極めて高いカバレッジ率（99.7%）
-- ✅ 低コスト（$0.00076）
-- ❌ Q/Aの品質がテンプレートに依存
-- ❌ 創造的な質問が生成されにくい
-
-#### 手法3: a10_qa_optimized_hybrid_batch.py（ハイブリッドバッチ処理方式）
-
-**概要**: ルールベースとLLMを組み合わせ、バッチ処理で高速化したバランス型アプローチ。**品質モード追加（2024/11）**でカバレージ95%を目標に階層的生成が可能。
-
-**処理フロー**:
-1. **BatchHybridQAGenerator初期化**:
-   - LLMバッチサイズ（通常10、品質モード5）
-   - 埋め込みバッチサイズ（デフォルト150）
-   - 品質モードで階層的生成を有効化
-2. **ハイブリッドQ/A生成**:
-   - キーワード抽出によるルールベース生成
-   - 重要部分はLLMで高品質なQ/A生成
-   - 両方式を適材適所で組み合わせ
-3. **階層的生成（品質モード）**:
-   - 第1層: 文書全体の包括的質問（1-2個）
-   - 第2層: 段落レベルの詳細質問（3-4個）
-   - 第3層: エンティティ特化質問（5-6個）
-   - カバレージフィードバックループで未カバー領域を補完
-4. **大規模バッチ処理**:
-   - 複数文書を一度に処理（API削減95.4%）
-   - 埋め込み生成も大量バッチで高速化
-5. **カバレッジ最適化**:
-   - リアルタイムでカバレージ率を監視
-   - 品質モードで目標95%達成を反復的に追求
-
-**実行例（通常モード）**:
-```bash
-python a10_qa_optimized_hybrid_batch.py \
-    --dataset cc_news \
-    --model gpt-5-mini \
-    --batch-size 10 \
-    --embedding-batch-size 150 \
-    --qa-count 12 \
-    --max-docs 150
-```
-
-**実行例（品質モード）**:
-```bash
-python a10_qa_optimized_hybrid_batch.py \
-    --dataset cc_news \
-    --model gpt-5-mini \
-    --quality-mode \
-    --target-coverage 0.95 \
-    --batch-size 5 \
-    --max-docs 100
-```
-
-**特徴**:
-- ✅ API呼び出し95.4%削減（最高効率）
-- ✅ 処理速度とQ/A品質のバランス
-- ✅ **品質モード**: 階層的生成でカバレージ95%目標
-- ✅ **動的Q/A数調整**: 文書複雑度に応じて8-15個/文書
-- ✅ スケーラブルなバッチ処理
-- ⚠️ 通常モードのカバレージは74.6%
-
-### 3つの手法の比較表
-
-| 項目 | a02_make_qa.py (v2.8) | a03_rag_qa_coverage_improved.py | a10_qa_optimized_hybrid_batch.py |
-|------|----------------------|----------------------------------|-----------------------------------|
-| **生成方式** | LLM直接生成（動的調整） | テンプレートベース（ルール） | ハイブリッド（ルール＋LLM） |
-| **処理速度** | **6-7時間 (v2.8: 1.5-1.7倍)** | 超高速（2分） | 高速（10-15分） |
-| **Q/A品質** | 高品質 | 中品質（テンプレート依存） | 高品質（重要部分） |
-| **カバレッジ率** | **90-95% (v2.8改善)** | 99.7% | 95% |
-| **API呼び出し回数** | 265回 | 最小（5回） | 中程度（50-100回） |
-| **コスト** | **$0.40-0.60 (v2.8増加)** | 最小（$0.00076） | 中程度 |
-| **Q/Aペア数** | **8,363-10,221個 (v2.8: 1.8-2.2倍)** | 2,139個 | 1,000-1,500個 |
-| **バッチ処理** | あり（5チャンク） | なし | あり（10文書） |
-| **カスタマイズ性** | 中 | 低（テンプレート固定） | 高 |
-| **特記事項** | **v2.8: 位置バイアス補正実装** | 最高のカバレッジ率 | 最もバランスが良い |
-| **適用場面** | 高品質＋高カバレッジが必要 | 網羅性重視・低コスト要求時 | バランス重視・実用的な利用 |
-
-### （4）統一フォーマットへの変換: a20_output_qa_csv.py
-
-各手法で生成されたQ/Aペアを統一フォーマット（question, answerの2列のみ）に変換します。
-
-| 入力ファイル | 出力ファイル | 説明 |
-|-------------|------------|------|
-| qa_output/a02/qa_pairs_cc_news_*.csv | qa_output/a02_qa_pairs_cc_news.csv | a02_make_qa.pyで生成された最新のQ&Aペアを統一フォーマットに変換 |
-| qa_output/a03/qa_pairs_cc_news_*.csv | qa_output/a03_qa_pairs_cc_news.csv | a03_rag_qa_coverage_improved.pyで生成された最新のQ&Aペアを統一フォーマットに変換 |
-| qa_output/a10/batch_qa_pairs_cc_news_gpt_5_mini_b25_*.csv | qa_output/a10_qa_pairs_cc_news.csv | a10_qa_optimized_hybrid_batch.pyで生成された最新のQ&Aペアを統一フォーマットに変換 |
-
-**実行**:
-```bash
-python a20_output_qa_csv.py
-```
-
-### 推奨使用ケース
-
-1. **研究・評価用途** → `a02_make_qa.py`
-   - 高品質なQ/Aペアが必要
-   - コストは問題にならない
-   - 時間的余裕がある
-
-2. **大規模データセット処理** → `a03_rag_qa_coverage_improved.py`
-   - 網羅性が最重要
-   - 処理速度重視
-   - コスト削減が必要
-
-3. **実用的なRAGシステム構築** → `a10_qa_optimized_hybrid_batch.py`
-   - バランスの取れた品質と速度
-   - スケーラビリティが必要
-   - 柔軟な調整が可能
-
-## 生成・保存データ一覧
-
-| データ名 | ダウンロード/作成プログラム | 説明 |
-|---------|---------------------------|------|
-| preprocessed_cc_news.csv | a01_load_non_qa_rag_data.py | CC-News英語ニュースの前処理済みデータ |
-| preprocessed_japanese_text.csv | a01_load_non_qa_rag_data.py | 日本語Webテキストの前処理済みデータ |
-| preprocessed_wikipedia_ja.csv | a01_load_non_qa_rag_data.py | Wikipedia日本語版の前処理済みデータ |
-| qa_pairs_cc_news_*.csv | a02_make_qa.py | OpenAI APIで生成したCC-NewsのQ&Aペア |
-| qa_pairs_cc_news_*.csv | a03_rag_qa_coverage_improved.py | カバレッジ分析付きで生成したQ&Aペア（99.7%カバレッジ） |
-| batch_qa_pairs_cc_news_*.csv | a10_qa_optimized_hybrid_batch.py | バッチ処理で生成したハイブリッドQ&Aペア |
-| unified_qa_output.csv | a20_output_qa_csv.py | 各生成方式の結果を統合した統一フォーマットQ&A |
-| cc_news_jp.txt | translate_cc_news.py | CC-Newsの日本語翻訳版 |
-| vector_store_ids.json | a31_make_cloud_vector_store_vsid.py | OpenAI Vector StoreのID管理ファイル |
-| qa_corpus（コレクション） | a42_qdrant_registration.py | Qdrantに登録されたQ&Aコーパス |
-| product_embeddings（コレクション） | a42_qdrant_registration.py | Qdrantに登録された製品情報埋め込み |
-| coverage_analysis.json | a03_rag_qa_coverage_improved.py | セマンティックカバレッジ分析結果 |
-| keyword_extraction_results.json | qa_keyword_extractor.py | 抽出されたキーワードとその統計情報 |
-| embeddings_cache.npz | helper_api.py | 埋め込みベクトルのキャッシュファイル |
-
-### （4）Embedding(Vector Store ID作成)
-
-### （5-1）OpenAI Vector Store - Cloud登録
-
-### (5-2) Qdrantに登録
-
-## 技術スタック
-
-- **言語処理**: OpenAI API (GPT-4o-mini, GPT-5シリーズ, text-embedding-3)
-- **ベクトルDB**: Qdrant
-- **形態素解析**: MeCab
-- **UI**: Streamlit
-- **データ処理**: pandas, numpy, Pydantic
-- **並列処理**: Celery, Redis, asyncio
-- **タスク監視**: Flower (Celery監視UI)
-
-## ライセンス
-
-このプロジェクトはMITライセンスの下で公開されています。
-
-## 貢献
-
-プルリクエストを歓迎します。大きな変更の場合は、まずissueを開いて変更内容を議論してください。
-
-## お問い合わせ
-
-質問や提案がある場合は、GitHubのissueを作成してください。
-
-## Claude Codeでの開発
-
-このリポジトリはClaude Codeでの開発に対応しています。
-
-### 開発環境の同期
-
-コードは以下の3箇所に存在します：
-- **GitHub**: リモートリポジトリ（`nakashima2toshio/openai_rag_qa_jp`）
-- **ローカル環境**: MacBook AirのPyCharm
-- **Claude Code**: クラウド開発環境
-
-### 開発フロー
-
-1. **Claude Codeで開発**
-   - ブランチは自動的に作成されます（`claude/機能名-セッションID`形式）
-   - コードの変更・実装を行う
-
-2. **GitHubへの反映**
-   ```bash
-   # 変更内容を確認
-   git status
-   git diff
-
-   # 変更をステージング
-   git add .
-
-   # コミット
-   git commit -m "変更内容の説明"
-
-   # GitHubにpush
-   git push -u origin ブランチ名
-   ```
-
-3. **Pull Requestの作成**
-   - GitHubでPRを作成
-   - レビュー後にmainブランチにマージ
-
-4. **ローカル環境への反映**
-   ```bash
-   # MacBook AirのPyCharmで
-   git fetch origin
-   git checkout main
-   git pull origin main
-   ```
-
-### ブランチ戦略
-
-- Claude Codeのブランチ: `claude/機能名-セッションID`
-- 開発完了後はPRを作成してmainにマージ
-- ローカル環境では定期的に`git pull`で最新を取得
+**最終更新**: 2025-11-29

@@ -1,6 +1,54 @@
+# チャンク分割技術ドキュメント
+
 チャンク分割に使用しているクラス・関数を整理します。
 
-### システムアーキテクチャ図：
+## 目次
+
+- [システムアーキテクチャ図](#システムアーキテクチャ図)
+  - [a02_make_qa_para.py](#a02_make_qa_parapy)
+  - [a03_rag_qa_coverage_improved.py](#a03_rag_qa_coverage_improvedpy)
+  - [10_qa_optimized_hybrid_batch.py](#10_qa_optimized_hybrid_batchpy)
+- [3ファイルのチャンク分割クラス・関数一覧](#3ファイルのチャンク分割クラス関数一覧)
+  - [1. a02_make_qa_para.py](#1-a02_make_qa_parapy)
+  - [2. a03_rag_qa_coverage_improved.py](#2-a03_rag_qa_coverage_improvedpy)
+  - [3. a10_qa_optimized_hybrid_batch.py](#3-a10_qa_optimized_hybrid_batchpy)
+- [比較表](#比較表)
+- [共通の基盤: SemanticCoverageクラス](#共通の基盤-semanticcoverageクラス)
+- [主要メソッド詳細解説](#主要メソッド詳細解説)
+  - [1. _split_into_sentences() - インテリジェント文分割](#1-_split_into_sentences---インテリジェント文分割1713行目)
+    - [概要](#概要)
+    - [処理フロー図](#処理フロー図)
+    - [日本語判定の仕組み](#日本語判定の仕組み)
+    - [分割方法の優先順位](#分割方法の優先順位)
+    - [なぜMeCabを優先するのか？](#なぜmecabを優先するのか)
+    - [正規表現フォールバック](#正規表現フォールバック)
+  - [2. _split_sentences_mecab() - MeCabによる文分割](#2-_split_sentences_mecab---mecabによる文分割1733行目)
+    - [MeCabとは？](#mecabとは)
+    - [処理フロー図](#処理フロー図-1)
+    - [MeCabノードの構造](#mecabノードの構造)
+    - [具体例：処理過程の追跡](#具体例処理過程の追跡)
+    - [文末判定の記号](#文末判定の記号)
+  - [3. _adjust_chunks_for_topic_continuity() - トピック連続性調整](#3-_adjust_chunks_for_topic_continuity---トピック連続性調整1767行目)
+    - [目的](#目的)
+    - [処理フロー図](#処理フロー図-2)
+    - [パラメータ設計](#パラメータ設計)
+    - [具体例](#具体例)
+    - [タイプ管理](#タイプ管理)
+  - [2つの文分割関数の関係図](#2つの文分割関数の関係図)
+  - [設計思想まとめ](#設計思想まとめ)
+- [実装コード解説](#実装コード解説)
+  - [1. 定数と設定値](#1-定数と設定値)
+  - [2. SemanticCoverage クラスの初期化](#2-semanticcoverage-クラスの初期化)
+  - [3. create_semantic_chunks() - メインエントリポイント](#3-create_semantic_chunks---メインエントリポイント)
+  - [4. 段落分割処理](#4-段落分割処理)
+  - [5. 強制分割（長文対応）](#5-強制分割長文対応)
+  - [6. 文分割の実装コード](#6-文分割の実装コード)
+  - [7. トピック連続性調整の実装コード](#7-トピック連続性調整の実装コード)
+  - [8. トークンベース分割との比較](#8-トークンベース分割との比較)
+
+---
+
+## システムアーキテクチャ図
 
 [主関数] SemanticCoverage.create_semantic_chunks()
 
@@ -467,3 +515,512 @@ _adjust_chunks_for_topic_continuity()  # 短いチャンクをマージ
 | **句読点保持** | 分割後も句点を文末に残す | 文の完全性を維持 |
 | **最後の文処理** | ループ後に残りを追加 | 文末句点がないテキストにも対応 |
 | **短チャンクマージ** | min_tokens未満は前チャンクに統合 | 意味的まとまりと品質確保 |
+
+---
+
+## 実装コード解説
+
+以下では、チャンク分割の核心となる実装コードを解説します。
+
+### 1. 定数と設定値
+
+チャンク分割で使用するデフォルト値です。これらはQ/A生成品質とEmbeddingモデルの最適入力長を考慮して設計されています。
+
+**ソース: `helper_text.py:27-33`**
+
+```python
+# デフォルトのチャンクサイズ設定
+DEFAULT_CHUNK_SIZE = 300      # トークン数（Embeddingモデルの最適入力長）
+DEFAULT_CHUNK_OVERLAP = 50    # オーバーラップトークン数（文脈の連続性確保）
+DEFAULT_MIN_CHUNK_SIZE = 50   # 最小チャンクサイズ（Q/A生成に必要な最低限の文脈）
+
+# デフォルトの埋め込みモデル用エンコーディング
+DEFAULT_ENCODING = "cl100k_base"  # GPT-4/text-embedding-3 用トークナイザ
+```
+
+| 定数 | 値 | 設計根拠 |
+|-----|-----|---------|
+| `DEFAULT_CHUNK_SIZE` | 300 | text-embedding-3-small の推奨入力長（512以下）を考慮 |
+| `DEFAULT_CHUNK_OVERLAP` | 50 | チャンク境界での文脈喪失を防止 |
+| `DEFAULT_MIN_CHUNK_SIZE` | 50 | Q/A生成に最低限必要な文脈量 |
+| `DEFAULT_ENCODING` | cl100k_base | GPT-4系/Embedding系モデル共通のトークナイザ |
+
+---
+
+### 2. SemanticCoverage クラスの初期化
+
+MeCabの利用可能性をチェックし、環境に応じて最適な文分割方法を選択します。
+
+**ソース: `helper_rag_qa.py:1502-1511`**
+
+```python
+def _check_mecab_availability(self) -> bool:
+    """MeCabの利用可能性をチェック"""
+    try:
+        import MeCab
+        # 実際にインスタンス化して動作確認
+        tagger = MeCab.Tagger()
+        tagger.parse("テスト")
+        return True
+    except (ImportError, RuntimeError):
+        return False
+```
+
+**ポイント:**
+- `import MeCab` だけでなく、`tagger.parse()` まで実行して動作確認
+- 辞書が見つからない場合の `RuntimeError` もキャッチ
+- 結果は `self.mecab_available` に保存され、以降の分割処理で参照
+
+---
+
+### 3. create_semantic_chunks() - メインエントリポイント
+
+セマンティックチャンク分割のメイン関数です。段落優先モード（`prefer_paragraphs=True`）がデフォルトです。
+
+**ソース: `helper_rag_qa.py:1513-1606`**
+
+```python
+def create_semantic_chunks(self, document: str, max_tokens: int = 200, min_tokens: int = 50,
+                           prefer_paragraphs: bool = True, verbose: bool = True) -> List[Dict]:
+    """
+    文書を意味的に区切られたチャンクに分割（段落優先のセマンティック分割）
+
+    重要ポイント：
+    1. 段落の境界で分割（最優先 - 筆者の意図したセマンティック境界）
+    2. 文の境界で分割（意味の断絶を防ぐ）
+    3. トピックの変化を検出
+    4. 適切なサイズを維持（埋め込みモデルの制限内）
+
+    Args:
+        document: 分割対象の文書
+        max_tokens: チャンクの最大トークン数（デフォルト: 200）
+        min_tokens: チャンクの最小トークン数（デフォルト: 50）
+        prefer_paragraphs: 段落ベースの分割を優先するか（デフォルト: True）
+        verbose: 詳細な出力を行うか
+
+    Returns:
+        チャンク辞書のリスト（id, text, type, sentences等を含む）
+    """
+
+    # Step 1: 段落ベースの分割を試行（prefer_paragraphs=Trueの場合）
+    if prefer_paragraphs:
+        para_chunks = self._chunk_by_paragraphs(document, max_tokens, min_tokens)
+
+        # 段落ベースのチャンクを標準フォーマットに変換
+        chunks = []
+        for i, chunk in enumerate(para_chunks):
+            chunk_text = chunk['text']
+            sentences = self._split_into_sentences(chunk_text)
+            chunks.append({
+                "id"       : f"chunk_{i}",
+                "text"     : chunk_text,
+                "type"     : chunk['type'],       # paragraph, sentence_group, forced_split
+                "sentences": sentences,
+                "start_sentence_idx": 0,
+                "end_sentence_idx"  : len(sentences) - 1
+            })
+    else:
+        # 旧方式: 文単位で分割してグループ化
+        sentences = self._split_into_sentences(document)
+        # ... (文単位のグループ化処理)
+
+    # Step 3: トピックの連続性を考慮した再調整
+    chunks = self._adjust_chunks_for_topic_continuity(chunks, min_tokens)
+
+    return chunks
+```
+
+**チャンクの `type` フィールド:**
+
+| type | 説明 | 生成元 |
+|------|------|-------|
+| `paragraph` | 段落がそのままチャンクになった | `_chunk_by_paragraphs()` |
+| `sentence_group` | 複数の文をグループ化 | `_chunk_by_paragraphs()` / 旧方式 |
+| `forced_split` | 強制的にトークン分割 | `_force_split_sentence()` |
+| `merged` | 異なるtypeがマージされた | `_adjust_chunks_for_topic_continuity()` |
+
+---
+
+### 4. 段落分割処理
+
+#### 4.1 _split_into_paragraphs() - 段落単位分割
+
+**ソース: `helper_rag_qa.py:1608-1621`**
+
+```python
+def _split_into_paragraphs(self, text: str) -> List[str]:
+    """
+    段落単位で分割（セマンティック分割の最優先レベル）
+
+    段落は筆者が意図的に作った意味的なまとまりであり、
+    最も重要なセマンティック境界となる
+    """
+    # 空行（\n\n）で段落を分割
+    paragraphs = re.split(r'\n\s*\n', text)
+
+    # 空白のみの段落を除外
+    paragraphs = [p.strip() for p in paragraphs if p.strip()]
+
+    return paragraphs
+```
+
+**正規表現 `\n\s*\n` の解説:**
+
+| パターン | 意味 |
+|---------|------|
+| `\n` | 改行 |
+| `\s*` | 0個以上の空白（空行内のスペース/タブを許容） |
+| `\n` | 改行 |
+
+→ 「空行」で段落を分割（Markdownの段落規則と同様）
+
+#### 4.2 _chunk_by_paragraphs() - 段落ベースチャンク化
+
+**ソース: `helper_rag_qa.py:1623-1683`**
+
+```python
+def _chunk_by_paragraphs(self, text: str, max_tokens: int = 200, min_tokens: int = 50) -> List[Dict[str, Any]]:
+    """
+    段落単位でチャンク化（セマンティック最優先）
+
+    段落をベースにチャンクを作成し、トークン数制限を考慮する。
+    段落が大きすぎる場合は文単位に分割する。
+    """
+    paragraphs = self._split_into_paragraphs(text)
+    chunks = []
+
+    for para in paragraphs:
+        para_tokens = len(self.tokenizer.encode(para))
+
+        if para_tokens <= max_tokens:
+            # ケース1: 段落がそのままチャンクとして適切
+            chunks.append({'text': para, 'type': 'paragraph'})
+        else:
+            # ケース2: 段落が大きすぎる → 文単位に分割
+            sentences = self._split_into_sentences(para)
+            current_chunk = []
+            current_tokens = 0
+
+            for sent in sentences:
+                sent_tokens = len(self.tokenizer.encode(sent))
+
+                if sent_tokens > max_tokens:
+                    # ケース2a: 単一文が上限超過 → 強制分割
+                    if current_chunk:
+                        chunks.append({'text': ''.join(current_chunk), 'type': 'sentence_group'})
+                        current_chunk = []
+                        current_tokens = 0
+
+                    # 強制分割を実施
+                    forced_chunks = self._force_split_sentence(sent, max_tokens)
+                    chunks.extend(forced_chunks)
+
+                elif current_tokens + sent_tokens > max_tokens:
+                    # ケース2b: 追加すると上限超過 → 現在のチャンクを確定
+                    if current_chunk:
+                        chunks.append({'text': ''.join(current_chunk), 'type': 'sentence_group'})
+                    current_chunk = [sent]
+                    current_tokens = sent_tokens
+
+                else:
+                    # ケース2c: 追加可能
+                    current_chunk.append(sent)
+                    current_tokens += sent_tokens
+
+            # 残りを確定
+            if current_chunk:
+                chunks.append({'text': ''.join(current_chunk), 'type': 'sentence_group'})
+
+    return chunks
+```
+
+**分岐フローチャート:**
+
+```mermaid
+flowchart TD
+    A[段落を取得] --> B{para_tokens <= max_tokens?}
+    B -->|Yes| C["paragraph チャンク作成"]
+    B -->|No| D[文単位に分割]
+    D --> E{各文をループ}
+    E --> F{sent_tokens > max_tokens?}
+    F -->|Yes| G["forced_split チャンク作成"]
+    F -->|No| H{current + sent > max_tokens?}
+    H -->|Yes| I["sentence_group チャンク確定"]
+    H -->|No| J[current に文を追加]
+    I --> E
+    J --> E
+    G --> E
+```
+
+---
+
+### 5. 強制分割（長文対応）
+
+単一の文が `max_tokens` を超える場合の最終手段です。意味的な境界を無視し、トークン単位で強制分割します。
+
+**ソース: `helper_rag_qa.py:1685-1711`**
+
+```python
+def _force_split_sentence(self, sentence: str, max_tokens: int = 200) -> List[Dict[str, Any]]:
+    """
+    単一文が上限超過の場合に強制的に分割（最終手段）
+
+    セマンティック境界を無視して、トークン数ベースで強制的に分割する。
+    これは意味的な一貫性を犠牲にするが、処理上の制約を守るために必要。
+    """
+    # トークンレベルで分割
+    tokens = self.tokenizer.encode(sentence)
+    forced_chunks = []
+
+    for i in range(0, len(tokens), max_tokens):
+        chunk_tokens = tokens[i:i + max_tokens]
+        chunk_text = self.tokenizer.decode(chunk_tokens)
+        forced_chunks.append({
+            'text': chunk_text,
+            'type': 'forced_split'  # 強制分割であることを明示
+        })
+
+    return forced_chunks
+```
+
+**具体例:**
+
+```
+入力: "これは非常に長い文で、たくさんの情報を含んでおり、
+      専門用語や技術的な説明が延々と続く...（500トークン）"
+
+max_tokens=200 の場合:
+  → チャンク1: "これは非常に長い文で..."  (200トークン, type='forced_split')
+  → チャンク2: "専門用語や技術的な..."    (200トークン, type='forced_split')
+  → チャンク3: "続く..."                  (100トークン, type='forced_split')
+```
+
+**注意:** `forced_split` チャンクはQ/A生成品質が低下する可能性があるため、ソースデータの前処理で長文を避けることが望ましい。
+
+---
+
+### 6. 文分割の実装コード
+
+#### 6.1 _split_into_sentences() - 言語判定付き文分割
+
+**ソース: `helper_rag_qa.py:1713-1731`**
+
+```python
+def _split_into_sentences(self, text: str) -> List[str]:
+    """文単位で分割（言語自動判定・MeCab優先対応）"""
+
+    # 日本語判定（最初の100文字で判定）
+    is_japanese = bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', text[:100]))
+
+    if is_japanese and self.mecab_available:
+        # 日本語の場合、MeCab利用を優先（セマンティック精度向上）
+        try:
+            sentences = self._split_sentences_mecab(text)
+            if sentences:
+                return sentences
+        except Exception:
+            pass  # フォールバック
+
+    # 英語 or MeCab失敗時: 正規表現
+    sentences = re.split(r'(?<=[。．.!?])\s*', text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    return sentences
+```
+
+#### 6.2 _split_sentences_mecab() - MeCab文分割
+
+**ソース: `helper_rag_qa.py:1733-1765`**
+
+```python
+def _split_sentences_mecab(self, text: str) -> List[str]:
+    """MeCabを使った文分割（日本語用）"""
+    import MeCab
+
+    tagger = MeCab.Tagger()
+    node = tagger.parseToNode(text)
+
+    sentences = []
+    current_sentence = []
+
+    while node:
+        surface = node.surface  # 表層形（実際の文字列）
+
+        if surface:
+            current_sentence.append(surface)
+
+            # 文末判定：句点（。）、疑問符（？）、感嘆符（！）
+            if surface in ['。', '．', '？', '！', '?', '!']:
+                sentence = ''.join(current_sentence).strip()
+                if sentence:
+                    sentences.append(sentence)
+                current_sentence = []
+
+        node = node.next  # 次の形態素へ
+
+    # 最後の文を追加（句点なしで終わる場合）
+    if current_sentence:
+        sentence = ''.join(current_sentence).strip()
+        if sentence:
+            sentences.append(sentence)
+
+    return sentences if sentences else []
+```
+
+---
+
+### 7. トピック連続性調整の実装コード
+
+**ソース: `helper_rag_qa.py:1767-1807`**
+
+```python
+def _adjust_chunks_for_topic_continuity(self, chunks: List[Dict], min_tokens: int = 50) -> List[Dict]:
+    """
+    トピックの連続性を考慮してチャンクを調整（最小トークン数対応）
+
+    短すぎるチャンクを隣接チャンクとマージして意味的まとまりを維持する。
+    """
+    adjusted_chunks = []
+
+    for i, chunk in enumerate(chunks):
+        chunk_tokens = len(self.tokenizer.encode(chunk["text"]))
+
+        # 最小トークン数以下の短いチャンクの場合
+        if i > 0 and chunk_tokens < min_tokens:
+            # 前のチャンクとマージを検討
+            prev_chunk = adjusted_chunks[-1]
+            combined_text = prev_chunk["text"] + " " + chunk["text"]
+            combined_tokens = len(self.tokenizer.encode(combined_text))
+
+            # マージしても最大トークン数（300）を超えない場合はマージ
+            if combined_tokens < 300:
+                # マージ実施
+                prev_chunk["text"] = combined_text
+                prev_chunk["sentences"].extend(chunk["sentences"])
+                prev_chunk["end_sentence_idx"] = chunk["end_sentence_idx"]
+
+                # typeの更新（異なるtypeがマージされた場合）
+                if prev_chunk.get("type") != chunk.get("type"):
+                    prev_chunk["type"] = "merged"
+
+                continue  # このチャンクはマージ済みなのでスキップ
+
+        adjusted_chunks.append(chunk)
+
+    return adjusted_chunks
+```
+
+**マージ条件:**
+
+| 条件 | チェック内容 |
+|------|------------|
+| 1 | `i > 0` - 最初のチャンクでない |
+| 2 | `chunk_tokens < min_tokens` - 短すぎる |
+| 3 | `combined_tokens < 300` - マージ後も上限以内 |
+
+すべて満たす場合のみマージが実行される。
+
+---
+
+### 8. トークンベース分割との比較
+
+`helper_text.py` にはシンプルなトークンベースの分割関数があります。SemanticCoverageとの違いを理解することで、用途に応じた選択ができます。
+
+#### 8.1 split_into_chunks() - シンプル分割
+
+**ソース: `helper_text.py:227-270`**
+
+```python
+def split_into_chunks(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    overlap: int = DEFAULT_CHUNK_OVERLAP,
+    encoding_name: str = DEFAULT_ENCODING
+) -> List[str]:
+    """
+    テキストをチャンクに分割（トークンベース）
+    """
+    if not text:
+        return []
+
+    encoding = tiktoken.get_encoding(encoding_name)
+    tokens = encoding.encode(text)
+
+    if len(tokens) <= chunk_size:
+        return [text]
+
+    chunks = []
+    start = 0
+
+    while start < len(tokens):
+        end = start + chunk_size
+        chunk_tokens = tokens[start:end]
+        chunk_text = encoding.decode(chunk_tokens)
+        chunks.append(chunk_text)
+
+        # オーバーラップを考慮して次の開始位置を設定
+        start = end - overlap
+
+        if end >= len(tokens):
+            break
+
+    return chunks
+```
+
+#### 8.2 merge_small_chunks() - 小チャンク統合
+
+**ソース: `helper_text.py:348-390`**
+
+```python
+def merge_small_chunks(
+    chunks: List[dict],
+    min_tokens: int = DEFAULT_MIN_CHUNK_SIZE,
+    max_tokens: int = DEFAULT_CHUNK_SIZE * 2
+) -> List[dict]:
+    """
+    小さいチャンクを統合
+    """
+    if not chunks:
+        return []
+
+    merged = []
+    current = None
+
+    for chunk in chunks:
+        if current is None:
+            current = chunk.copy()
+            continue
+
+        # 現在のチャンクが小さく、統合しても最大トークン数を超えない場合
+        if current["tokens"] < min_tokens and current["tokens"] + chunk["tokens"] <= max_tokens:
+            # 同じドキュメントのチャンクのみ統合
+            if current["doc_id"] == chunk["doc_id"]:
+                current["text"] = current["text"] + " " + chunk["text"]
+                current["tokens"] = current["tokens"] + chunk["tokens"]
+                current["id"] = f"{current['doc_id']}_merged_{current['chunk_idx']}_{chunk['chunk_idx']}"
+                continue
+
+        merged.append(current)
+        current = chunk.copy()
+
+    if current is not None:
+        merged.append(current)
+
+    return merged
+```
+
+#### 8.3 分割方式の比較表
+
+| 項目 | SemanticCoverage | helper_text.split_into_chunks |
+|------|------------------|------------------------------|
+| **分割基準** | 段落 → 文 → トークン | トークンのみ |
+| **意味的境界** | 考慮する | 考慮しない |
+| **オーバーラップ** | なし（マージで対応） | あり（デフォルト50） |
+| **言語対応** | 日本語(MeCab)/英語自動判定 | 言語非依存 |
+| **用途** | Q/A生成向け高品質分割 | 汎用的な高速分割 |
+| **処理速度** | 遅め | 速い |
+
+**推奨使い分け:**
+
+- **Q/A生成、RAG検索** → `SemanticCoverage.create_semantic_chunks()`
+- **大量テキストの高速処理** → `split_into_chunks()`
+- **既存チャンクの後処理** → `merge_small_chunks()`

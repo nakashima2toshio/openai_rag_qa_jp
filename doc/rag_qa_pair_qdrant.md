@@ -1,6 +1,7 @@
 # rag_qa_pair_qdrant.py ドキュメント
 
 作成日: 2025-11-27
+更新日: 2025-11-28
 
 ## 目次
 
@@ -72,7 +73,7 @@
 | 説明 | 📖 | システムのデータフロー・ディレクトリ構造を表示 |
 | RAGデータDL | 📥 | HuggingFace/ローカルファイルからデータ取得・前処理 |
 | Q/A生成 | 🤖 | OpenAI APIによるQ&Aペア自動生成（Celery並列処理対応） |
-| Qdrant登録 | 🗄️ | Q&AペアをQdrantベクトルDBに登録 |
+| Qdrant登録 | 🗄️ | Q&AペアをQdrantベクトルDBに登録・**コレクション統合** |
 | Show-Qdrant | 🔍 | Qdrantコレクション内容の閲覧 |
 | Qdrant検索 | 🔎 | セマンティック検索によるQ&A検索 |
 
@@ -107,7 +108,7 @@
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  services/                                              │   │
 │  │  ├─ dataset_service.py  (データセット操作)               │   │
-│  │  ├─ qdrant_service.py   (Qdrant操作)                    │   │
+│  │  ├─ qdrant_service.py   (Qdrant操作・コレクション統合)    │   │
 │  │  ├─ file_service.py     (ファイル操作)                   │   │
 │  │  └─ qa_service.py       (Q/A生成)                       │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -133,12 +134,14 @@ rag_qa_pair_qdrant.py
     │       ├─► download_page.py ─────────► services/dataset_service.py
     │       ├─► qa_generation_page.py ────► services/qa_service.py
     │       ├─► qdrant_registration_page.py ─► services/qdrant_service.py
+    │       │       └─ 3操作モード: 全コレクション/個別CSV/コレクション統合
     │       ├─► qdrant_show_page.py ──────► services/qdrant_service.py
     │       └─► qdrant_search_page.py ────► services/qdrant_service.py
     │
     └─► services/__init__.py
             ├─► dataset_service.py ───► helper_rag.py
             ├─► qdrant_service.py ────► qdrant_client, openai
+            │       └─ merge_collections(), scroll_all_points_with_vectors()
             ├─► file_service.py ──────► config.py
             └─► qa_service.py ────────► models.py, openai
 ```
@@ -247,7 +250,15 @@ sequenceDiagram
     DB-->>Svc: Registration Complete
     Svc-->>UI: Complete
 
-    U->>UI: 4 Search Request
+    U->>UI: 4 Collection Merge
+    UI->>Svc: qdrant_service.merge_collections
+    Svc->>DB: scroll (Collection A)
+    Svc->>DB: scroll (Collection B)
+    Svc->>DB: upsert (Integrated)
+    DB-->>Svc: Merge Complete
+    Svc-->>UI: Complete
+
+    U->>UI: 5 Search Request
     UI->>Svc: qdrant_service.search
     Svc->>API: Query Embedding
     API-->>Svc: Query Vector
@@ -289,6 +300,13 @@ flowchart LR
         RES[Results]
     end
 
+    subgraph Phase6Integration
+        COL_A[Collection A]
+        COL_B[Collection B]
+        MERGE[merge_collections]
+        INT[Integrated Collection]
+    end
+
     HF --> DS
     LF --> DS
     DS --> OUT
@@ -300,6 +318,13 @@ flowchart LR
     OAI2 --> QDB
     QRY --> OAI2
     QDB --> RES
+
+    QDB --> COL_A
+    QDB --> COL_B
+    COL_A --> MERGE
+    COL_B --> MERGE
+    MERGE --> INT
+    INT --> QDB
 ```
 
 ---
@@ -336,6 +361,9 @@ flowchart LR
 ┌─────────────────────────────────┐
 │  Qdrant                         │
 │  (ベクトルDB)                    │
+│                                 │
+│  ⑤コレクション統合（任意）       │
+│  Collection A + B → Integrated  │
 └─────────────────────────────────┘
 ```
 
@@ -347,6 +375,7 @@ flowchart LR
 | ② | 前処理 | `datasets/*.csv` | `OUTPUT/preprocessed_*.csv` | `dataset_service`, `file_service` |
 | ③ | Q/A生成 | `OUTPUT/preprocessed_*.csv` | `qa_output/a02_qa_pairs_*.csv` | `qa_service` |
 | ④ | ベクトル登録 | `qa_output/*.csv` | Qdrantコレクション | `qdrant_service` |
+| ⑤ | コレクション統合 | 複数Qdrantコレクション | 統合コレクション | `qdrant_service` |
 
 ### 3.3 ディレクトリ構造
 
@@ -357,7 +386,7 @@ openai_rag_qa_jp/
 ├── services/                  # ビジネスロジック層
 │   ├── __init__.py           # エクスポート定義
 │   ├── dataset_service.py    # データセット操作
-│   ├── qdrant_service.py     # Qdrant操作
+│   ├── qdrant_service.py     # Qdrant操作・コレクション統合
 │   ├── file_service.py       # ファイル操作
 │   └── qa_service.py         # Q/A生成
 │
@@ -366,7 +395,7 @@ openai_rag_qa_jp/
 │   ├── explanation_page.py   # 説明ページ
 │   ├── download_page.py      # ダウンロードページ
 │   ├── qa_generation_page.py # Q/A生成ページ
-│   ├── qdrant_registration_page.py  # 登録ページ
+│   ├── qdrant_registration_page.py  # 登録ページ（3操作モード）
 │   ├── qdrant_show_page.py   # 表示ページ
 │   └── qdrant_search_page.py # 検索ページ
 │
@@ -406,7 +435,7 @@ openai_rag_qa_jp/
 
 ### 4.2 qdrant_service.py - Qdrant操作
 
-**責務**: Qdrantベクトルデータベースの操作、埋め込み生成
+**責務**: Qdrantベクトルデータベースの操作、埋め込み生成、コレクション統合
 
 #### 主要クラス
 
@@ -417,18 +446,49 @@ openai_rag_qa_jp/
 
 #### 主要関数
 
-| 関数名 | 説明 |
-|--------|------|
-| `get_collection_stats` | コレクションの統計情報取得 |
-| `get_all_collections` | 全コレクション情報取得 |
-| `delete_all_collections` | 全コレクション削除 |
-| `load_csv_for_qdrant` | CSV読み込み（Qdrant登録用） |
-| `build_inputs_for_embedding` | 埋め込み用入力テキスト構築 |
-| `embed_texts_for_qdrant` | テキストをバッチ処理でEmbedding変換 |
-| `create_or_recreate_collection_for_qdrant` | コレクション作成/再作成 |
-| `build_points_for_qdrant` | Qdrantポイント構築 |
-| `upsert_points_to_qdrant` | ポイントをQdrantにアップサート |
-| `embed_query_for_search` | 検索クエリをベクトル化 |
+| 関数名 | 説明 | 行番号 |
+|--------|------|-------|
+| `get_collection_stats` | コレクションの統計情報取得 | 336-374 |
+| `get_all_collections` | 全コレクション情報取得 | 377-397 |
+| `delete_all_collections` | 全コレクション削除 | 400-424 |
+| `load_csv_for_qdrant` | CSV読み込み（Qdrant登録用） | 431-459 |
+| `build_inputs_for_embedding` | 埋め込み用入力テキスト構築 | 462-466 |
+| `embed_texts_for_qdrant` | テキストをバッチ処理でEmbedding変換 | 469-531 |
+| `create_or_recreate_collection_for_qdrant` | コレクション作成/再作成 | 534-562 |
+| `build_points_for_qdrant` | Qdrantポイント構築 | 565-589 |
+| `upsert_points_to_qdrant` | ポイントをQdrantにアップサート | 592-603 |
+| `embed_query_for_search` | 検索クエリをベクトル化 | 610-619 |
+| `scroll_all_points_with_vectors` | コレクションから全ポイント（ベクトル含む）を取得 | 626-672 |
+| `merge_collections` | 複数コレクションを統合して新コレクションに登録 | 675-779 |
+
+#### コレクション統合関数
+
+```python
+def merge_collections(
+    client: QdrantClient,
+    source_collections: List[str],  # 統合元コレクション名リスト
+    target_collection: str,          # 統合先コレクション名
+    recreate: bool = True,           # 既存コレクションを削除して再作成
+    vector_size: int = 1536,         # ベクトルサイズ
+    progress_callback: Optional[callable] = None,
+) -> Dict[str, Any]:
+    """複数コレクションを統合して新コレクションに登録"""
+```
+
+**戻り値**:
+```python
+{
+    "source_collections": ["qa_livedoor_a02", "qa_cc_news_a02"],
+    "target_collection": "integration_qa_livedoor_a02",
+    "points_per_collection": {
+        "qa_livedoor_a02": 1500,
+        "qa_cc_news_a02": 2000
+    },
+    "total_points": 3500,
+    "success": True,
+    "error": None
+}
+```
 
 ### 4.3 file_service.py - ファイル操作
 
@@ -476,6 +536,12 @@ graph LR
     D --> E
     E --> F
     F --> G
+
+    subgraph Qdrant Registration Modes
+        E --> E1[全コレクション操作]
+        E --> E2[個別CSV操作]
+        E --> E3[コレクション統合]
+    end
 ```
 
 ### 5.2 各ページの機能詳細
@@ -485,7 +551,7 @@ graph LR
 | 説明 | `explanation_page.py` | データフロー図表示、ディレクトリ構造説明、コマンド早見表 |
 | RAGデータDL | `download_page.py` | データセット選択、ダウンロード、前処理、保存 |
 | Q/A生成 | `qa_generation_page.py` | モデル選択、パラメータ設定、Celery並列処理、進捗表示 |
-| Qdrant登録 | `qdrant_registration_page.py` | CSVファイル選択、コレクション作成、埋め込み生成、登録 |
+| Qdrant登録 | `qdrant_registration_page.py` | **3操作モード**: 全コレクション操作/個別CSV操作/コレクション統合 |
 | Show-Qdrant | `qdrant_show_page.py` | コレクション一覧、詳細表示、データ閲覧 |
 | Qdrant検索 | `qdrant_search_page.py` | 検索クエリ入力、類似度検索、結果表示 |
 
@@ -661,20 +727,28 @@ flowchart TD
 
 #### 処理概要
 
-Q&AペアCSVファイルを読み込み、OpenAI Embedding APIでベクトル化し、Qdrantベクトルデータベースに登録する。
+Q&AペアCSVファイルを読み込み、OpenAI Embedding APIでベクトル化し、Qdrantベクトルデータベースに登録する。また、複数コレクションの統合機能を提供。
+
+#### 3つの操作モード
+
+| モード | アイコン | 機能 |
+|--------|---------|------|
+| 全コレクション操作 | 📊 | コレクション一覧表示・一括削除・詳細統計 |
+| 個別CSV操作 | 📄 | CSVファイルからQdrantに登録 |
+| コレクション統合 | 🔗 | 複数コレクションを1つに統合 |
 
 #### 処理方式
 
 | 項目 | 内容 |
 |------|------|
 | **処理タイプ** | バッチ処理（同期） |
-| **データソース** | `qa_output/*.csv` |
+| **データソース** | `qa_output/*.csv` / Qdrantコレクション |
 | **外部API** | OpenAI Embeddings API |
 | **出力先** | Qdrantコレクション |
 | **担当サービス** | `qdrant_service`, `file_service` |
 | **担当ファイル** | `ui/pages/qdrant_registration_page.py` |
 
-#### 処理フロー図
+#### 処理フロー図（個別CSV操作）
 
 ```mermaid
 flowchart TD
@@ -691,7 +765,26 @@ flowchart TD
     K --> L[Display Statistics]
 ```
 
-#### 主要パラメータ
+#### 処理フロー図（コレクション統合）
+
+```mermaid
+flowchart TD
+    A[Select Collections] --> B{2+ Collections?}
+    B -->|No| C[Show Warning]
+    B -->|Yes| D[Set Target Collection Name]
+    D --> E[merge_collections]
+    E --> F[scroll_all_points_with_vectors - Collection A]
+    E --> G[scroll_all_points_with_vectors - Collection B]
+    F --> H[Regenerate Point IDs]
+    G --> H
+    H --> I[Add _source_collection to Payload]
+    I --> J[create_or_recreate_collection_for_qdrant]
+    J --> K[upsert_points_to_qdrant]
+    K --> L[Integrated Collection]
+    L --> M[Display Statistics]
+```
+
+#### 主要パラメータ（個別CSV操作）
 
 | パラメータ | 説明 | デフォルト値 |
 |-----------|------|-------------|
@@ -702,7 +795,16 @@ flowchart TD
 | `batch_size` | バッチサイズ | 128 |
 | `vector_size` | ベクトル次元数 | 1536 |
 
-#### ペイロード構造
+#### 主要パラメータ（コレクション統合）
+
+| パラメータ | 説明 | デフォルト値 |
+|-----------|------|-------------|
+| `source_collections` | 統合元コレクション名リスト | - |
+| `target_collection` | 統合先コレクション名 | `integration_{先頭コレクション名}` |
+| `recreate` | 既存コレクション再作成フラグ | True |
+| `vector_size` | ベクトル次元数 | 1536 |
+
+#### ペイロード構造（基本）
 
 ```python
 {
@@ -715,6 +817,21 @@ flowchart TD
 }
 ```
 
+#### ペイロード構造（統合時の追加フィールド）
+
+```python
+{
+    "domain": "qa_cc_news",
+    "question": "質問文",
+    "answer": "回答文",
+    "source": "a02_qa_pairs_cc_news.csv",
+    "created_at": "2024-11-26T12:00:00Z",
+    "schema": "qa:v1",
+    "_source_collection": "qa_cc_news_a02",  # 統合元コレクション名
+    "_original_id": 1234567890123456789      # 統合元での元ID
+}
+```
+
 #### コレクション命名規則
 
 ```
@@ -723,6 +840,11 @@ qa_{dataset}_{method}
   │      │       └─ 生成方式（a02_llm, a03_rule, a10_hybrid）
   │      └─ データセット名（cc_news, livedoor）
   └─ プレフィックス（固定）
+
+integration_{collection_name}
+  │              │
+  │              └─ 統合元の先頭コレクション名
+  └─ 統合コレクションプレフィックス
 ```
 
 ---
@@ -934,10 +1056,13 @@ Step 1: 📥 RAGデータダウンロード
 Step 2: 🤖 Q/A生成
     └─ 前処理済みファイル選択 → パラメータ設定 → Q/A生成実行
 
-Step 3: 🗄️ Qdrant登録
+Step 3: 🗄️ Qdrant登録（個別CSV操作）
     └─ Q/Aファイル選択 → コレクション設定 → ベクトル登録実行
 
-Step 4: 🔎 Qdrant検索
+Step 4: 🗄️ Qdrant登録（コレクション統合）【任意】
+    └─ 複数コレクション選択 → 統合先名設定 → 統合実行
+
+Step 5: 🔎 Qdrant検索
     └─ コレクション選択 → クエリ入力 → 検索実行 → 結果確認
 ```
 
@@ -951,6 +1076,7 @@ Step 4: 🔎 Qdrant検索
 | メモリ不足 | 大量データ処理 | `max_docs`を減らす |
 | タスクがPENDING | Redis接続問題 | `redis-cli FLUSHDB` |
 | 埋め込み生成エラー | トークン数超過 | `max_tokens`を減らす |
+| コレクション統合エラー | 選択コレクションが2未満 | 2つ以上のコレクションを選択 |
 
 ---
 
@@ -971,13 +1097,14 @@ Step 4: 🔎 Qdrant検索
 preprocessed_{dataset}_{timestamp}.csv
 ```
 
+**統合コレクション**:
+```
+integration_{first_collection_name}
+```
+
 ### B. 関連ドキュメント
 
-- [services/qdrant_service.py](./qdrant_client_wrapper.md) - Qdrantラッパー詳細
-- [celery_tasks.py](./celery_tasks.md) - Celeryタスク詳細
-- [models.py](./models.md) - Pydanticモデル詳細
-- [helper_api.py](./helper_api.md) - OpenAI API詳細
-
----
-
-作成日: 2025-11-27
+- [doc/06_embedding_qdrant.md](./06_embedding_qdrant.md) - Embedding・Qdrant登録・検索詳細
+- [doc/celery_tasks.md](./celery_tasks.md) - Celeryタスク詳細
+- [doc/models.md](./models.md) - Pydanticモデル詳細
+- [doc/helper_api.md](./helper_api.md) - OpenAI API詳細

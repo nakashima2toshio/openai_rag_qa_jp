@@ -617,3 +617,163 @@ def embed_query_for_search(
         kwargs["dimensions"] = dims
     resp = client.embeddings.create(**kwargs)
     return resp.data[0].embedding
+
+
+# ===================================================================
+# コレクション統合関数
+# ===================================================================
+
+def scroll_all_points_with_vectors(
+    client: QdrantClient,
+    collection_name: str,
+    batch_size: int = 100,
+    progress_callback: Optional[callable] = None,
+) -> List[models.Record]:
+    """コレクションから全ポイント（ベクトル含む）を取得
+
+    Args:
+        client: QdrantClient
+        collection_name: コレクション名
+        batch_size: 1回のスクロールで取得する件数
+        progress_callback: 進捗コールバック (取得済み件数, 総件数)
+
+    Returns:
+        全ポイントのリスト
+    """
+    all_points = []
+    offset = None
+
+    # 総件数を取得
+    collection_info = client.get_collection(collection_name)
+    total_points = collection_info.points_count
+
+    while True:
+        points, next_offset = client.scroll(
+            collection_name=collection_name,
+            limit=batch_size,
+            offset=offset,
+            with_payload=True,
+            with_vectors=True,
+        )
+
+        if not points:
+            break
+
+        all_points.extend(points)
+
+        if progress_callback:
+            progress_callback(len(all_points), total_points)
+
+        if next_offset is None:
+            break
+
+        offset = next_offset
+
+    return all_points
+
+
+def merge_collections(
+    client: QdrantClient,
+    source_collections: List[str],
+    target_collection: str,
+    recreate: bool = True,
+    vector_size: int = 1536,
+    progress_callback: Optional[callable] = None,
+) -> Dict[str, Any]:
+    """複数コレクションを統合して新コレクションに登録
+
+    Args:
+        client: QdrantClient
+        source_collections: 統合元コレクション名のリスト
+        target_collection: 統合先コレクション名
+        recreate: 既存コレクションを削除して再作成するか
+        vector_size: ベクトルサイズ
+        progress_callback: 進捗コールバック (メッセージ, 現在値, 最大値)
+
+    Returns:
+        統合結果の辞書
+    """
+    result = {
+        "source_collections": source_collections,
+        "target_collection": target_collection,
+        "points_per_collection": {},
+        "total_points": 0,
+        "success": False,
+        "error": None,
+    }
+
+    try:
+        # ステップ1: 統合先コレクションを作成
+        if progress_callback:
+            progress_callback(f"コレクション '{target_collection}' を作成中...", 0, 100)
+
+        create_or_recreate_collection_for_qdrant(
+            client, target_collection, recreate, vector_size
+        )
+
+        # ステップ2: 各コレクションからポイントを取得して統合
+        all_points = []
+        collection_count = len(source_collections)
+
+        for idx, src_collection in enumerate(source_collections):
+            if progress_callback:
+                progress_callback(
+                    f"コレクション '{src_collection}' からデータ取得中...",
+                    int((idx / collection_count) * 50),
+                    100,
+                )
+
+            # ポイントを取得
+            points = scroll_all_points_with_vectors(client, src_collection)
+            result["points_per_collection"][src_collection] = len(points)
+
+            # ポイントIDを再生成（重複回避）
+            for i, point in enumerate(points):
+                # 元のpayloadにソースコレクション情報を追加
+                payload = dict(point.payload) if point.payload else {}
+                payload["_source_collection"] = src_collection
+                payload["_original_id"] = point.id
+
+                # 新しいIDを生成
+                new_id = abs(
+                    hash(f"{target_collection}-{src_collection}-{point.id}-{i}")
+                ) & 0x7FFFFFFFFFFFFFFF
+
+                all_points.append(
+                    models.PointStruct(
+                        id=new_id,
+                        vector=point.vector,
+                        payload=payload,
+                    )
+                )
+
+        result["total_points"] = len(all_points)
+
+        # ステップ3: 統合先コレクションにアップサート
+        if progress_callback:
+            progress_callback("統合データをアップサート中...", 50, 100)
+
+        if all_points:
+            upserted = 0
+            batch_size = 128
+            for chunk in batched(all_points, batch_size):
+                client.upsert(collection_name=target_collection, points=chunk)
+                upserted += len(chunk)
+                if progress_callback:
+                    progress = 50 + int((upserted / len(all_points)) * 50)
+                    progress_callback(
+                        f"アップサート中... ({upserted}/{len(all_points)})",
+                        progress,
+                        100,
+                    )
+
+        result["success"] = True
+
+        if progress_callback:
+            progress_callback("統合完了", 100, 100)
+
+    except Exception as e:
+        result["error"] = str(e)
+        logger.error(f"コレクション統合エラー: {e}")
+
+    return result
