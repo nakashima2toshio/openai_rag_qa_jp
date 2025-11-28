@@ -37,58 +37,66 @@
 
 ### 1.3 システムアーキテクチャ
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      rag_qa_pair_qdrant.py（統合アプリ）                     │
-├─────────┬─────────┬─────────┬─────────┬─────────┬─────────┐                │
-│  説明   │ RAGデータ│  Q/A   │ Qdrant  │  Show   │ Qdrant  │                │
-│ (About) │   DL    │  生成   │  登録   │ Qdrant  │  検索   │                │
-└────┬────┴────┬────┴────┬────┴────┬────┴────┬────┴────┬────┘                │
-     │         │         │         │         │         │                     │
-     ▼         ▼         ▼         ▼         ▼         ▼                     │
-┌─────────────────────────────────────────────────────────────────────────────┤
-│                           処理パイプライン                                   │
-│                                                                             │
-│  [データセット] → [チャンク分割] → [Q/A生成] → [Embedding] → [Qdrant登録]   │
-│       │              │              │             │              │         │
-│       │         SemanticCoverage   LLM/Celery   OpenAI API    Vector DB    │
-│       │              │              │             │              │         │
-│       ▼              ▼              ▼             ▼              ▼         │
-│  cc_news        段落優先       GPT-4o-mini   text-embedding   コサイン     │
-│  livedoor       文分割         並列処理      -3-small        類似度検索   │
-│  wikipedia      MeCab                        1536次元                      │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph APP["rag_qa_pair_qdrant.py 統合アプリ"]
+        A1["説明<br/>About"]
+        A2["RAGデータDL"]
+        A3["Q/A生成"]
+        A4["Qdrant登録"]
+        A5["Show Qdrant"]
+        A6["Qdrant検索"]
+    end
+
+    subgraph PIPELINE["処理パイプライン"]
+        P1["データセット<br/>cc_news / livedoor / wikipedia"]
+        P2["チャンク分割<br/>SemanticCoverage<br/>段落優先 / 文分割 / MeCab"]
+        P3["Q/A生成<br/>LLM / Celery<br/>GPT-4o-mini / 並列処理"]
+        P4["Embedding<br/>OpenAI API<br/>text-embedding-3-small<br/>1536次元"]
+        P5["Qdrant登録<br/>Vector DB<br/>コサイン類似度検索"]
+    end
+
+    A1 --> PIPELINE
+    A2 --> PIPELINE
+    A3 --> PIPELINE
+    A4 --> PIPELINE
+    A5 --> PIPELINE
+    A6 --> PIPELINE
+
+    P1 --> P2 --> P3 --> P4 --> P5
 ```
 
 ### 1.4 処理パイプライン（データフロー）
 
-```
-[入力]                    [処理]                         [出力]
-────────────────────────────────────────────────────────────────────────
-                         ┌─────────────────┐
-[データセット] ─────────▶│ 1. チャンク分割  │─────────▶ chunks[]
-(cc_news, livedoor等)    │   SemanticCoverage         (段落/文単位)
-                         └────────┬────────┘
-                                  ▼
-                         ┌─────────────────┐
-                         │ 2. Q/A生成      │─────────▶ qa_pairs[]
-                         │   LLM + Celery  │           (question, answer)
-                         └────────┬────────┘
-                                  ▼
-                         ┌─────────────────┐
-                         │ 3. Embedding    │─────────▶ vectors[]
-                         │   OpenAI API    │           (1536次元)
-                         └────────┬────────┘
-                                  ▼
-                         ┌─────────────────┐
-                         │ 4. Qdrant登録   │─────────▶ Collection
-                         │   PointStruct   │           (id, vector, payload)
-                         └────────┬────────┘
-                                  ▼
-                         ┌─────────────────┐
-[ユーザー質問] ─────────▶│ 5. 検索 + RAG   │─────────▶ [AI応答]
-                         │   類似度検索    │
-                         └─────────────────┘
+```mermaid
+flowchart LR
+    subgraph INPUT["入力"]
+        I1["データセット<br/>cc_news / livedoor等"]
+        I2["ユーザー質問"]
+    end
+
+    subgraph PROCESS["処理"]
+        P1["1. チャンク分割<br/>SemanticCoverage"]
+        P2["2. Q/A生成<br/>LLM + Celery"]
+        P3["3. Embedding<br/>OpenAI API"]
+        P4["4. Qdrant登録<br/>PointStruct"]
+        P5["5. 検索 + RAG<br/>類似度検索"]
+    end
+
+    subgraph OUTPUT["出力"]
+        O1["chunks<br/>段落/文単位"]
+        O2["qa_pairs<br/>question / answer"]
+        O3["vectors<br/>1536次元"]
+        O4["Collection<br/>id / vector / payload"]
+        O5["AI応答"]
+    end
+
+    I1 --> P1 --> O1
+    P1 --> P2 --> O2
+    P2 --> P3 --> O3
+    P3 --> P4 --> O4
+    I2 --> P5 --> O5
+    P4 --> P5
 ```
 
 ---
@@ -154,10 +162,10 @@ streamlit run rag_qa_pair_qdrant.py
 
 ### 3.2 画面フロー
 
-```
-[説明] → [RAGデータDL] → [Q/A生成] → [Qdrant登録] → [Qdrant検索]
-                              ↓
-                        [Show-Qdrant]（データ確認）
+```mermaid
+flowchart LR
+    S1["説明"] --> S2["RAGデータDL"] --> S3["Q/A生成"] --> S4["Qdrant登録"] --> S6["Qdrant検索"]
+    S3 --> S5["Show-Qdrant<br/>データ確認"]
 ```
 
 ### 3.3 各画面の概要
@@ -236,11 +244,17 @@ Q/A生成のためのプロンプト構造。
 
 Celery並列処理によるスケーラブルなQ/A生成。
 
-```
-[同期処理]                    [非同期処理（Celery）]
-1チャンク → 1API呼び出し      N個のワーカーが並列実行
-    ↓                              ↓
-約50分/1000チャンク            約2-3分/1000チャンク（24ワーカー）
+```mermaid
+flowchart LR
+    subgraph SYNC["同期処理"]
+        S1["1チャンク"] --> S2["1API呼び出し"]
+        S2 --> S3["約50分/1000チャンク"]
+    end
+
+    subgraph ASYNC["非同期処理 Celery"]
+        A1["N個のワーカー"] --> A2["並列実行"]
+        A2 --> A3["約2-3分/1000チャンク<br/>24ワーカー"]
+    end
 ```
 
 **主要パラメータ:**
@@ -277,18 +291,24 @@ qa_{dataset}_{method}
 
 類似度検索とAI応答生成。
 
-```
-[ユーザー質問]
-      ↓
-[Embedding生成] ← OpenAI API
-      ↓
-[Qdrant検索] ← HNSW近似最近傍探索
-      ↓
-[Top-K Q/A取得]
-      ↓
-[RAG応答生成] ← GPT-4o-mini
-      ↓
-[最終回答]
+```mermaid
+flowchart TB
+    Q["ユーザー質問"]
+    E["Embedding生成"]
+    S["Qdrant検索"]
+    T["Top-K Q/A取得"]
+    R["RAG応答生成"]
+    A["最終回答"]
+
+    Q --> E
+    E --> S
+    S --> T
+    T --> R
+    R --> A
+
+    E -.- E1["OpenAI API"]
+    S -.- S1["HNSW近似最近傍探索"]
+    R -.- R1["GPT-4o-mini"]
 ```
 
 **スコア解釈:**
@@ -408,25 +428,19 @@ REDIS_URL=redis://localhost:6379/0
 
 ### 7.1 ドキュメント相関図
 
-```
-                        ┌─────────────────┐
-                        │   README.md     │
-                        │ プロジェクト概要 │
-                        └────────┬────────┘
-                                 │
-           ┌─────────────────────┼─────────────────────┐
-           ▼                     ▼                     ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│ doc/01_install.md│  │ doc/02_rag.md    │  │ doc/03〜07       │
-│   環境構築       │  │ 統合アプリ操作   │  │   技術詳細       │
-└──────────────────┘  └────────┬─────────┘  └──────────────────┘
-                               │
-         ┌───────────┬─────────┼─────────┬───────────┐
-         ▼           ▼         ▼         ▼           ▼
-   ┌──────────┐┌──────────┐┌──────────┐┌──────────┐┌──────────┐
-   │03_chunk  ││04_prompt ││05_qa_pair││06_embed  ││07_qdrant │
-   │チャンク  ││プロンプト││Q/A生成   ││Embedding ││検索・統合│
-   └──────────┘└──────────┘└──────────┘└──────────┘└──────────┘
+```mermaid
+flowchart TB
+    README["README.md<br/>プロジェクト概要"]
+
+    README --> D1["doc/01_install.md<br/>環境構築"]
+    README --> D2["doc/02_rag.md<br/>統合アプリ操作"]
+    README --> D3["doc/03-07<br/>技術詳細"]
+
+    D2 --> D3_1["03_chunk.md<br/>チャンク"]
+    D2 --> D3_2["04_prompt.md<br/>プロンプト"]
+    D2 --> D3_3["05_qa_pair.md<br/>Q/A生成"]
+    D2 --> D3_4["06_embedding_qdrant.md<br/>Embedding"]
+    D2 --> D3_5["07_qdrant_integration_add.md<br/>検索・統合"]
 ```
 
 ### 7.2 ドキュメント概要

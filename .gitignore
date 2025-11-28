@@ -406,3 +406,8 @@ fabric.properties
 /datasets/
 /qa_output_test/
 /OUTPUT/
+
+# Claude Code settings
+.claude/settings.local.json
+.claude/*.local.md
+*.local.md
