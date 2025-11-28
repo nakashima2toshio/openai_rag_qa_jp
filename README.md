@@ -26,14 +26,15 @@
 
 ### 1.2 主要機能
 
-| 機能 | 説明 |
-|------|------|
+
+| 機能                | 説明                                               |
+| ------------------- | -------------------------------------------------- |
 | **Q/Aペア自動生成** | LLM（GPT-4o等）を使用してドキュメントからQ/Aを生成 |
-| **Celery並列処理** | 大規模データの高速処理（24ワーカーで約20倍高速化） |
-| **Qdrant登録** | Q/AペアをEmbedding化してベクトルDBに登録 |
-| **類似度検索** | コサイン類似度によるセマンティック検索 |
-| **RAG応答生成** | 検索結果を基にAIが回答を生成 |
-| **カバレージ分析** | Q/Aがドキュメントをどの程度網羅しているか評価 |
+| **Celery並列処理**  | 大規模データの高速処理（24ワーカーで約20倍高速化） |
+| **Qdrant登録**      | Q/AペアをEmbedding化してベクトルDBに登録           |
+| **類似度検索**      | コサイン類似度によるセマンティック検索             |
+| **RAG応答生成**     | 検索結果を基にAIが回答を生成                       |
+| **カバレージ分析**  | Q/Aがドキュメントをどの程度網羅しているか評価      |
 
 ### 1.3 システムアーキテクチャ
 
@@ -151,14 +152,17 @@ streamlit run rag_qa_pair_qdrant.py
 
 統合アプリは以下の6つの画面で構成されています。
 
-| # | 画面名 | 機能 | 主な操作 |
-|---|--------|------|----------|
-| 1 | **説明** | プロジェクト概要 | ドキュメント確認 |
+
+| # | 画面名          | 機能             | 主な操作                          |
+| - | --------------- | ---------------- | --------------------------------- |
+| 1 | **説明**        | プロジェクト概要 | ドキュメント確認                  |
 | 2 | **RAGデータDL** | データセット取得 | cc_news, livedoor等のダウンロード |
-| 3 | **Q/A生成** | Q/Aペア生成 | LLM生成、Celery並列処理 |
-| 4 | **Qdrant登録** | ベクトルDB登録 | CSV→Embedding→登録 |
-| 5 | **Show-Qdrant** | コレクション表示 | データ確認、統計情報 |
-| 6 | **Qdrant検索** | 類似度検索 | 質問入力→検索→AI応答 |
+| 3 | **Q/A生成**     | Q/Aペア生成      | LLM生成、Celery並列処理           |
+| 4 | **Qdrant登録**  | ベクトルDB登録   | CSV→Embedding→登録              |
+| 5 | **Show-Qdrant** | コレクション表示 | データ確認、統計情報              |
+| 6 | **Qdrant検索**  | 類似度検索       | 質問入力→検索→AI応答            |
+
+![RAG.png](assets/RAGデータダウンロード.png)
 
 ### 3.2 画面フロー
 
@@ -171,26 +175,35 @@ flowchart LR
 ### 3.3 各画面の概要
 
 #### 画面1: 説明（About）
+
 プロジェクトの概要とドキュメントへのリンクを表示。
 
 #### 画面2: RAGデータDL
+
 Hugging Faceからデータセットをダウンロード・前処理。
+
 - 対応データセット: cc_news, livedoor, wikipedia_ja
 
 #### 画面3: Q/A生成
+
 チャンク分割 → LLMによるQ/Aペア生成。
+
 - 同期処理 / Celery並列処理を選択可能
 - カバレージ分析オプション
 
 #### 画面4: Qdrant登録
+
 CSVファイルからQdrantへベクトルデータを登録。
+
 - Embedding生成（text-embedding-3-small）
 - コレクション統合機能
 
 #### 画面5: Show-Qdrant
+
 登録済みコレクションの確認・統計表示。
 
 #### 画面6: Qdrant検索
+
 質問を入力 → 類似Q/A検索 → AI応答生成。
 
 **詳細な操作方法**: [doc/02_rag.md](doc/02_rag.md)
@@ -203,19 +216,21 @@ CSVファイルからQdrantへベクトルデータを登録。
 
 ドキュメントを意味のある単位に分割する技術。
 
-| 項目 | 内容 |
-|------|------|
-| 分割エンジン | MeCab / 正規表現 |
-| 分割モード | 段落優先 / 文優先 |
+
+| 項目         | 内容                               |
+| ------------ | ---------------------------------- |
+| 分割エンジン | MeCab / 正規表現                   |
+| 分割モード   | 段落優先 / 文優先                  |
 | トークン制限 | 200トークン/チャンク（デフォルト） |
 
 **3方式のQ/A生成比較:**
 
-| 方式 | ファイル | 特徴 |
-|------|---------|------|
-| LLM生成 | a02_make_qa_para.py | 高品質、コスト高 |
-| ルールベース | a03_make_qa_rule.py | 高速、低コスト |
-| ハイブリッド | a10_make_qa_hybrid.py | バランス型 |
+
+| 方式         | ファイル              | 特徴             |
+| ------------ | --------------------- | ---------------- |
+| LLM生成      | a02_make_qa_para.py   | 高品質、コスト高 |
+| ルールベース | a03_make_qa_rule.py   | 高速、低コスト   |
+| ハイブリッド | a10_make_qa_hybrid.py | バランス型       |
 
 **詳細**: [doc/03_chunk.md](doc/03_chunk.md)
 
@@ -234,6 +249,7 @@ Q/A生成のためのプロンプト構造。
 ```
 
 **特徴:**
+
 - 言語別対応（日本語/英語）
 - 型安全出力（Pydanticモデル）
 - 質問タイプ階層（fact/reason/comparison/application）
@@ -259,12 +275,13 @@ flowchart LR
 
 **主要パラメータ:**
 
-| パラメータ | デフォルト | 説明 |
-|-----------|-----------|------|
-| --use-celery | false | 並列処理を有効化 |
-| --celery-workers | 4 | ワーカー数 |
-| --batch-chunks | 3 | 1API呼び出しのチャンク数 |
-| --analyze-coverage | false | カバレージ分析 |
+
+| パラメータ         | デフォルト | 説明                     |
+| ------------------ | ---------- | ------------------------ |
+| --use-celery       | false      | 並列処理を有効化         |
+| --celery-workers   | 4          | ワーカー数               |
+| --batch-chunks     | 3          | 1API呼び出しのチャンク数 |
+| --analyze-coverage | false      | カバレージ分析           |
 
 **詳細**: [doc/05_qa_pair.md](doc/05_qa_pair.md)
 
@@ -272,14 +289,16 @@ flowchart LR
 
 Q/AペアをベクトルDBに登録するフロー。
 
-| 項目 | 設定 |
-|------|------|
+
+| 項目            | 設定                   |
+| --------------- | ---------------------- |
 | Embeddingモデル | text-embedding-3-small |
-| ベクトル次元 | 1536 |
-| 距離メトリクス | コサイン類似度 |
-| バッチサイズ | 128ポイント/バッチ |
+| ベクトル次元    | 1536                   |
+| 距離メトリクス  | コサイン類似度         |
+| バッチサイズ    | 128ポイント/バッチ     |
 
 **コレクション命名規則:**
+
 ```
 qa_{dataset}_{method}
 例: qa_cc_news_a02_llm, qa_livedoor_a03_rule
@@ -313,12 +332,13 @@ flowchart TB
 
 **スコア解釈:**
 
-| スコア | 解釈 | 推奨アクション |
-|--------|------|---------------|
+
+| スコア     | 解釈             | 推奨アクション         |
+| ---------- | ---------------- | ---------------------- |
 | 0.90〜1.00 | 極めて高い類似度 | そのまま回答として使用 |
-| 0.80〜0.89 | 高い類似度 | AI回答で補完推奨 |
-| 0.70〜0.79 | 中程度 | 参考情報として表示 |
-| 0.60未満 | 低い類似度 | 別の検索を促す |
+| 0.80〜0.89 | 高い類似度       | AI回答で補完推奨       |
+| 0.70〜0.79 | 中程度           | 参考情報として表示     |
+| 0.60未満   | 低い類似度       | 別の検索を促す         |
 
 **詳細**: [doc/07_qdrant_integration_add.md](doc/07_qdrant_integration_add.md)
 
@@ -388,39 +408,43 @@ REDIS_URL=redis://localhost:6379/0
 
 ### 6.1 統合アプリ
 
-| ファイル | 説明 |
-|---------|------|
+
+| ファイル                | 説明                           |
+| ----------------------- | ------------------------------ |
 | `rag_qa_pair_qdrant.py` | 6画面構成の統合Streamlitアプリ |
-| `server.py` | Qdrantサーバー管理スクリプト |
+| `server.py`             | Qdrantサーバー管理スクリプト   |
 
 ### 6.2 データ処理・Q&A生成
 
-| ファイル | 説明 |
-|---------|------|
+
+| ファイル                   | 説明                         |
+| -------------------------- | ---------------------------- |
 | `a01_load_set_rag_data.py` | データセットのロード・前処理 |
-| `a02_make_qa_para.py` | Q/A生成（LLM + Celery並列） |
-| `a03_make_qa_rule.py` | Q/A生成（ルールベース） |
-| `a10_make_qa_hybrid.py` | Q/A生成（ハイブリッド） |
-| `celery_tasks.py` | Celeryタスク定義 |
+| `a02_make_qa_para.py`      | Q/A生成（LLM + Celery並列）  |
+| `a03_make_qa_rule.py`      | Q/A生成（ルールベース）      |
+| `a10_make_qa_hybrid.py`    | Q/A生成（ハイブリッド）      |
+| `celery_tasks.py`          | Celeryタスク定義             |
 
 ### 6.3 ベクトルストア・検索
 
-| ファイル | 説明 |
-|---------|------|
-| `a30_qdrant_registration.py` | Qdrantへのデータ登録（CLI） |
-| `a35_qdrant_truncate.py` | Qdrantコレクション削除 |
-| `a40_show_qdrant_data.py` | Qdrantデータ表示 |
-| `a50_rag_search_local_qdrant.py` | RAG検索（CLI/Streamlit） |
+
+| ファイル                         | 説明                        |
+| -------------------------------- | --------------------------- |
+| `a30_qdrant_registration.py`     | Qdrantへのデータ登録（CLI） |
+| `a35_qdrant_truncate.py`         | Qdrantコレクション削除      |
+| `a40_show_qdrant_data.py`        | Qdrantデータ表示            |
+| `a50_rag_search_local_qdrant.py` | RAG検索（CLI/Streamlit）    |
 
 ### 6.4 サービス層
 
-| ファイル | 説明 |
-|---------|------|
-| `services/qdrant_service.py` | Qdrant操作サービス |
-| `services/qa_service.py` | Q/A生成サービス |
-| `helper_api.py` | OpenAI API ユーティリティ |
-| `helper_rag.py` | RAGデータ処理ユーティリティ |
-| `rag_qa.py` | SemanticCoverageクラス |
+
+| ファイル                     | 説明                        |
+| ---------------------------- | --------------------------- |
+| `services/qdrant_service.py` | Qdrant操作サービス          |
+| `services/qa_service.py`     | Q/A生成サービス             |
+| `helper_api.py`              | OpenAI API ユーティリティ   |
+| `helper_rag.py`              | RAGデータ処理ユーティリティ |
+| `rag_qa.py`                  | SemanticCoverageクラス      |
 
 ---
 
@@ -445,15 +469,16 @@ flowchart TB
 
 ### 7.2 ドキュメント概要
 
-| ドキュメント | 主題 | 対象読者 |
-|-------------|------|----------|
-| [doc/01_install.md](doc/01_install.md) | 環境構築ガイド | 導入者・開発者 |
-| [doc/02_rag.md](doc/02_rag.md) | 統合アプリ操作マニュアル | 利用者・開発者 |
-| [doc/03_chunk.md](doc/03_chunk.md) | チャンク分割技術 | 開発者 |
-| [doc/04_prompt.md](doc/04_prompt.md) | プロンプト設計 | 開発者 |
-| [doc/05_qa_pair.md](doc/05_qa_pair.md) | Q/Aペア生成処理 | 開発者 |
-| [doc/06_embedding_qdrant.md](doc/06_embedding_qdrant.md) | Embedding・Qdrant登録 | 開発者 |
-| [doc/07_qdrant_integration_add.md](doc/07_qdrant_integration_add.md) | Qdrant検索・統合 | 開発者 |
+
+| ドキュメント                                                         | 主題                     | 対象読者       |
+| -------------------------------------------------------------------- | ------------------------ | -------------- |
+| [doc/01_install.md](doc/01_install.md)                               | 環境構築ガイド           | 導入者・開発者 |
+| [doc/02_rag.md](doc/02_rag.md)                                       | 統合アプリ操作マニュアル | 利用者・開発者 |
+| [doc/03_chunk.md](doc/03_chunk.md)                                   | チャンク分割技術         | 開発者         |
+| [doc/04_prompt.md](doc/04_prompt.md)                                 | プロンプト設計           | 開発者         |
+| [doc/05_qa_pair.md](doc/05_qa_pair.md)                               | Q/Aペア生成処理          | 開発者         |
+| [doc/06_embedding_qdrant.md](doc/06_embedding_qdrant.md)             | Embedding・Qdrant登録    | 開発者         |
+| [doc/07_qdrant_integration_add.md](doc/07_qdrant_integration_add.md) | Qdrant検索・統合         | 開発者         |
 
 ---
 
@@ -515,27 +540,29 @@ openai_rag_qa_jp/
 
 ## 9. 対応データセット
 
-| データセット | 言語 | 内容 | ソース |
-|-------------|------|------|--------|
-| cc_news | 日本語 | ニュース記事 | Hugging Face |
-| livedoor | 日本語 | ブログ記事 | Hugging Face |
-| wikipedia_ja | 日本語 | Wikipedia記事 | Hugging Face |
-| japanese_text | 日本語 | 汎用テキスト | カスタム |
+
+| データセット  | 言語   | 内容          | ソース       |
+| ------------- | ------ | ------------- | ------------ |
+| cc_news       | 日本語 | ニュース記事  | Hugging Face |
+| livedoor      | 日本語 | ブログ記事    | Hugging Face |
+| wikipedia_ja  | 日本語 | Wikipedia記事 | Hugging Face |
+| japanese_text | 日本語 | 汎用テキスト  | カスタム     |
 
 ---
 
 ## 10. 技術スタック
 
-| カテゴリ | 技術 |
-|---------|------|
-| **言語** | Python 3.10+ |
-| **LLM** | OpenAI GPT-4o, GPT-4o-mini |
-| **Embedding** | OpenAI text-embedding-3-small |
-| **ベクトルDB** | Qdrant |
-| **並列処理** | Celery + Redis |
-| **Web UI** | Streamlit |
-| **形態素解析** | MeCab |
-| **コンテナ** | Docker / Docker Compose |
+
+| カテゴリ       | 技術                          |
+| -------------- | ----------------------------- |
+| **言語**       | Python 3.10+                  |
+| **LLM**        | OpenAI GPT-4o, GPT-4o-mini    |
+| **Embedding**  | OpenAI text-embedding-3-small |
+| **ベクトルDB** | Qdrant                        |
+| **並列処理**   | Celery + Redis                |
+| **Web UI**     | Streamlit                     |
+| **形態素解析** | MeCab                         |
+| **コンテナ**   | Docker / Docker Compose       |
 
 ---
 
