@@ -92,11 +92,11 @@ def main():
     """メインアプリケーション - 画面選択"""
 
     # ページ設定
-    st.set_page_config(page_title="RAGツール", page_icon="🤖", layout="wide")
+    st.set_page_config(page_title="OpenAI-RAGツール", page_icon="🤖", layout="wide")
 
     # サイドバー：画面選択
     with st.sidebar:
-        st.title("🤖 RAGツール")
+        st.title("🤖 OpenAI-RAGツール")
         st.divider()
 
         # メニュー見出し

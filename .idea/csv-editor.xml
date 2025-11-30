@@ -38,34 +38,6 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/data/qa_pairs_by_domain/qa_pairs_finance.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/data/qa_pairs_by_domain/qa_pairs_it.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/data/qa_pairs_by_domain/qa_pairs_public.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/data/qa_pairs_by_domain/qa_pairs_retail.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="/data/qa_pairs_simple.csv">
           <value>
             <Attribute>
