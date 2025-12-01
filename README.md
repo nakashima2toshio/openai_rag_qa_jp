@@ -29,18 +29,20 @@
 
 | 機能                | 説明                                               |
 | ------------------- | -------------------------------------------------- |
+| **チャンク分割**    | ドキュメントを意味のある単位に分割（例: 段落、文、MeCabによる形態素解析） |
+| **プロンプティング**  | LLMへの指示を構造化し、高品質なQ/A生成をガイド      |
 | **Q/Aペア自動生成** | LLM（GPT-4o等）を使用してドキュメントからQ/Aを生成 |
 | **Celery並列処理**  | 大規模データの高速処理（24ワーカーで約20倍高速化） |
 | **Qdrant登録**      | Q/AペアをEmbedding化してベクトルDBに登録           |
 | **類似度検索**      | コサイン類似度によるセマンティック検索             |
 | **RAG応答生成**     | 検索結果を基にAIが回答を生成                       |
 | **カバレージ分析**  | Q/Aがドキュメントをどの程度網羅しているか評価      |
-| **チャンク分割**    | ドキュメントを意味のある単位に分割（例: 段落、文、MeCabによる形態素解析） |
-| **プロンプティング**  | LLMへの指示を構造化し、高品質なQ/A生成をガイド      |
+
 
 ### 1.3 システムアーキテクチャ
 
 ```mermaid
+%%{init: {'theme': 'dark'}}%%
 flowchart TB
     subgraph APP["rag_qa_pair_qdrant.py 統合アプリ"]
         A1["説明<br/>About"]
@@ -72,6 +74,7 @@ flowchart TB
 ### 1.4 処理パイプライン（データフロー）
 
 ```mermaid
+%%{init: {'theme': 'dark'}}%%
 flowchart LR
     subgraph INPUT["入力"]
         I1["データセット<br/>cc_news / livedoor等"]
@@ -169,6 +172,7 @@ streamlit run rag_qa_pair_qdrant.py
 ### 3.2 画面フロー
 
 ```mermaid
+%%{init: {'theme': 'dark'}}%%
 flowchart LR
     S1["説明"] --> S2["RAGデータDL"] --> S3["Q/A生成"] --> S4["Qdrant登録"] --> S6["Qdrant検索"]
     S3 --> S5["Show-Qdrant<br/>データ確認"]
@@ -265,6 +269,7 @@ Q/A生成のためのプロンプト構造。
 Celery並列処理によるスケーラブルなQ/A生成。
 
 ```mermaid
+%%{init: {'theme': 'dark'}}%%
 flowchart LR
     subgraph SYNC["同期処理"]
         S1["1チャンク"] --> S2["1API呼び出し"]
@@ -315,6 +320,7 @@ qa_{dataset}_{method}
 類似度検索とAI応答生成。
 
 ```mermaid
+%%{init: {'theme': 'dark'}}%%
 flowchart TB
     Q["ユーザー質問"]
     E["Embedding生成"]
@@ -457,6 +463,7 @@ REDIS_URL=redis://localhost:6379/0
 ### 7.1 ドキュメント相関図
 
 ```mermaid
+%%{init: {'theme': 'dark'}}%%
 flowchart TB
     README["README.md<br/>プロジェクト概要"]
 
