@@ -1,6 +1,7 @@
 # RAG Q/A 生成・検索システム
 
-本プロジェクトは、`rag_qa_pair_qdrant.py` をメインプログラムとしています。日本語・英語RAG（Retrieval-Augmented Generation）システム。ドキュメントからQ/Aペアを自動生成し、Qdrantベクトルデータベースで類似度検索・AI応答生成を行う統合アプリケーション。
+本プロジェクトは、`rag_qa_pair_qdrant.py` をメインプログラムとしています。
+日本語・英語RAG（Retrieval-Augmented Generation）システム。ドキュメントからQ/Aペアを自動生成し、Qdrantベクトルデータベースで類似度検索・AI応答生成を行う統合アプリケーション。
 
 ## 目次
 
